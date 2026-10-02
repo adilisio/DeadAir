@@ -84,6 +84,10 @@ The show plays in real time.
   multiplies your reach, and the ledger reports whether the Lamp held through the storm.
 - **Cue the next item** before the air goes silent. Every second of dead air costs
   Listeners and Credibility.
+- **Drop the needle.** Records don't need cueing; the tonearm swings in and the player
+  drops it on the lead-in groove. Too early skates across the record on air (Listeners,
+  Credibility, and the ledger names the record); too late skips the intro (a little
+  Listeners). Every record clean gets a kind word at dawn.
 - **Callers.** The phone lights up. Put them on air or let it ring. Choices matter.
 
 ### 3. Sign-off, the Other Station, and dawn

@@ -40,7 +40,16 @@ export const RULES = {
   /** Listeners gained or lost from overall signal quality: (avg - pivot) × scale. */
   signalListenerPivot: 0.7,
   signalListenerScale: 60,
+  /** A needle skating across a record on air. */
+  needleScratch: { listeners: -4, credibility: -1 },
+  /** A needle dropped into the song, intro gone. */
+  needleLate: { listeners: -1 },
 } as const;
+
+const SCRATCH_LINES = [
+  (t: string) => `The needle skated across "${t}" on the air. Old Kowalczyk swears his dog hasn't stopped howling.`,
+  (t: string) => `That scratch at the top of "${t}" went out to the whole town. Somebody on Dock Street dropped a teacup.`,
+];
 
 const BREATHER_LINES = [
   (t: string) => `You followed "${t}" with music. People took the news, and then they breathed.`,
@@ -210,6 +219,25 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     applyOutcome(state, passed ? c.onAir.success : c.onAir.fail, lines);
   } else {
     applyOutcome(state, perf.caller === 'declined' ? c.declined : c.missed, lines);
+  }
+
+  // The needle.
+  if (perf.needles) {
+    const drops = show.map((card, i) => (card.kind === 'record' ? perf.needles?.[i] ?? null : null));
+    const scratched = show.filter((_c, i) => drops[i] === 'scratch');
+    for (const d of drops) {
+      if (d === 'scratch') applyEffects(state, RULES.needleScratch);
+      else if (d === 'late') applyEffects(state, RULES.needleLate);
+    }
+    const records = drops.filter((d) => d !== null);
+    if (scratched.length) {
+      const text = scratched.length > 1
+        ? `The needle scratched ${scratched.length} records on the air tonight. People are asking if the DJ's hands are all right.`
+        : SCRATCH_LINES[show.indexOf(scratched[0]) % SCRATCH_LINES.length](scratched[0].title);
+      lines.push({ text, tone: 'bad', rule: 'needles' });
+    } else if (records.length >= 2 && records.every((d) => d === 'clean')) {
+      lines.push({ text: "Every record went down clean tonight. Somebody's grandmother says you've got gentle hands.", tone: 'good', rule: 'needles' });
+    }
   }
 
   // Dead air and signal quality.

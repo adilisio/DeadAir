@@ -6,7 +6,7 @@ import type { Card } from '../sim/types';
 import { KIND_TAG } from './RundownBuilder';
 import { bar, button, label, panel, type Button } from './widgets';
 
-export type CueState = 'hidden' | 'waiting' | 'open' | 'cued' | 'dead';
+export type CueState = 'hidden' | 'waiting' | 'open' | 'cued' | 'dead' | 'needleNext' | 'needle';
 
 const TP = { x: 12, y: 290, w: 446, h: 64 };
 const CUE = { x: 464, y: 290, w: 164, h: 64 };
@@ -175,13 +175,15 @@ export class LiveHud {
       open: 'SPACE to cue it',
       cued: 'cued - rolls next',
       dead: `DEAD AIR ${deadSeconds.toFixed(1)}s - SPACE!`,
+      needleNext: 'record - the arm swings in',
+      needle: 'SPACE - drop the needle',
     }[state];
-    const color = { waiting: UI.dim, open: UI.hot, cued: UI.good, dead: UI.bad }[state];
+    const color = { waiting: UI.dim, open: UI.hot, cued: UI.good, dead: UI.bad, needleNext: UI.dim, needle: UI.hot }[state];
     this.cueNext.setText(nextTitle);
     this.cueHint.setText(hint).setColor(color);
-    const pulse = state === 'dead' || state === 'open' ? 0.55 + 0.45 * Math.abs(Math.sin(this.scene.time.now / 160)) : 1;
+    const pulse = state === 'dead' || state === 'open' || state === 'needle' ? 0.55 + 0.45 * Math.abs(Math.sin(this.scene.time.now / 160)) : 1;
     this.cueHint.setAlpha(pulse);
-    if (state !== 'waiting') {
+    if (state !== 'waiting' && state !== 'needleNext') {
       g.lineStyle(1, Phaser.Display.Color.HexStringToColor(color).color, 0.9 * pulse);
       g.strokeRect(CUE.x + 2.5, CUE.y + 2.5, CUE.w - 5, CUE.h - 5);
     }

@@ -11,7 +11,9 @@ import { run } from '../run';
 import { resolveNight, segmentOfSlot } from '../sim/resolver';
 import { TUNING, Tuning } from '../sim/tuning';
 import { CALM_WIND, windForSlot } from '../sim/storm';
-import { SHOW_SLOTS, type Card, type CallerDecision, type TalkCard } from '../sim/types';
+import { NEEDLE, armPosition, lateSkip, needleResult, sweepFor } from '../sim/needle';
+import { NeedlePanel } from '../ui/NeedlePanel';
+import { SHOW_SLOTS, type Card, type CallerDecision, type NeedleResult, type RecordCard, type TalkCard } from '../sim/types';
 import { RundownBuilder, SEGMENT_LABEL } from '../ui/RundownBuilder';
 import { resolveRecord } from '../data/records';
 import { NIGHT_1_AUTO_RUNDOWN } from '../data/night1';
@@ -79,6 +81,11 @@ export class BoothScene extends Phaser.Scene {
   private recentQ = 1;
   private storm = false;
   private nextBolt = 0;
+  private needlePanel: NeedlePanel | null = null;
+  /** The tonearm swinging in over a record that's up next. */
+  private needle: { slot: number; card: RecordCard; t: number; sweep: number } | null = null;
+  private drops: (NeedleResult | null)[] = [];
+  private needleRand = rng(78);
   private rainGfx!: Phaser.GameObjects.Graphics;
   private flash!: Phaser.GameObjects.Rectangle;
   private ui: <T extends Phaser.GameObjects.GameObject>(o: T) => T = (o) => o;
@@ -114,6 +121,10 @@ export class BoothScene extends Phaser.Scene {
     this.recentQ = 1;
     this.storm = false;
     this.nextBolt = 0;
+    this.needlePanel = null;
+    this.needle = null;
+    this.drops = Array(SHOW_SLOTS).fill(null);
+    this.needleRand = rng(78);
   }
 
   create(): void {
@@ -286,6 +297,7 @@ export class BoothScene extends Phaser.Scene {
     this.builder = null;
     this.hud = new LiveHud(this, this.cards, this.ui);
     this.hud.setOrder(-1, 0);
+    this.needlePanel = new NeedlePanel(this, this.ui);
     audio.unlock();
     audio.sfx('thunk');
     this.hud.setOnAir(true, '[ ON AIR ]');
@@ -343,11 +355,44 @@ export class BoothScene extends Phaser.Scene {
     this.signalSlot = i;
     this.hud?.setOrder(i, i);
     const card = this.cards[i];
-    if (card.kind === 'record') void this.playRecordCard(card);
+    if (card.kind === 'record') this.startNeedle(i, card);
     else this.talk(i, `${kindHeader(card)} · ${card.title}`, (card as TalkCard).script).done.then(() => this.endItem());
   }
 
-  private async playRecordCard(card: Extract<Card, { kind: 'record' }>): Promise<void> {
+  // ───────────────────────────── Needle ─────────────────────────────
+
+  private startNeedle(slot: number, card: RecordCard): void {
+    this.needle = { slot, card, t: 0, sweep: sweepFor(this.needleRand) };
+    this.needlePanel?.show();
+    this.hud?.setTeleprompter(`REC · ${card.title}`, 'The arm swings in over the record...', UI.dim);
+    this.hud?.setSpoken(0);
+    markPhase('needle');
+  }
+
+  private needleTick(dt: number): void {
+    const n = this.needle!;
+    n.t += dt;
+    const pos = armPosition(n.t, n.sweep);
+    this.needlePanel?.draw(pos, true);
+    const centre = (NEEDLE.groove[0] + NEEDLE.groove[1]) / 2;
+    if (pos >= 1 || (DEBUG.auto && pos >= centre)) this.dropNeedle();
+  }
+
+  private dropNeedle(): void {
+    const n = this.needle;
+    if (!n) return;
+    this.needle = null;
+    const pos = armPosition(n.t, n.sweep);
+    const result = needleResult(pos);
+    this.drops[n.slot] = result;
+    this.needlePanel?.draw(pos, false);
+    this.needlePanel?.result(result);
+    if (result === 'scratch') audio.sfx('scratch');
+    // Late drops skip into the song; scaled down for ?fast's short records.
+    void this.playRecordCard(n.card, lateSkip(pos) * (RECORD_SECONDS / 75));
+  }
+
+  private async playRecordCard(card: RecordCard, offset = 0): Promise<void> {
     this.playing = true;
     this.itemStart = this.time.now;
     this.itemDuration = RECORD_SECONDS;
@@ -360,7 +405,7 @@ export class BoothScene extends Phaser.Scene {
     };
     show(!!entry?.standIn);
     try {
-      const h = await audio.playRecord(card.recordId, RECORD_SECONDS);
+      const h = await audio.playRecord(card.recordId, RECORD_SECONDS, offset);
       if (!h.real) show(true);
       this.record = h;
       markPhase(h.real ? 'record' : 'record-standin');
@@ -382,8 +427,14 @@ export class BoothScene extends Phaser.Scene {
       return;
     }
     const next = this.idx + 1;
-    if (this.cued || DEBUG.auto) this.time.delayedCall(250, () => this.beginItem(next));
+    // Records don't need cueing: the arm swings in on its own and the player drops it.
+    if (this.cued || DEBUG.auto || this.recordNext()) this.time.delayedCall(250, () => this.beginItem(next));
     else this.waitingSince = this.time.now;
+  }
+
+  private recordNext(): boolean {
+    const n = this.idx + 1;
+    return n < SHOW_SLOTS && this.cards[n].kind === 'record';
   }
 
   private remaining(): number {
@@ -392,6 +443,11 @@ export class BoothScene extends Phaser.Scene {
 
   private pressCue(): void {
     if (this.phase !== 'live' || this.callerState === 'ringing') return;
+    if (this.needle) {
+      this.dropNeedle();
+      return;
+    }
+    if (this.recordNext()) return;
     if (this.waitingSince !== null) {
       audio.sfx('click');
       this.beginItem(this.idx + 1);
@@ -500,6 +556,7 @@ export class BoothScene extends Phaser.Scene {
       signal,
       deadAirSeconds: this.deadAir,
       caller: this.callerDecision,
+      needles: this.drops,
     });
     run.result = result;
     exposeDebug('result', result);
@@ -530,6 +587,7 @@ export class BoothScene extends Phaser.Scene {
         this.phase = 'done';
         this.fade(true, 1800, () => {
           this.hud?.destroy();
+          this.needlePanel?.destroy();
           this.scene.start('Dawn');
         });
       });
@@ -561,13 +619,17 @@ export class BoothScene extends Phaser.Scene {
       }
 
       // Cueing and dead air.
-      if (this.waitingSince !== null && this.callerState !== 'ringing') {
+      if (this.needle) {
+        this.needleTick(dt);
+        this.hud?.setCue('needle', this.cards[this.idx]?.title ?? '');
+      } else if (this.waitingSince !== null && this.callerState !== 'ringing') {
         const silent = (this.time.now - this.waitingSince) / 1000;
         if (silent > DEAD_AIR_GRACE) this.deadAir += dt;
         this.hud?.setCue(silent > DEAD_AIR_GRACE ? 'dead' : 'open', this.nextTitle(), Math.max(0, silent - DEAD_AIR_GRACE));
       } else if (this.playing && this.callerState !== 'ringing') {
         const rem = this.remaining();
-        this.hud?.setCue(this.cued ? 'cued' : rem <= CUE_WINDOW ? 'open' : 'waiting', this.nextTitle());
+        if (this.recordNext()) this.hud?.setCue('needleNext', this.nextTitle());
+        else this.hud?.setCue(this.cued ? 'cued' : rem <= CUE_WINDOW ? 'open' : 'waiting', this.nextTitle());
         if (DEBUG.auto && rem <= CUE_WINDOW) this.cued = true;
       } else this.hud?.setCue('hidden', '');
 

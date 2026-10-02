@@ -28,7 +28,7 @@ export interface DawnLine {
   text: string;
   tone: Tone;
   /** Which sequence rule produced this line, if any. */
-  rule?: 'breather' | 'panic' | 'adFatigue' | 'dedication';
+  rule?: 'breather' | 'panic' | 'adFatigue' | 'dedication' | 'needles';
 }
 
 /** What happens when a reach check resolves. `effects` are applied unscaled. */
@@ -145,12 +145,17 @@ export interface TownState {
 
 export type CallerDecision = 'onair' | 'declined' | 'missed';
 
+/** How a record's needle went down: on the lead-in, late into the song, or skating across. */
+export type NeedleResult = 'clean' | 'late' | 'scratch';
+
 /** What the live show produced. Signal is 0..1 per slot (1 = perfectly tuned). */
 export interface ShowPerformance {
   rundown: string[];
   signal: number[];
   deadAirSeconds: number;
   caller: CallerDecision;
+  /** Per slot: how the needle dropped (records only; null or missing for talk). */
+  needles?: (NeedleResult | null)[];
 }
 
 export interface NightResult {

@@ -199,7 +199,8 @@ class AudioEngine {
     if (this.ctx) void this.bufferFor(recordId, seconds).catch(() => {});
   }
 
-  async playRecord(recordId: string, maxSeconds: number): Promise<RecordHandle> {
+  /** Plays up to `maxSeconds` of the record; `offset` skips the start (a late needle drop). */
+  async playRecord(recordId: string, maxSeconds: number, offset = 0): Promise<RecordHandle> {
     const ctx = this.ctx!;
     const { buffer, real } = await this.bufferFor(recordId, maxSeconds);
     const src = ctx.createBufferSource();
@@ -213,10 +214,11 @@ class AudioEngine {
     const gain = ctx.createGain();
     src.connect(gain).connect(this.program);
     const start = ctx.currentTime + 0.05;
-    const duration = Math.min(buffer.duration, maxSeconds);
-    src.start(start, 0, duration);
+    const skip = Math.max(0, Math.min(offset, Math.min(buffer.duration, maxSeconds) - 2));
+    const duration = Math.min(buffer.duration, maxSeconds) - skip;
+    src.start(start, skip, duration);
     wow.start(start);
-    if (duration < buffer.duration) {
+    if (skip + duration < buffer.duration) {
       gain.gain.setValueAtTime(1, start + duration - 1.5);
       gain.gain.linearRampToValueAtTime(0, start + duration);
     }
@@ -247,7 +249,7 @@ class AudioEngine {
   }
 
   /** Short room sounds. */
-  sfx(name: 'click' | 'thunk' | 'needle' | 'tune' | 'pickup' | 'hangup' | 'thunder'): void {
+  sfx(name: 'click' | 'thunk' | 'needle' | 'tune' | 'pickup' | 'hangup' | 'thunder' | 'scratch'): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const t = ctx.currentTime;
@@ -280,6 +282,23 @@ class AudioEngine {
       case 'tune': noiseBurst(0.06, 1800, 0.15); break;
       case 'pickup': noiseBurst(0.12, 700, 0.6); break;
       case 'hangup': noiseBurst(0.1, 500, 0.7); break;
+      case 'scratch': {
+        // The needle skating across the grooves: a falling, gritty zip, on air.
+        const s = ctx.createBufferSource();
+        s.buffer = this.noise;
+        const f = ctx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.Q.value = 3;
+        f.frequency.setValueAtTime(3200, t);
+        f.frequency.exponentialRampToValueAtTime(500, t + 0.45);
+        s.connect(f).connect(g);
+        g.disconnect();
+        g.connect(this.program);
+        g.gain.setValueAtTime(1.6, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        s.start(t, Math.random() * 2, 0.55);
+        break;
+      }
       case 'thunder': {
         // A low rumble that swells and rolls off.
         const s = ctx.createBufferSource();

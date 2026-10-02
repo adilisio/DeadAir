@@ -22,6 +22,7 @@ const SHOTS = [
   { name: '02-booth-prep', query: '?mute&scene=booth', phase: 'prep', settle: 1500 },
   { name: '03-booth-prep-filled', query: '?mute&scene=booth&auto', phase: 'prep-filled', settle: 800 },
   { name: '04-booth-live', query: '?mute&scene=booth&auto&fast', phase: 'live', settle: 2500 },
+  { name: '04a-booth-needle', query: '?mute&scene=booth&auto&fast', phase: 'needle', settle: 450, timeout: 90000 },
   { name: '04b-booth-record', query: '?mute&scene=booth&auto&fast', phase: 'record', settle: 1500, timeout: 90000 },
   { name: '05-booth-caller', query: '?mute&scene=booth&auto&fast', phase: 'caller', settle: 600 },
   { name: '05b-booth-storm', query: '?mute&scene=booth&auto&fast', phase: 'storm', settle: 900, timeout: 120000 },
