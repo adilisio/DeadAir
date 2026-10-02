@@ -7,6 +7,10 @@ Light process: one list. Move items to Done with the commit that did them.
       timings: needle sweep (`NEEDLE`), switchboard ring time (`RING_SECONDS`), dump delay
       (`DUMP_DELAY_CHARS`), tube fumble/warm (`TUBE`), Morse speed and length (`MORSE_TIMING`,
       `night.morse.seconds`), storm wind (`STORM_WIND`).
+  - Owner, first pass (on `?fast`): the tasks are hard the first time when you don't know
+    what to do ("may be fine"). Morse was really tricky; `?fast` cuts it from 50 s to 14 s,
+    so retry at normal speed before changing it. Idea if needed: a one-line "how to" the
+    first time each task appears.
 - [ ] Volume sliders (music / voice / static) and a pause
 - [ ] Human-sounding voices: owner's recorded lines as drop-in files; in-browser neural TTS
 - [ ] Night 2 content using the five unused 78s

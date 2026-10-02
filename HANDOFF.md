@@ -110,7 +110,8 @@ call; see "What to do next".
 
 ### Owner's-PC gotchas (Windows)
 
-- Playwright's own Chromium isn't installed; point shots at Chrome:
+- Playwright's Chromium is installed (2026-10-02), so `npm run shots` works as is. If it
+  goes missing, run `npx playwright install chromium` or point the tool at Chrome:
   `CHROMIUM_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe" npm run shots`.
 - No Python in Git Bash. Source files are CRLF, so multi-line string replacements from
   `node -e` scripts miss; use the editor tools or `sed` for one-liners.
