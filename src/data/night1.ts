@@ -1,4 +1,4 @@
-// Night 1 in Port Clemency. All names are placeholders (DESIGN.md).
+// Night 1 in Port Vesper. Names marked (placeholder) in DESIGN.md are still open.
 // Tone: lonely, funny, warm. Scripts are read aloud, so write for the ear.
 
 import type { NightDef } from '../sim/types';
@@ -8,7 +8,7 @@ export const NIGHT_1: NightDef = {
   number: 1,
 
   signOn:
-    "Good evening, Port Clemency. This is W-L-M-P, twelve-sixty on your dial, the Lamp, coming to you from the foot of the old lighthouse. The wind's out of the north and the kettle's on. Stay close. Let's get through the night together.",
+    "Good evening, Port Vesper. This is W-L-M-P, twelve-sixty on your dial, the Lamp, coming to you from the foot of the old lighthouse. The wind's out of the north and the kettle's on. Stay close. Let's get through the night together.",
 
   signOff:
     "That's the show. Lock your doors, bank your stoves, and if you can't sleep, well, you know where to find me. This is the Lamp, signing off.",
@@ -26,9 +26,9 @@ export const NIGHT_1: NightDef = {
       mood: 'blue', loves: ['netters'],
     },
     {
-      id: 'rec_march', kind: 'record', recordId: 'volunteers_march', title: 'Clemency Volunteers March',
-      blurb: 'Brass and drum. The Grange plays it at harvest. Linemen call it "tractor music".',
-      mood: 'stirring', loves: ['grange'], dislikes: ['linemen'],
+      id: 'rec_march', kind: 'record', recordId: 'volunteers_march', title: 'Vesper Volunteers March',
+      blurb: 'Brass and drum. The Chapel band plays it every Easter. The Linemen call it "the funeral".',
+      mood: 'stirring', loves: ['chapel'], dislikes: ['linemen'],
     },
     {
       id: 'rec_blues', kind: 'record', recordId: 'copper_wire_blues', title: 'Copper Wire Blues',
@@ -38,32 +38,32 @@ export const NIGHT_1: NightDef = {
     {
       id: 'rec_ballad', kind: 'record', recordId: 'far_shore', title: 'Light Me to the Far Shore',
       blurb: 'A sweet, sad ballad. Everybody pretends not to cry.',
-      mood: 'blue', loves: ['netters', 'grange'],
+      mood: 'blue', loves: ['netters', 'chapel'],
     },
 
     // ── News ─────────────────────────────────────────────────
     {
-      id: 'news_bread', kind: 'news', truth: 'true', title: 'Bread ration goes up',
-      blurb: 'True. The Grange is raising the ration. Good news, plain and simple.',
+      id: 'news_infirmary', kind: 'news', truth: 'true', title: 'The Chapel infirmary opens its doors',
+      blurb: 'True. Medicine came in on a trader boat. Good news, plain and simple.',
       script:
-        "Some good news for once. The Grange co-op says the winter wheat came in heavy, and starting Monday the bread ration goes up by a quarter loaf. Thank a farmer. Then thank another one.",
-      effects: { morale: 6, trust: { grange: 6 } },
-      helps: 'grange',
+        "Some good news for once. Sister Agnes up at the Chapel says a trader boat brought in a crate of sulfa powder, and the infirmary will see anybody with a fever. No questions, no tithe. Go see her. Then thank her.",
+      effects: { morale: 6, trust: { chapel: 6 } },
+      helps: 'chapel',
     },
     {
-      id: 'news_copper', kind: 'news', truth: 'rumor', title: 'Copper stripped from the hospital',
-      blurb: "Rumor. Someone stripped Saint Brendan's of its wiring. People saw Linemen carts.",
+      id: 'news_wiring', kind: 'news', truth: 'rumor', title: 'Wiring pulled from the Chapel',
+      blurb: "Rumor. Someone pulled the wiring out of the Chapel's old wing. People saw a Linemen cart.",
       script:
-        "Now, I can't swear to this one. But folks up on the hill say Saint Brendan's was stripped of its copper wiring last week, and a few of them say they saw Linemen carts on Hospital Road. If that's true, somebody owes this town an explanation.",
-      effects: { trust: { grange: 4, linemen: -8 }, credibility: -2 },
-      helps: 'grange',
+        "Now, I can't swear to this one. But folks up at the Chapel say somebody pulled the wiring out of the old infirmary wing last week, and a few of them say they saw a Linemen cart on Church Road. If somebody's lighting up a substation with the Chapel's walls, they owe this town an explanation.",
+      effects: { trust: { chapel: 4, linemen: -8 }, credibility: -2 },
+      helps: 'chapel',
     },
     {
       id: 'news_wells', kind: 'news', truth: 'false', title: 'Poison in the east wells',
-      blurb: 'An unsigned note under the door. No proof. It would make one hell of a broadcast.',
+      blurb: 'An unsigned note under the door blaming the Linemen. No proof. It would make one hell of a broadcast.',
       script:
-        "I got a note tonight. No name on it. It says somebody's been putting something in the east wells, and that the Grange knows more than it's saying. Boil your water, Port Clemency. Boil all of it.",
-      effects: { morale: -6, safety: 4, trust: { grange: -8 }, listeners: 25 },
+        "I got a note tonight. No name on it. It says the Linemen's new substation is leaking transformer oil into the east wells, and that they know it. Boil your water, Port Vesper. Boil all of it.",
+      effects: { morale: -6, safety: 4, trust: { linemen: -8 }, listeners: 25 },
       grim: true,
       unravel: {
         credibility: -15,
@@ -102,9 +102,9 @@ export const NIGHT_1: NightDef = {
     },
     {
       id: 'warn_dogs', kind: 'warning', title: 'Dog pack on Ridge Road',
-      blurb: 'Wild dogs near the pylons. The Linemen work that stretch at night.',
+      blurb: 'Wild dogs near the pylons. The Linemen are restringing that stretch at night.',
       script:
-        "Linemen, there's a pack of wild dogs working Ridge Road between the third and fifth pylons. Big ones. Go in pairs, carry a light, and don't be a hero over a spool of wire.",
+        "Linemen, there's a pack of wild dogs working Ridge Road between the third and fifth pylons, right where you're stringing new line. Big ones. Go in pairs, carry a light, and don't be a hero over a spool of wire.",
       effects: { safety: 3 },
       grim: true,
       helps: 'linemen',
@@ -174,9 +174,9 @@ export const NIGHT_1: NightDef = {
   },
 
   otherStation: {
-    prefer: ['news_wells', 'warn_ice', 'news_copper', 'warn_dogs', 'news_bread'],
+    prefer: ['news_wells', 'warn_ice', 'news_wiring', 'warn_dogs', 'news_infirmary'],
     intro: 'This is the Lamp. Twelve-sixty.',
     stamp: 'Thursday. Two-fourteen in the morning.',
-    outro: "Goodnight, Port Clemency. We'll be listening.",
+    outro: "Goodnight, Port Vesper. We'll be listening.",
   },
 };

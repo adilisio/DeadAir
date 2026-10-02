@@ -32,7 +32,7 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5);
     title.setShadow(0, 0, '#ff7a1a', 18, false, true);
     this.add
-      .text(W * 0.27, H * 0.17 + 46, 'WLMP 1260 AM  ·  PORT CLEMENCY', { fontFamily: 'VT323', fontSize: '20px', color: UI.dim })
+      .text(W * 0.27, H * 0.17 + 46, 'WLMP 1260 AM  ·  PORT VESPER', { fontFamily: 'VT323', fontSize: '20px', color: UI.dim })
       .setOrigin(0.5);
     const prompt = this.add
       .text(W * 0.27, H * 0.43, 'click to sign on', { fontFamily: 'VT323', fontSize: '24px', color: UI.text })

@@ -1,6 +1,6 @@
 // Core types for the broadcast simulation. Pure data: no Phaser, no DOM.
 
-export const FACTIONS = ['netters', 'grange', 'linemen'] as const;
+export const FACTIONS = ['netters', 'chapel', 'linemen'] as const;
 export type FactionId = (typeof FACTIONS)[number];
 
 export const SEGMENTS = ['dusk', 'late', 'small'] as const;
@@ -153,6 +153,6 @@ export interface NightResult {
 /** Display names (placeholders, see DESIGN.md). */
 export const FACTION_NAMES: Record<FactionId, string> = {
   netters: 'Netters',
-  grange: 'Grange',
+  chapel: 'Chapel',
   linemen: 'Linemen',
 };

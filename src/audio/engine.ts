@@ -76,7 +76,7 @@ class AudioEngine {
     staticBand.frequency.value = 2200;
     staticBand.Q.value = 0.4;
     this.staticGain = ctx.createGain();
-    this.staticGain.gain.value = 0.04;
+    this.staticGain.gain.value = 0.025;
     staticSrc.connect(staticBand).connect(this.staticGain).connect(this.master);
     staticSrc.start();
 
@@ -124,17 +124,17 @@ class AudioEngine {
     if (!this.ctx) return;
     const e = Math.min(1, Math.abs(error));
     const t = this.ctx.currentTime;
-    this.staticGain.gain.setTargetAtTime(0.03 + 0.42 * Math.pow(e, 1.2), t, 0.05);
+    this.staticGain.gain.setTargetAtTime(0.02 + 0.26 * Math.pow(e, 1.3), t, 0.05);
     this.program.gain.setTargetAtTime(1 - 0.75 * Math.pow(e, 1.1), t, 0.05);
     this.programTone.frequency.setTargetAtTime(4000 - 2800 * e, t, 0.05);
     this.whistle.frequency.setTargetAtTime(200 + 2400 * e, t, 0.05);
-    this.whistleGain.gain.setTargetAtTime(e > 0.12 ? 0.04 * e : 0, t, 0.05);
+    this.whistleGain.gain.setTargetAtTime(e > 0.15 ? 0.022 * e : 0, t, 0.05);
   }
 
   /** Raw static level, for sign-off and the Other Station (0..1). */
   setStatic(level: number): void {
     if (!this.ctx) return;
-    this.staticGain.gain.setTargetAtTime(level * 0.5, this.ctx.currentTime, 0.2);
+    this.staticGain.gain.setTargetAtTime(level * 0.3, this.ctx.currentTime, 0.2);
   }
 
   /** Lower the program while the DJ talks. */

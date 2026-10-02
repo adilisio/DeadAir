@@ -92,7 +92,7 @@ function paintWindow(p: Painter): void {
     if (p.rand() < 0.4) p.poly([[hx, hz - 3 - hh], [hx + hw / 2, hz - 6 - hh], [hx + hw, hz - 3 - hh]], P.night0);
     hx += hw + Math.floor(p.rand() * 2);
   }
-  // Church steeple and the Grange silos.
+  // The Chapel steeple and the water tower.
   p.rect(x + 70, hz - 14, 2, 11, P.night0);
   p.px(x + 70, hz - 15, P.night0);
   p.rect(x + 100, hz - 10, 5, 7, P.night0);

@@ -22,9 +22,9 @@ import {
 
 /** Who listens when. `total` scales town-wide effects; `share` scales each faction's. */
 export const AUDIENCE: Record<SegmentId, { total: number; share: Record<FactionId, number> }> = {
-  dusk: { total: 1.0, share: { netters: 0.6, grange: 0.8, linemen: 0.4 } },
-  late: { total: 0.7, share: { netters: 0.2, grange: 0.3, linemen: 0.9 } },
-  small: { total: 0.5, share: { netters: 0.9, grange: 0.1, linemen: 0.3 } },
+  dusk: { total: 1.0, share: { netters: 0.6, chapel: 0.8, linemen: 0.4 } },
+  late: { total: 0.7, share: { netters: 0.2, chapel: 0.3, linemen: 0.9 } },
+  small: { total: 0.5, share: { netters: 0.9, chapel: 0.1, linemen: 0.3 } },
 };
 
 export const RULES = {
@@ -59,7 +59,7 @@ export const STARTING_STATE: TownState = {
   credibility: 50,
   listeners: 140,
   chits: 10,
-  trust: { netters: 50, grange: 50, linemen: 50 },
+  trust: { netters: 50, chapel: 50, linemen: 50 },
   flags: [],
 };
 
@@ -81,7 +81,7 @@ export function applyEffects(
   fx: Effects,
   scale: { town: number; faction: Record<FactionId, number> } = {
     town: 1,
-    faction: { netters: 1, grange: 1, linemen: 1 },
+    faction: { netters: 1, chapel: 1, linemen: 1 },
   },
 ): void {
   state.morale += (fx.morale ?? 0) * scale.town;
@@ -108,7 +108,7 @@ function audienceScale(segment: SegmentId, signal: number) {
     town: a.total * signal,
     faction: {
       netters: a.share.netters * signal,
-      grange: a.share.grange * signal,
+      chapel: a.share.chapel * signal,
       linemen: a.share.linemen * signal,
     },
   };
@@ -223,7 +223,7 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   const avgSignal = show.reduce((sum, _c, i) => sum + signalAt(i), 0) / show.length;
   applyEffects(state, { listeners: (avgSignal - RULES.signalListenerPivot) * RULES.signalListenerScale });
   if (avgSignal < 0.6) lines.push({ text: 'Half the town heard more static than show.', tone: 'bad' });
-  else if (avgSignal > 0.9) lines.push({ text: 'Clear signal all night. They heard you all the way to the Grange silos.', tone: 'good' });
+  else if (avgSignal > 0.9) lines.push({ text: 'Clear signal all night. They heard you all the way up in the Chapel bell tower.', tone: 'good' });
 
   // Lies come apart at dawn.
   for (const card of show) {

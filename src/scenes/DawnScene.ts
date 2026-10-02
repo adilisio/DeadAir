@@ -45,7 +45,7 @@ export class DawnScene extends Phaser.Scene {
     g.fillRect(PAPER.x, PAPER.y, PAPER.w, PAPER.h);
     g.lineStyle(1, hex(P.paperDim), 1);
     g.strokeRect(PAPER.x + 4.5, PAPER.y + 4.5, PAPER.w - 9, PAPER.h - 9);
-    ui(label(this, PAPER.x + PAPER.w / 2, PAPER.y + 8, 'THE CLEMENCY LEDGER', { size: 30, color: INK, align: 'center' }).setOrigin(0.5, 0));
+    ui(label(this, PAPER.x + PAPER.w / 2, PAPER.y + 8, 'THE VESPER LEDGER', { size: 30, color: INK, align: 'center' }).setOrigin(0.5, 0));
     ui(label(this, PAPER.x + PAPER.w / 2, PAPER.y + 36, `the morning after night ${run.night.number}  ·  one chit  ·  read it and pass it on`, { size: 14, color: INK_DIM, align: 'center' }).setOrigin(0.5, 0));
     g.fillStyle(hex(INK), 1);
     g.fillRect(PAPER.x + 12, PAPER.y + 54, PAPER.w - 24, 2);
@@ -119,7 +119,7 @@ export class DawnScene extends Phaser.Scene {
     y += 10;
     c.add(label(this, x, y, 'WHO TRUSTS THE LAMP', { size: 20, color: INK }));
     y += 26;
-    const fColor = { netters: 0x2b7f92, grange: 0xa47b16, linemen: 0xa4501f };
+    const fColor = { netters: 0x2b7f92, chapel: 0x6f4f9a, linemen: 0xa4501f };
     for (const f of FACTIONS) drawRow(`The ${FACTION_NAMES[f]}`, before.trust[f], after.trust[f], 100, fColor[f]);
   }
 
@@ -183,7 +183,7 @@ export class DawnScene extends Phaser.Scene {
     c.add(label(this, PAPER.x + PAPER.w - 20, y + 120, '- a listener on Dock Street', { size: 16, color: INK_DIM, align: 'right' }).setOrigin(1, 0));
     y += 160;
     c.add(label(this, x, y, 'End of Night One. Thanks for listening.', { size: 16, color: TONE.eerie }));
-    c.add(label(this, x, y + 18, 'This is the M1 demo: one night in the booth. Days, more nights and the rest of Port Clemency are coming.', { size: 14, color: INK_DIM, wrap: PAPER.w - 40 }));
+    c.add(label(this, x, y + 18, 'This is the M1 demo: one night in the booth. Days, more nights and the rest of Port Vesper are coming.', { size: 14, color: INK_DIM, wrap: PAPER.w - 40 }));
   }
 
   private again(): void {

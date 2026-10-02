@@ -1,4 +1,4 @@
-// Clemency Point from the water: the lighthouse, the station shack at its foot,
+// Vesper Point from the water: the lighthouse, the station shack at its foot,
 // and the town across the harbor. Painted at 320×180, at night or at dawn.
 
 import { Painter } from './painter';
@@ -48,7 +48,7 @@ export function paintExterior(p: Painter, time: 'night' | 'dawn'): void {
     hx += hw + 1 + Math.floor(p.rand() * 3);
   }
   p.rect(60, horizon - 20, 2, 16, shore); // steeple
-  p.rect(116, horizon - 14, 6, 10, shore); // silos
+  p.rect(116, horizon - 14, 6, 10, shore); // water tower
   p.rect(123, horizon - 11, 5, 7, shore);
 
   // Water.

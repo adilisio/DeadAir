@@ -19,7 +19,7 @@ Light process: one list. Move items to Done with the commit that did them.
 
 ## Owner
 - Add real public-domain 78s (`public/records/README.md`)
-- Final names: town, station, factions, DJ
+- Final name for the DJ
 
 ## Done
 - M0 scaffold: Vite + TS + Phaser 4, Vitest, screenshot tool, docs

@@ -22,7 +22,7 @@ const DEAD_AIR_GRACE = 1.2;
 const WIND = { dusk: 0.6, late: 1.0, small: 1.4 } as const;
 
 /** A sensible show for ?auto runs: dedications and breathers, warnings when they land. */
-const AUTO_RUNDOWN = ['news_bread', 'rec_march', 'warn_dogs', 'rec_blues', 'warn_ice', 'rec_waltz'];
+const AUTO_RUNDOWN = ['news_infirmary', 'rec_march', 'warn_dogs', 'rec_blues', 'warn_ice', 'rec_waltz'];
 
 type Phase = 'prep' | 'live' | 'other' | 'done';
 

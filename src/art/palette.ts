@@ -66,5 +66,5 @@ export const UI = {
   eerie: '#8aff9a',
   panel: 0x0a0b12,
   panelEdge: 0xffb347,
-  faction: { netters: '#5ec4d6', grange: '#e8bd52', linemen: '#e07a3c' },
+  faction: { netters: '#5ec4d6', chapel: '#c7a3f0', linemen: '#e07a3c' },
 } as const;

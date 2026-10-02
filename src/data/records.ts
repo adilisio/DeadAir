@@ -40,9 +40,9 @@ export type RecordEntry = StandInRecord | RealRecord;
 export const LATEST_PD_RECORDING_YEAR = 1925;
 
 export const RECORDS: RecordEntry[] = [
-  { id: 'breakwater_rag', standIn: true, title: 'Breakwater Rag', performer: 'The Clemency Point Players', style: 'ragtime', seed: 11 },
+  { id: 'breakwater_rag', standIn: true, title: 'Breakwater Rag', performer: 'The Vesper Point Players', style: 'ragtime', seed: 11 },
   { id: 'lamp_is_lit', standIn: true, title: 'The Lamp Is Lit', performer: 'Ada Morrow & Orchestra', style: 'waltz', seed: 23 },
-  { id: 'volunteers_march', standIn: true, title: 'Clemency Volunteers March', performer: 'Port Clemency Civic Band', style: 'march', seed: 37 },
+  { id: 'volunteers_march', standIn: true, title: 'Vesper Volunteers March', performer: 'Port Vesper Civic Band', style: 'march', seed: 37 },
   { id: 'copper_wire_blues', standIn: true, title: 'Copper Wire Blues', performer: '"Tall" Benny Okafor', style: 'blues', seed: 41 },
   { id: 'far_shore', standIn: true, title: 'Light Me to the Far Shore', performer: 'Margaret Vail', style: 'ballad', seed: 53 },
 

@@ -76,7 +76,7 @@ export class RundownBuilder {
     add(label(scene, 14, 26, 'Pick six. When it airs matters.', { size: 14, color: UI.dim }));
     const t = town.trust;
     add(label(scene, 628, 8, `MORALE ${town.morale}   SAFETY ${town.safety}   CREDIBILITY ${town.credibility}`, { size: 14, color: UI.dim }).setOrigin(1, 0));
-    add(label(scene, 628, 22, `LISTENERS ${town.listeners}   CHITS ${town.chits}   TRUST: NETTERS ${t.netters}  GRANGE ${t.grange}  LINEMEN ${t.linemen}`, { size: 14, color: UI.dim }).setOrigin(1, 0));
+    add(label(scene, 628, 22, `LISTENERS ${town.listeners}   CHITS ${town.chits}   TRUST: NETTERS ${t.netters}  GRANGE ${t.chapel}  LINEMEN ${t.linemen}`, { size: 14, color: UI.dim }).setOrigin(1, 0));
 
     // Crate.
     const c = L.crate;
@@ -205,7 +205,7 @@ export class RundownBuilder {
       seg === 'dusk'
         ? 'Suppertime. The whole town has the radio on. Your biggest audience.'
         : seg === 'late'
-          ? 'Farm folk are asleep. The Linemen are up on the pylons with a radio clipped to the belt.'
+          ? 'The Chapel keeps early hours. The Linemen are up on the pylons, stringing line with a radio clipped to the belt.'
           : 'Almost nobody. Except the Netters, getting the boats ready in the dark.',
     );
     this.focus = [];

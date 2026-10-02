@@ -107,17 +107,17 @@ describe('sequence rules', () => {
   });
 
   it('dedication: a loved record after helpful news earns extra trust', () => {
-    const dedicated = run(perf(rundownWith({ 0: 'news_bread', 1: 'rec_march' })));
-    const plain = run(perf(rundownWith({ 0: 'news_bread', 1: 'rec_rag', 3: 'rec_march' })));
+    const dedicated = run(perf(rundownWith({ 0: 'news_infirmary', 1: 'rec_march' })));
+    const plain = run(perf(rundownWith({ 0: 'news_infirmary', 1: 'rec_rag', 3: 'rec_march' })));
     expect(dedicated.lines.some((l) => l.rule === 'dedication')).toBe(true);
-    expect(dedicated.after.trust.grange).toBeGreaterThan(plain.after.trust.grange);
+    expect(dedicated.after.trust.chapel).toBeGreaterThan(plain.after.trust.chapel);
   });
 });
 
 describe('credibility and dead air', () => {
   it('false news costs credibility at dawn', () => {
     const lie = run(perf(rundownWith({ 0: 'news_wells' })));
-    const truth = run(perf(rundownWith({ 0: 'news_bread' })));
+    const truth = run(perf(rundownWith({ 0: 'news_infirmary' })));
     expect(lie.after.credibility).toBeLessThan(truth.after.credibility - 10);
     expect(lie.lines.some((l) => /Clean as rain/.test(l.text))).toBe(true);
   });
@@ -174,7 +174,7 @@ describe('state handling', () => {
   });
 
   it('clamps stats to 0..100', () => {
-    const start = { ...STARTING_STATE, morale: 1, credibility: 99, trust: { netters: 99, grange: 1, linemen: 50 } };
+    const start = { ...STARTING_STATE, morale: 1, credibility: 99, trust: { netters: 99, chapel: 1, linemen: 50 } };
     const r = resolveNight(NIGHT_1, start, perf(rundownWith({ 0: 'news_wells', 1: 'warn_dogs', 4: 'warn_ice' })));
     for (const v of [r.after.morale, r.after.safety, r.after.credibility, ...Object.values(r.after.trust)]) {
       expect(v).toBeGreaterThanOrEqual(0);

@@ -23,13 +23,17 @@ meets Fallout radio. Never grimdark for its own sake.
 
 ## World (placeholders)
 
-- **Port Clemency, Ohio** (placeholder) — a harbor town on Lake Erie's south shore.
-- **WLMP 1260 AM, "the Lamp"** (placeholder) — your station, wired into the base of the
-  old Clemency Point lighthouse. The antenna runs up the tower.
-- **Factions** (placeholder names), each with a trust score 0–100:
+- **Port Vesper, Ohio** — a harbor town on Lake Erie's south shore. (Vesper: the evening
+  star, and the evening prayer.)
+- **WLMP 1260 AM, "the Lamp"** — your station, wired into the base of the old Vesper Point
+  lighthouse. The antenna runs up the tower.
+- **Factions** (names settled; details still growing), each with a trust score 0–100:
   - **The Netters** — fishing families of the harbor. Up at 3 a.m., practical, superstitious.
-  - **The Grange** — the inland farmers' co-op. Feeds the town; wary, proud, early to bed.
-  - **The Linemen** — salvagers who climb the dead power lines for copper. Night people, brash.
+  - **The Chapel** — the church on the hill. Runs the only infirmary and school. Kind,
+    powerful, and certain about what people should hear. Early to bed.
+  - **The Linemen** — engineers and dreamers restringing the dead lines to bring the power
+    back. Your working transmitter is their proof it can be done. Idealistic, a bit reckless,
+    up all night on the pylons.
 - **The town** — Morale and Safety, plus how many Listeners you have.
 - **You** — Credibility (do people believe you?) and Chits (the town's scrip; sponsors pay you).
 - **The Other Station** — something on 1260 after you sign off. Never explain it early.
@@ -54,7 +58,7 @@ You have a crate of **cards** for tonight. The show has **3 segments × 2 slots*
 | Segment | Clock | Who's listening |
 | --- | --- | --- |
 | Dusk | 8 p.m. | Everyone. Biggest audience. |
-| Late | 11 p.m. | Linemen mostly; some of the Grange. |
+| Late | 11 p.m. | Linemen mostly; a few of the Chapel. |
 | Small Hours | 2 a.m. | Netters getting the boats ready. Few others. |
 
 Card kinds:
@@ -139,6 +143,6 @@ Pure TypeScript in `src/sim/`, fully unit-tested. In short:
 
 ## Open questions
 
-- Final names: town, station call letters, factions, the DJ.
+- Final names: the DJ. (Settled: Port Vesper, the Lamp, Netters, Chapel, Linemen.)
 - What the Other Station is (decide by M3; reveal late).
 - How long a full playthrough is (target: 7 nights, ~2 hours?).
