@@ -34,6 +34,11 @@ const SHOTS = [
   { name: '07-dawn-numbers', query: '?mute&scene=booth&auto&fast', phase: 'dawn', settle: 2200, timeout: 240000 },
   { name: '08-dawn-stories', query: '?mute&scene=dawn&auto', phase: 'dawn-page-1', settle: 3600 },
   { name: '09-dawn-letter', query: '?mute&scene=dawn&auto', phase: 'dawn-letter', settle: 1200, timeout: 90000 },
+  { name: '10-night2-prep', query: '?mute&scene=booth&night=2&auto', phase: 'prep-filled', settle: 800 },
+  { name: '11-night2-switchboard', query: '?mute&scene=booth&night=2&auto&fast', phase: 'switchboard', settle: 700, timeout: 90000 },
+  { name: '12-night2-morse', query: '?mute&scene=booth&night=2&auto&fast', phase: 'morse', settle: 2300, timeout: 150000 },
+  { name: '13-night2-dawn', query: '?mute&scene=booth&night=2&auto&fast', phase: 'dawn-page-1', settle: 3600, timeout: 300000 },
+  { name: '14-night2-letter', query: '?mute&scene=dawn&night=2&auto', phase: 'dawn-letter', settle: 1200, timeout: 90000 },
 ];
 
 const server = await createServer({ server: { port: 5199, strictPort: false }, logLevel: 'error' });

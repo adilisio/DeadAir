@@ -5,6 +5,8 @@ import { Painter } from '../art/painter';
 import { paintBooth, paintOnAirLit, paintRecord, BOOTH } from '../art/booth';
 import { paintExterior } from '../art/exterior';
 import { P } from '../art/palette';
+import { NIGHTS } from '../data/nights';
+import { startNight, townBefore } from '../run';
 
 /** Paints every texture once, waits for the font, then starts the game. */
 export class BootScene extends Phaser.Scene {
@@ -25,6 +27,9 @@ export class BootScene extends Phaser.Scene {
     this.paint('pixel', 1, 1, (p) => p.px(0, 0, '#ffffff'), 1);
     this.makeGlow();
 
+    // ?night=N starts the run at that night, with the town earlier nights would leave.
+    const n = Math.max(1, Math.min(NIGHTS.length, DEBUG.night)) - 1;
+    if (n > 0) startNight(n, townBefore(n));
     const start = DEBUG.scene === 'booth' ? 'Booth' : DEBUG.scene === 'dawn' ? 'Dawn' : 'Title';
     this.scene.start(start);
   }

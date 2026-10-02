@@ -5,9 +5,9 @@ import { markPhase } from '../debugHook';
 import { applyScreenLook, glow, splitCameras } from './fx';
 import { EXTERIOR } from '../art/exterior';
 import { hex, P } from '../art/palette';
-import { run, resetRun } from '../run';
-import { NIGHT_1_DEMO_RUNDOWN } from '../data/night1';
-import { STARTING_STATE, resolveNight } from '../sim/resolver';
+import { hasNextNight, nextNight, run, resetRun } from '../run';
+import { resolveNight } from '../sim/resolver';
+import { letterText } from '../sim/nights';
 import { FACTIONS, FACTION_NAMES, type DawnLine, type NightResult } from '../sim/types';
 import { button, label } from '../ui/widgets';
 import { audio } from '../audio/engine';
@@ -29,7 +29,8 @@ export class DawnScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.result = run.result ?? demoResult();
+    run.result = run.result ?? demoResult();
+    this.result = run.result;
     const S = ART_SCALE;
     this.add.image(0, 0, 'exterior-dawn').setOrigin(0).setScale(S);
     glow(this, 80 * S, 118 * S, 160, hex(P.dawn5), 0.6);
@@ -57,7 +58,8 @@ export class DawnScene extends Phaser.Scene {
 
     const next = button(this, PAPER.x + PAPER.w - 150, PAPER.y + PAPER.h - 30, 138, 20, 'TURN THE PAGE >', () => this.turn(1), { size: 16, color: 0x5a3a20, textColor: INK, dimColor: INK_DIM });
     const prev = button(this, PAPER.x + 12, PAPER.y + PAPER.h - 30, 90, 20, '< BACK', () => this.turn(-1), { size: 16, color: 0x5a3a20, textColor: INK, dimColor: INK_DIM });
-    const again = button(this, PAPER.x + PAPER.w / 2 - 80, PAPER.y + PAPER.h - 30, 160, 20, 'PLAY THE NIGHT AGAIN', () => this.again(), { size: 16, color: 0x2f6b2a, textColor: '#1f4a1c' });
+    const againText = hasNextNight() ? `SIGN ON: NIGHT ${NIGHT_WORDS[run.night.number + 1]?.toUpperCase() ?? run.night.number + 1}` : 'START OVER: NIGHT ONE';
+    const again = button(this, PAPER.x + PAPER.w / 2 - 90, PAPER.y + PAPER.h - 30, 180, 20, againText, () => this.again(), { size: 16, color: 0x2f6b2a, textColor: '#1f4a1c' });
     for (const b of [next, prev, again]) ui(b.container);
     this.events.on('page', () => {
       next.container.setVisible(this.page < this.pages.length - 1);
@@ -176,19 +178,24 @@ export class DawnScene extends Phaser.Scene {
       if (quote && (quote + ' ' + sentence).length > 110) break;
       quote = quote ? `${quote} ${sentence}` : sentence;
     }
-    const letter =
-      `To the Lamp. My husband says I dreamed it, but I didn't. After you signed off last night ` +
-      `I left the set on, and around two there was someone on twelve-sixty. They sounded like you. ` +
-      `They said, "${quote}" Then they said goodnight. Was that you? Please say it was you.`;
-    c.add(label(this, x, y, letter, { size: 16, color: INK, wrap: PAPER.w - 40 }));
-    c.add(label(this, PAPER.x + PAPER.w - 20, y + 120, '- a listener on Dock Street', { size: 16, color: INK_DIM, align: 'right' }).setOrigin(1, 0));
-    y += 160;
-    c.add(label(this, x, y, 'End of Night One. Thanks for listening.', { size: 16, color: TONE.eerie }));
-    c.add(label(this, x, y + 18, 'This is the M1 demo: one night in the booth. Days, more nights and the rest of Port Vesper are coming.', { size: 14, color: INK_DIM, wrap: PAPER.w - 40 }));
+    const letter = label(this, x, y, letterText(run.night, quote), { size: 16, color: INK, wrap: PAPER.w - 40 });
+    c.add(letter);
+    y += letter.height + 4;
+    c.add(label(this, PAPER.x + PAPER.w - 20, y, `- ${run.night.letter.from}`, { size: 16, color: INK_DIM, align: 'right' }).setOrigin(1, 0));
+    y += 34;
+    const n = NIGHT_WORDS[run.night.number] ?? String(run.night.number);
+    if (hasNextNight()) {
+      c.add(label(this, x, y, `End of Night ${n}. The Lamp signs on again tonight.`, { size: 16, color: TONE.eerie }));
+    } else {
+      c.add(label(this, x, y, `End of Night ${n}. Thanks for listening.`, { size: 16, color: TONE.eerie }));
+      c.add(label(this, x, y + 18, `That's every night there is for now. Days, the rest of the week and the rest of Port Vesper are coming.`, { size: 14, color: INK_DIM, wrap: PAPER.w - 40 }));
+    }
   }
 
+  /** The last page's button: on to the next night, or back to the first. */
   private again(): void {
-    resetRun();
+    if (hasNextNight()) nextNight();
+    else resetRun();
     audio.sfx('thunk');
     this.fadeAll(true, 600, () => this.scene.start('Booth'));
   }
@@ -214,10 +221,13 @@ export class DawnScene extends Phaser.Scene {
 
 /** For ?scene=dawn: a plausible night, so the ledger can be looked at directly. */
 function demoResult(): NightResult {
-  return resolveNight(run.night, STARTING_STATE, {
-    rundown: NIGHT_1_DEMO_RUNDOWN,
+  // Every line put on and allowed to finish, so a dump-worthy caller goes out too.
+  return resolveNight(run.night, run.town, {
+    rundown: run.night.rundowns.demo,
     signal: [1, 0.9, 0.6, 0.8, 1, 1],
     deadAirSeconds: 6,
-    calls: [{ line: 'call_okafor' }, { line: 'call_chalk' }],
+    calls: run.night.switchboard.lines.slice(0, 2).map((l) => ({ line: l.id })),
   });
 }
+
+const NIGHT_WORDS: Record<number, string> = { 1: 'One', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 7: 'Seven' };

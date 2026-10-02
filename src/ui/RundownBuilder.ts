@@ -45,7 +45,7 @@ function focusOf(card: Card): FactionId[] {
 }
 
 const L = {
-  crate: { x: 12, y: 40, w: 236, rowH: 16 },
+  crate: { x: 12, y: 40, w: 236, rowH: 16, bottom: 286 },
   show: { x: 392, y: 40, w: 236 },
   detail: { x: 12, y: 292, w: 616, h: 60 },
 };
@@ -63,6 +63,7 @@ export class RundownBuilder {
   private goLive: Button;
   private status: Phaser.GameObjects.Text;
   private focus: FactionId[] = [];
+  private rowH = L.crate.rowH;
 
   constructor(
     scene: Phaser.Scene,
@@ -81,16 +82,17 @@ export class RundownBuilder {
     add(label(scene, 628, 8, `MORALE ${town.morale}   SAFETY ${town.safety}   CREDIBILITY ${town.credibility}`, { size: 14, color: UI.dim }).setOrigin(1, 0));
     add(label(scene, 628, 22, `LISTENERS ${town.listeners}   CHITS ${town.chits}   TRUST: NETTERS ${t.netters}  CHAPEL ${t.chapel}  LINEMEN ${t.linemen}`, { size: 14, color: UI.dim }).setOrigin(1, 0));
 
-    // Crate.
+    // Crate. Rows tighten when a night opens more cards than fit at full height.
     const c = L.crate;
-    add(panel(scene, c.x, c.y, c.w, 24 + night.cards.length * c.rowH + 6));
+    this.rowH = Math.min(c.rowH, Math.floor((c.bottom - c.y - 30) / night.cards.length));
+    add(panel(scene, c.x, c.y, c.w, 24 + night.cards.length * this.rowH + 6));
     add(label(scene, c.x + 8, c.y + 3, 'THE CRATE', { size: 18, color: UI.amber }));
     night.cards.forEach((card, i) => {
-      const y = c.y + 24 + i * c.rowH;
+      const y = c.y + 24 + i * this.rowH;
       const bg = add(scene.add.graphics());
       const tag = add(label(scene, c.x + 8, y, KIND_TAG[card.kind].tag, { size: 15, color: KIND_TAG[card.kind].color }));
       const text = add(label(scene, c.x + 46, y, truncate(card.title, 27), { size: 15 }));
-      const zone = add(scene.add.zone(c.x + c.w / 2, y + c.rowH / 2, c.w - 8, c.rowH).setInteractive({ useHandCursor: true }));
+      const zone = add(scene.add.zone(c.x + c.w / 2, y + this.rowH / 2, c.w - 8, this.rowH).setInteractive({ useHandCursor: true }));
       zone.on('pointerover', () => this.showDetail(card));
       zone.on('pointerdown', () => this.toggleCard(card.id));
       this.crateRows.push({ card, bg, text, tag });
@@ -237,12 +239,12 @@ export class RundownBuilder {
     const used = new Set(this.slots.filter(Boolean));
     const c = L.crate;
     this.crateRows.forEach((row, i) => {
-      const y = c.y + 24 + i * c.rowH;
+      const y = c.y + 24 + i * this.rowH;
       const placed = used.has(row.card.id);
       row.bg.clear();
       if (placed) {
         row.bg.fillStyle(0xffb347, 0.1);
-        row.bg.fillRect(c.x + 4, y, c.w - 8, c.rowH - 1);
+        row.bg.fillRect(c.x + 4, y, c.w - 8, this.rowH - 1);
       }
       row.text.setColor(placed ? UI.dim : UI.text);
       row.tag.setAlpha(placed ? 0.4 : 1);

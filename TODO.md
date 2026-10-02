@@ -13,7 +13,10 @@ Light process: one list. Move items to Done with the commit that did them.
     first time each task appears.
 - [ ] Volume sliders (music / voice / static) and a pause
 - [ ] Human-sounding voices: owner's recorded lines as drop-in files; in-browser neural TTS
-- [ ] Night 2 content using the five unused 78s
+- [ ] **Owner playtest of Night 2**, ideally straight on from Night 1 (`?night=2` jumps in
+      with a good Night 1 behind it). Does it feel different enough? Do the callbacks to
+      Night 1 land?
+- [ ] Night 3 needs more 78s (all eleven are used; each record airs on one night)
 - [ ] Known rough edges: the record glint stands in for a spinning label
 
 ## Next — M2: One Day
@@ -40,3 +43,5 @@ Light process: one list. Move items to Done with the commit that did them.
 - Booth tasks, so the night changes texture instead of repeating tune + cue:
   storms (tuning only in a squall) `ad3c0cf`, needle drop `f233fff`, tube swap `c209871`,
   switchboard + dump button `96f4cd4`, Morse `51c8ae4`. 79 tests; a shot for each.
+- Night 2 and runs: the town carries over between nights; cards and callers gated on
+  Night 1's flags; tasks rearranged; the five unused 78s; per-night letters; `?night=N`.

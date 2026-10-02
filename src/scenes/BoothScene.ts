@@ -22,7 +22,7 @@ import { SwitchboardPanel, type LineState } from '../ui/Switchboard';
 import { SHOW_SLOTS, type CallRecord, type Card, type NeedleResult, type RecordCard, type TalkCard } from '../sim/types';
 import { RundownBuilder, SEGMENT_LABEL } from '../ui/RundownBuilder';
 import { resolveRecord } from '../data/records';
-import { NIGHT_1_AUTO_RUNDOWN } from '../data/night1';
+
 import { LiveHud, kindHeader } from '../ui/LiveHud';
 
 const S = ART_SCALE;
@@ -190,9 +190,9 @@ export class BoothScene extends Phaser.Scene {
 
     if (DEBUG.auto) {
       this.time.delayedCall(500, () => {
-        this.builder?.fill(NIGHT_1_AUTO_RUNDOWN);
+        this.builder?.fill(run.night.rundowns.auto);
         markPhase('prep-filled');
-        this.time.delayedCall(1200, () => this.startShow(NIGHT_1_AUTO_RUNDOWN));
+        this.time.delayedCall(1200, () => this.startShow(run.night.rundowns.auto));
       });
     }
   }

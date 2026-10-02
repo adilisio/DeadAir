@@ -53,10 +53,14 @@ call; see "What to do next".
 
 - The 2026-10-02 session ran on the owner's Windows PC. It started with GitHub in sync at
   `91cafb7`, then added one commit per booth task (`ad3c0cf` storms, `f233fff` needle,
-  `c209871` tube, `96f4cd4` switchboard + dump, `51c8ae4` Morse) plus a docs commit. **These
-  were not pushed**; `git status -sb` shows whether the owner has pushed since.
-- Verified at handoff: 79 tests pass, `npm run build` clean, `npm run shots` (17 shots,
-  full night headless) green with no console errors.
+  `c209871` tube, `96f4cd4` switchboard + dump, `51c8ae4` Morse), pushed at `f0d40bb`.
+  Then Night 2 and the run (one commit after that).
+- Verified at handoff: 98 tests pass, `npm run build` clean, `npm run shots` (22 shots:
+  Night 1 headless start to finish, Night 2 prep through letter) green with no console errors.
+- Runs: `src/run.ts` holds the run (night index, town, result); `startNight`, `nextNight`,
+  `resetRun`, and `townBefore(n)` for `?night=N`. `src/sim/nights.ts` has `gateOpen`,
+  `openNight` (drops gated cards and callers for the town's flags) and `letterText`. Each
+  `NightDef` carries its own letter and `rundowns.auto` / `rundowns.demo`.
 
 ### How it fits together
 
@@ -127,15 +131,16 @@ call; see "What to do next".
 
 ## What to do next (ask the owner which; recommendation first)
 
-1. **Playtest the booth tasks with the owner** (recommended), then tune or cut. Night 1's
-   shape: dusk has the needle drop and a tube blowing mid-record; late opens on the
-   switchboard (Mrs. Okafor, a nameless slanderer to dump, Lottie's hello) and a storm
-   rolls in for slots 3–4; the small hours bring Morse ("HELP" from an ice shanty). The
-   knobs are listed in `TODO.md`. Open design questions for the owner:
-   - The handoff idea was that Morse *unlocks a card for later*; with no Night 2 yet it
-     resolves at dawn instead. Revisit when there's a next night to unlock into.
-   - Whether some tasks should move between segments or vary night to night.
-   Also pending from the playtest list: volume sliders (music / voice / static) and pause.
+1. **Playtest Nights 1 and 2 back to back with the owner** (recommended), then tune or
+   cut. The owner's first booth-task pass is in `TODO.md` (tasks hard the first time;
+   Morse hard on `?fast`). Night 1's shape: needle and tube at dusk; switchboard (Mrs.
+   Okafor, a nameless slanderer to dump, Lottie) and a storm late; Morse ("HELP") in the
+   small hours. Night 2 (`src/data/night2.ts`): switchboard at dusk (Grace Okafor, Sparky
+   inviting the town up a live pylon, Old Bill's knee), tube and Morse ("SPOOL") late, the
+   squall in the small hours on top of the squall warning. Night 1's flags gate Night 2
+   cards and callers (Morse copied → the Wozniak tip, boat lost → memorial, slander aired
+   → Sister Agnes replies, Teddy found or not → which Grace calls).
+   Also pending: one-line first-time hints if needed, volume sliders and a pause.
 2. **Human-sounding voices.** (a) A drop-in folder for the owner's recorded lines (e.g.
    `public/voice/<card-id>.mp3`, used when present, routed through the radio chain).
    (b) In-browser neural TTS (Kokoro via `kokoro-js` was the idea) rendering to buffers,
@@ -143,8 +148,8 @@ call; see "What to do next".
    run, and its host will need allowing in the cloud environment.
 3. **M2: One Day** — town walk, map with a travel event, one ruin run; outputs are cards
    and records for the night. See `DESIGN.md`.
-4. Content: five downloaded records are unused (`rocked_cradle_deep`, `home_over_there`,
-   `how_come_you_do_me`, `meet_me_in_dreamland`, `old_mill_stream`), ready for Night 2.
+4. **Night 3+** needs new records: all eleven real 78s are now used (a test keeps each
+   record to one night). Fetch more with `npm run records` after adding catalog entries.
    A Bessie Smith original pressing would be a good Linemen record (the one found was a
    modern Wolf reissue, so it was skipped).
 

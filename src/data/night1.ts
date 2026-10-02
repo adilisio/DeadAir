@@ -262,10 +262,22 @@ export const NIGHT_1: NightDef = {
     stamp: 'Thursday. Two-fourteen in the morning.',
     outro: "Goodnight, Port Vesper. We'll be listening.",
   },
+
+  letter: {
+    body:
+      'To the Lamp. My husband says I dreamed it, but I didn\'t. After you signed off last night ' +
+      'I left the set on, and around two there was someone on twelve-sixty. They sounded like you. ' +
+      'They said, "{quote}" Then they said goodnight. Was that you? Please say it was you.',
+    from: 'a listener on Dock Street',
+  },
+
+  rundowns: {
+    // A sensible show: dedications and breathers, warnings when they land.
+    auto: ['news_infirmary', 'rec_hymn', 'warn_dogs', 'rec_harris', 'warn_ice', 'rec_deep'],
+    // A messier show, so the ledger has plenty to report.
+    demo: ['news_wells', 'rec_harris', 'ad_tonic', 'ad_fish', 'warn_ice', 'rec_moonlight'],
+  },
 };
 
-/** A sensible show for ?auto runs: dedications and breathers, warnings when they land. */
-export const NIGHT_1_AUTO_RUNDOWN = ['news_infirmary', 'rec_hymn', 'warn_dogs', 'rec_harris', 'warn_ice', 'rec_deep'];
-
-/** A messier show for ?scene=dawn, so the ledger has plenty to report. */
-export const NIGHT_1_DEMO_RUNDOWN = ['news_wells', 'rec_harris', 'ad_tonic', 'ad_fish', 'warn_ice', 'rec_moonlight'];
+export const NIGHT_1_AUTO_RUNDOWN = NIGHT_1.rundowns.auto;
+export const NIGHT_1_DEMO_RUNDOWN = NIGHT_1.rundowns.demo;

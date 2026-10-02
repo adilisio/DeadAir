@@ -38,6 +38,8 @@ Open http://localhost:5173 in Chrome or Edge and click to sign on. Use headphone
      tape against the chart and **type the letters** before it fades. Wrong guesses cost time.
 3. **Sign-off.** Then leave the set on for a minute.
 4. **Dawn.** The town's paper tells you what your show did.
+5. **The next night.** The town carries over: its mood, who trusts you, and what happened.
+   Night 2 remembers Night 1. There are two nights so far.
 
 ## Settings (URL switches)
 
@@ -48,6 +50,7 @@ Open http://localhost:5173 in Chrome or Edge and click to sign on. Use headphone
 | `?fast` | Short records and talk: a whole night in about a minute |
 | `?auto` | The game plays itself (for testing) |
 | `?scene=booth` / `?scene=dawn` | Skip straight to a scene |
+| `?night=2` | Start at Night 2, as if Night 1 went well |
 
 Combine them with `&`, e.g. http://localhost:5173/?scene=booth&fast
 

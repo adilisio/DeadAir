@@ -49,8 +49,16 @@ export interface ReachCheck {
   unaired?: Outcome;
 }
 
+/** Story flags a card or caller depends on: all of `requires` set, none of `unless`. */
+export interface Gate {
+  requires?: string[];
+  unless?: string[];
+}
+
 interface CardBase {
   id: string;
+  /** Only in the crate when the town's flags allow it. */
+  gate?: Gate;
   title: string;
   /** One line for the prep screen. */
   blurb: string;
@@ -97,6 +105,8 @@ export type TalkCard = NewsCard | WarningCard | AdCard;
 /** One caller on the switchboard. */
 export interface CallLine {
   id: string;
+  /** Only rings when the town's flags allow it. */
+  gate?: Gate;
   /** For the teleprompter header while they're on air. */
   name: string;
   /** One short line on the board while it rings. */
@@ -176,6 +186,10 @@ export interface NightDef {
     intro: string;
     outro: string;
   };
+  /** The listener's letter on the ledger's last page. `{quote}` is what the Other Station said. */
+  letter: { body: string; from: string };
+  /** Rundowns for ?auto (a sensible show) and ?scene=dawn (a messy one). Must use ungated cards. */
+  rundowns: { auto: string[]; demo: string[] };
 }
 
 export interface TownState {

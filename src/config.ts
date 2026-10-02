@@ -16,4 +16,6 @@ export const DEBUG = {
   nofx: params.has('nofx'),
   /** Jump straight to a scene: title | booth | dawn. */
   scene: params.get('scene') ?? '',
+  /** Start the run at this night (1-based), as if earlier nights went like their ?auto shows. */
+  night: Number(params.get('night') ?? 1) || 1,
 };

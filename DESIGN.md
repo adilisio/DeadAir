@@ -109,6 +109,20 @@ The show plays in real time.
 Each night schedules its tasks (`switchboard`, `storm`, `tube`, `morse` in the night data)
 so the show changes texture segment to segment instead of repeating one task.
 
+### Nights in a run
+
+The town (stats, faction trust, story flags) carries from each dawn into the next night.
+A night's cards and switchboard lines can carry a **gate** on flags (`requires` /
+`unless`); before prep the night is opened against the town's flags, so the crate and
+the board hold only what's in play. This is how one night's choices show up in the next:
+copy Night 1's Morse and the Wozniak brothers come back with a tip; lose a boat and the
+Chapel holds a memorial; let a slander air and Sister Agnes asks to reply; find Teddy and
+Grace Okafor calls to thank the Linemen, or don't and she calls to tell them off.
+
+Each night also moves its booth tasks around. Night 1: needle and tube at dusk,
+switchboard and storm late, Morse in the small hours. Night 2: switchboard at dusk, tube
+and Morse late, the storm in the small hours, right on top of the squall warning.
+
 ### 3. Sign-off, the Other Station, and dawn
 
 After you sign off, the dial slips. On 1260, a voice reads **the card you chose not to
