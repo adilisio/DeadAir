@@ -1,0 +1,234 @@
+// The broadcast resolver: turns a night's rundown and live performance into
+// the town's new state and the dawn report. Rules are described in DESIGN.md.
+
+import {
+  FACTIONS,
+  FACTION_NAMES,
+  SHOW_SLOTS,
+  SLOTS_PER_SEGMENT,
+  SEGMENTS,
+  type Card,
+  type DawnLine,
+  type Effects,
+  type FactionId,
+  type NightDef,
+  type NightResult,
+  type Outcome,
+  type ReachCheck,
+  type SegmentId,
+  type ShowPerformance,
+  type TownState,
+} from './types';
+
+/** Who listens when. `total` scales town-wide effects; `share` scales each faction's. */
+export const AUDIENCE: Record<SegmentId, { total: number; share: Record<FactionId, number> }> = {
+  dusk: { total: 1.0, share: { netters: 0.6, grange: 0.8, linemen: 0.4 } },
+  late: { total: 0.7, share: { netters: 0.2, grange: 0.3, linemen: 0.9 } },
+  small: { total: 0.5, share: { netters: 0.9, grange: 0.1, linemen: 0.3 } },
+};
+
+export const RULES = {
+  recordLoveTrust: 4,
+  recordDislikeTrust: -3,
+  moodMorale: { bright: 3, blue: 1, stirring: 2 },
+  panicMorale: -4,
+  adFatigueListeners: -15,
+  dedicationTrust: 5,
+  deadAirListenersPerSec: -2,
+  deadAirCredibilityPerSec: -0.5,
+  /** Listeners gained or lost from overall signal quality: (avg - pivot) × scale. */
+  signalListenerPivot: 0.7,
+  signalListenerScale: 60,
+} as const;
+
+export const STARTING_STATE: TownState = {
+  morale: 50,
+  safety: 50,
+  credibility: 50,
+  listeners: 140,
+  chits: 10,
+  trust: { netters: 50, grange: 50, linemen: 50 },
+  flags: [],
+};
+
+export function segmentOfSlot(slot: number): SegmentId {
+  return SEGMENTS[Math.min(SEGMENTS.length - 1, Math.floor(slot / SLOTS_PER_SEGMENT))];
+}
+
+export function cloneState(s: TownState): TownState {
+  return { ...s, trust: { ...s.trust }, flags: [...s.flags] };
+}
+
+function isTalk(card: Card): card is Exclude<Card, { kind: 'record' }> {
+  return card.kind !== 'record';
+}
+
+/** Add effects, multiplying audience-dependent parts by the given factors. */
+export function applyEffects(
+  state: TownState,
+  fx: Effects,
+  scale: { town: number; faction: Record<FactionId, number> } = {
+    town: 1,
+    faction: { netters: 1, grange: 1, linemen: 1 },
+  },
+): void {
+  state.morale += (fx.morale ?? 0) * scale.town;
+  state.safety += (fx.safety ?? 0) * scale.town;
+  state.listeners += (fx.listeners ?? 0) * scale.town;
+  state.credibility += fx.credibility ?? 0;
+  state.chits += fx.chits ?? 0;
+  for (const f of FACTIONS) state.trust[f] += (fx.trust?.[f] ?? 0) * scale.faction[f];
+}
+
+function clampState(s: TownState): void {
+  const c = (v: number) => Math.round(Math.max(0, Math.min(100, v)));
+  s.morale = c(s.morale);
+  s.safety = c(s.safety);
+  s.credibility = c(s.credibility);
+  s.listeners = Math.max(0, Math.round(s.listeners));
+  s.chits = Math.max(0, Math.round(s.chits));
+  for (const f of FACTIONS) s.trust[f] = c(s.trust[f]);
+}
+
+function audienceScale(segment: SegmentId, signal: number) {
+  const a = AUDIENCE[segment];
+  return {
+    town: a.total * signal,
+    faction: {
+      netters: a.share.netters * signal,
+      grange: a.share.grange * signal,
+      linemen: a.share.linemen * signal,
+    },
+  };
+}
+
+/** Does this check pass for an item aired in `segment` at `signal`? */
+export function reachPasses(check: ReachCheck, segment: SegmentId, signal: number): boolean {
+  return AUDIENCE[segment].share[check.faction] * signal >= check.threshold - 1e-9;
+}
+
+function applyOutcome(state: TownState, o: Outcome, lines: DawnLine[]): void {
+  applyEffects(state, o.effects);
+  if (!state.flags.includes(o.flag)) state.flags.push(o.flag);
+  lines.push({ text: o.line, tone: o.tone });
+}
+
+export function validateRundown(night: NightDef, rundown: string[]): string | null {
+  if (rundown.length !== SHOW_SLOTS) return `The show needs ${SHOW_SLOTS} items.`;
+  const ids = new Set(night.cards.map((c) => c.id));
+  for (const id of rundown) if (!ids.has(id)) return `Unknown card: ${id}`;
+  if (new Set(rundown).size !== rundown.length) return 'A card can only air once.';
+  return null;
+}
+
+/** Which card the Other Station reads back: the first preferred card left out of the show. */
+export function pickOtherStationCard(night: NightDef, rundown: string[]): string | null {
+  const aired = new Set(rundown);
+  const preferred = night.otherStation.prefer.find((id) => !aired.has(id));
+  if (preferred) return preferred;
+  const anyTalk = night.cards.find((c) => isTalk(c) && !aired.has(c.id));
+  return anyTalk?.id ?? null;
+}
+
+export function resolveNight(night: NightDef, start: TownState, perf: ShowPerformance): NightResult {
+  const problem = validateRundown(night, perf.rundown);
+  if (problem) throw new Error(problem);
+
+  const byId = new Map(night.cards.map((c) => [c.id, c] as const));
+  const state = cloneState(start);
+  const lines: DawnLine[] = [];
+  const show = perf.rundown.map((id) => byId.get(id)!);
+  const signalAt = (i: number) => Math.max(0, Math.min(1, perf.signal[i] ?? 1));
+
+  show.forEach((card, i) => {
+    const segment = segmentOfSlot(i);
+    const signal = signalAt(i);
+    const scale = audienceScale(segment, signal);
+    const next = show[i + 1];
+
+    if (card.kind === 'record') {
+      const trust: Partial<Record<FactionId, number>> = {};
+      for (const f of card.loves) trust[f] = RULES.recordLoveTrust;
+      for (const f of card.dislikes ?? []) trust[f] = (trust[f] ?? 0) + RULES.recordDislikeTrust;
+      applyEffects(state, { morale: RULES.moodMorale[card.mood], trust }, scale);
+      return;
+    }
+
+    // Talk cards.
+    let fx: Effects = card.effects;
+    if (card.grim && next?.kind === 'record') {
+      // Breather: a record right after hard news lets people take it in.
+      fx = { ...fx, morale: Math.max(0, fx.morale ?? 0) };
+      lines.push({ text: `You followed "${card.title}" with music. People took the news, and then they breathed.`, tone: 'good' });
+    } else if (card.grim && next && isTalk(next) && next.grim) {
+      applyEffects(state, { morale: RULES.panicMorale }, scale);
+      lines.push({ text: `"${card.title}" and then "${next.title}", back to back. Some folks sat up all night with the lamps lit.`, tone: 'bad' });
+    }
+    applyEffects(state, fx, scale);
+
+    if (card.kind === 'ad' && next?.kind === 'ad') {
+      applyEffects(state, { listeners: RULES.adFatigueListeners }, scale);
+      lines.push({ text: 'Two ads in a row. Somewhere, a radio clicked off.', tone: 'bad' });
+    }
+
+    if (card.helps && next?.kind === 'record' && next.loves.includes(card.helps)) {
+      applyEffects(state, { trust: { [card.helps]: RULES.dedicationTrust } }, scale);
+      lines.push({ text: `"${next.title}" right after "${card.title}". The ${FACTION_NAMES[card.helps]} took it as a dedication.`, tone: 'good' });
+    }
+
+    if (card.reach) {
+      const passed = reachPasses(card.reach, segment, signal);
+      applyOutcome(state, passed ? card.reach.success : card.reach.fail, lines);
+    }
+  });
+
+  // Cards with a reach check that never aired.
+  const aired = new Set(perf.rundown);
+  for (const card of night.cards) {
+    if (!aired.has(card.id) && isTalk(card) && card.reach) {
+      applyOutcome(state, card.reach.unaired ?? card.reach.fail, lines);
+    }
+  }
+
+  // The caller.
+  const c = night.caller;
+  if (perf.caller === 'onair') {
+    const passed = reachPasses(c.onAir, segmentOfSlot(c.slot), signalAt(c.slot));
+    applyOutcome(state, passed ? c.onAir.success : c.onAir.fail, lines);
+  } else {
+    applyOutcome(state, perf.caller === 'declined' ? c.declined : c.missed, lines);
+  }
+
+  // Dead air and signal quality.
+  const dead = Math.max(0, perf.deadAirSeconds);
+  if (dead > 0) {
+    applyEffects(state, {
+      listeners: dead * RULES.deadAirListenersPerSec,
+      credibility: dead * RULES.deadAirCredibilityPerSec,
+    });
+    if (dead >= 3) lines.push({ text: `${Math.round(dead)} seconds of dead air. People shook their radios.`, tone: 'bad' });
+  }
+  const avgSignal = show.reduce((sum, _c, i) => sum + signalAt(i), 0) / show.length;
+  applyEffects(state, { listeners: (avgSignal - RULES.signalListenerPivot) * RULES.signalListenerScale });
+  if (avgSignal < 0.6) lines.push({ text: 'Half the town heard more static than show.', tone: 'bad' });
+  else if (avgSignal > 0.9) lines.push({ text: 'Clear signal all night. They heard you all the way to the Grange silos.', tone: 'good' });
+
+  // Lies come apart at dawn.
+  for (const card of show) {
+    if (card.kind === 'news' && card.truth === 'false' && card.unravel) {
+      applyEffects(state, { credibility: card.unravel.credibility });
+      lines.push({ text: card.unravel.line, tone: 'bad' });
+    }
+  }
+
+  clampState(state);
+
+  const otherId = pickOtherStationCard(night, perf.rundown);
+  const otherCard = otherId ? byId.get(otherId) : undefined;
+  const body = otherCard && isTalk(otherCard) ? otherCard.script : '';
+  const script = [night.otherStation.intro, night.otherStation.stamp, body, night.otherStation.outro]
+    .filter(Boolean)
+    .join(' ');
+
+  return { before: cloneState(start), after: state, lines, otherStation: { cardId: otherId, script } };
+}
