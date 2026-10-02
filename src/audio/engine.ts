@@ -29,6 +29,7 @@ class AudioEngine {
   private whistle!: OscillatorNode;
   private whistleGain!: GainNode;
   private crackleGain!: GainNode;
+  private rainGain!: GainNode;
   private noise!: AudioBuffer;
   private cache = new Map<string, Promise<{ buffer: AudioBuffer; real: boolean }>>();
   private duckGain!: GainNode;
@@ -106,6 +107,25 @@ class AudioEngine {
     this.crackleGain.gain.value = 0;
     crackle.connect(this.crackleGain).connect(this.program);
     crackle.start();
+
+    // Rain on the booth window, for storms. Room sound, so it skips the radio chain.
+    const rain = ctx.createBufferSource();
+    rain.buffer = this.noise;
+    rain.loop = true;
+    rain.playbackRate.value = 0.7;
+    const rainTone = ctx.createBiquadFilter();
+    rainTone.type = 'lowpass';
+    rainTone.frequency.value = 1600;
+    this.rainGain = ctx.createGain();
+    this.rainGain.gain.value = 0;
+    rain.connect(rainTone).connect(this.rainGain).connect(this.master);
+    rain.start();
+  }
+
+  /** Rain against the window (0 = dry). */
+  setRain(level: number): void {
+    if (!this.ctx) return;
+    this.rainGain.gain.setTargetAtTime(level * 0.09, this.ctx.currentTime, 0.8);
   }
 
   /** Program loudness 0..1, for the VU meters. */
@@ -227,7 +247,7 @@ class AudioEngine {
   }
 
   /** Short room sounds. */
-  sfx(name: 'click' | 'thunk' | 'needle' | 'tune' | 'pickup' | 'hangup'): void {
+  sfx(name: 'click' | 'thunk' | 'needle' | 'tune' | 'pickup' | 'hangup' | 'thunder'): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const t = ctx.currentTime;
@@ -260,6 +280,22 @@ class AudioEngine {
       case 'tune': noiseBurst(0.06, 1800, 0.15); break;
       case 'pickup': noiseBurst(0.12, 700, 0.6); break;
       case 'hangup': noiseBurst(0.1, 500, 0.7); break;
+      case 'thunder': {
+        // A low rumble that swells and rolls off.
+        const s = ctx.createBufferSource();
+        s.buffer = this.noise;
+        s.playbackRate.value = 0.35;
+        const f = ctx.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(260, t);
+        f.frequency.exponentialRampToValueAtTime(70, t + 3);
+        s.connect(f).connect(g);
+        g.gain.setValueAtTime(0.001, t);
+        g.gain.exponentialRampToValueAtTime(0.9, t + 0.15);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 3.2);
+        s.start(t, Math.random() * 1.5, 3.3);
+        break;
+      }
     }
   }
 

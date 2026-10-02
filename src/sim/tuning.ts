@@ -8,9 +8,11 @@ export interface TuningConfig {
   correctSpeed: number;
   /** Error below this still counts as perfectly tuned. */
   deadZone: number;
+  /** With no wind, the carrier eases back toward 1260 at this rate (per second). */
+  calmSettle: number;
 }
 
-export const TUNING: TuningConfig = { gustSpeed: 0.28, correctSpeed: 0.85, deadZone: 0.08 };
+export const TUNING: TuningConfig = { gustSpeed: 0.28, correctSpeed: 0.85, deadZone: 0.08, calmSettle: 0.5 };
 
 export class Tuning {
   error = 0;
@@ -39,6 +41,7 @@ export class Tuning {
     // Ease the drift toward the current gust.
     this.drift += (this.target - this.drift) * Math.min(1, dt * 1.5);
     this.error += (this.drift + Math.max(-1, Math.min(1, input)) * this.cfg.correctSpeed) * dt;
+    if (wind <= 0) this.error *= Math.exp(-this.cfg.calmSettle * dt);
     this.error = Math.max(-1, Math.min(1, this.error));
     return Tuning.quality(this.error, this.cfg.deadZone);
   }

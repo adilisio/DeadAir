@@ -178,6 +178,18 @@ export const NIGHT_1: NightDef = {
     },
   },
 
+  storm: {
+    slots: [3, 4],
+    held: {
+      line: 'A squall came off the lake after midnight. You rode the dial through it, and the Lamp never dropped.',
+      effects: { credibility: 3, listeners: 6 },
+    },
+    lost: {
+      line: 'The squall after midnight knocked the Lamp clean off twelve-sixty. Out on the docks they gave up and went to bed.',
+      effects: { listeners: -10 },
+    },
+  },
+
   otherStation: {
     prefer: ['news_wells', 'warn_ice', 'news_wiring', 'warn_dogs', 'news_infirmary'],
     intro: 'This is the Lamp. Twelve-sixty.',

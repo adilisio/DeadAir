@@ -24,6 +24,9 @@ export class LiveHud {
   private tpLit: Phaser.GameObjects.Text;
   private tpFull = '';
   private tuneGfx: Phaser.GameObjects.Graphics;
+  private tuneTitle: Phaser.GameObjects.Text;
+  private tuneGroup: Phaser.GameObjects.Container;
+  private tuneShown = false;
   private chipGfx: Phaser.GameObjects.Graphics;
   private chipText: Phaser.GameObjects.Text[] = [];
   private cueNext: Phaser.GameObjects.Text;
@@ -64,20 +67,37 @@ export class LiveHud {
     this.cueNext = add(label(scene, CUE.x + 8, CUE.y + 18, '', { size: 15, color: UI.text, wrap: CUE.w - 16 }));
     this.cueHint = add(label(scene, CUE.x + 8, CUE.y + 46, '', { size: 14, color: UI.dim }));
 
-    // Tuning gauge.
-    add(panel(scene, TUNE.x, TUNE.y, TUNE.w, TUNE.h));
-    add(label(scene, TUNE.x + 8, TUNE.y + 2, 'TRANSMITTER', { size: 14, color: UI.amber }));
-    add(label(scene, TUNE.x + TUNE.w - 8, TUNE.y + 2, 'hold A / D', { size: 14, color: UI.dim }).setOrigin(1, 0));
-    this.tuneGfx = add(scene.add.graphics());
+    // Tuning gauge: only shown while the transmitter needs a hand (storms).
+    const tune: Phaser.GameObjects.GameObject[] = [panel(scene, TUNE.x, TUNE.y, TUNE.w, TUNE.h)];
+    this.tuneTitle = label(scene, TUNE.x + 8, TUNE.y + 2, 'TRANSMITTER', { size: 14, color: UI.amber });
+    tune.push(this.tuneTitle, label(scene, TUNE.x + TUNE.w - 8, TUNE.y + 2, 'hold A / D', { size: 14, color: UI.dim }).setOrigin(1, 0));
+    this.tuneGfx = scene.add.graphics();
+    tune.push(this.tuneGfx);
     for (const [k, f] of [[0, '1250'], [0.5, '1260'], [1, '1270']] as const) {
-      add(label(scene, TUNE.x + 12 + k * (TUNE.w - 24), TUNE.y + 31, f, { size: 12, color: UI.dim }).setOrigin(0.5, 0));
+      tune.push(label(scene, TUNE.x + 12 + k * (TUNE.w - 24), TUNE.y + 31, f, { size: 12, color: UI.dim }).setOrigin(0.5, 0));
     }
-    const zone = add(scene.add.zone(TUNE.x + TUNE.w / 2, TUNE.y + TUNE.h / 2, TUNE.w, TUNE.h).setInteractive({ useHandCursor: true }));
+    const zone = scene.add.zone(TUNE.x + TUNE.w / 2, TUNE.y + TUNE.h / 2, TUNE.w, TUNE.h).setInteractive({ useHandCursor: true });
     zone.on('pointerdown', (p: Phaser.Input.Pointer) => (this.pointerTune = p.x < TUNE.x + TUNE.w / 2 ? -1 : 1));
     zone.on('pointerup', () => (this.pointerTune = 0));
     zone.on('pointerout', () => (this.pointerTune = 0));
+    tune.push(zone);
+    this.tuneGroup = add(scene.add.container(0, 0, tune).setAlpha(0).setVisible(false));
 
     this.root = uiLayer(scene.add.container(0, 0, parts).setDepth(100));
+  }
+
+  /** Show or hide the transmitter gauge; `storm` changes its title. */
+  setTransmitter(show: boolean, storm: boolean): void {
+    this.tuneTitle.setText(storm ? 'STORM - TRANSMITTER' : 'TRANSMITTER').setColor(storm ? UI.bad : UI.amber);
+    if (show === this.tuneShown) return;
+    this.tuneShown = show;
+    this.pointerTune = 0;
+    this.scene.tweens.killTweensOf(this.tuneGroup);
+    if (show) this.tuneGroup.setVisible(true);
+    this.scene.tweens.add({
+      targets: this.tuneGroup, alpha: show ? 1 : 0, duration: show ? 180 : 600,
+      onComplete: () => this.tuneGroup.setVisible(this.tuneShown),
+    });
   }
 
   setOnAir(on: boolean, text = on ? '[ ON AIR ]' : 'OFF AIR'): void {

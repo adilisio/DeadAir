@@ -107,11 +107,21 @@ export interface CallerDef {
   missed: Outcome;
 }
 
+/** A squall off the lake. The transmitter only drifts while one is blowing. */
+export interface StormDef {
+  /** Slots the storm covers (0-based). */
+  slots: number[];
+  /** Dawn report when the signal held through it, or didn't. */
+  held: { line: string; effects: Effects };
+  lost: { line: string; effects: Effects };
+}
+
 export interface NightDef {
   id: string;
   number: number;
   cards: Card[];
   caller: CallerDef;
+  storm?: StormDef;
   signOn: string;
   signOff: string;
   otherStation: {

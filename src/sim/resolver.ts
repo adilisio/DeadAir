@@ -19,6 +19,7 @@ import {
   type ShowPerformance,
   type TownState,
 } from './types';
+import { STORM_HELD, STORM_LOST, stormSignal } from './storm';
 
 /** Who listens when. `total` scales town-wide effects; `share` scales each faction's. */
 export const AUDIENCE: Record<SegmentId, { total: number; share: Record<FactionId, number> }> = {
@@ -222,8 +223,16 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   }
   const avgSignal = show.reduce((sum, _c, i) => sum + signalAt(i), 0) / show.length;
   applyEffects(state, { listeners: (avgSignal - RULES.signalListenerPivot) * RULES.signalListenerScale });
+  if (night.storm) {
+    const held = stormSignal(night.storm, show.map((_c, i) => signalAt(i)));
+    const report = held >= STORM_HELD ? night.storm.held : held < STORM_LOST ? night.storm.lost : null;
+    if (report) {
+      applyEffects(state, report.effects);
+      lines.push({ text: report.line, tone: report === night.storm.held ? 'good' : 'bad' });
+    }
+  }
   if (avgSignal < 0.6) lines.push({ text: 'Half the town heard more static than show.', tone: 'bad' });
-  else if (avgSignal > 0.9) lines.push({ text: 'Clear signal all night. They heard you all the way up in the Chapel bell tower.', tone: 'good' });
+  else if (avgSignal > 0.9 && !night.storm) lines.push({ text: 'Clear signal all night. They heard you all the way up in the Chapel bell tower.', tone: 'good' });
 
   // Lies come apart at dawn.
   for (const card of show) {

@@ -78,8 +78,10 @@ The show plays in real time.
 
 - **Records** play (real 78s, or synthesized stand-ins with a 78 sound).
 - **Talk** is read by the browser's voice with radio static under it, with a teleprompter.
-- **Keep the signal tuned.** The transmitter drifts; hold it on frequency. Static rises
-  as you drift. Your average signal multiplies your reach.
+- **Ride out the storm.** Most of the night the transmitter holds 1260 on its own. When a
+  squall comes off the lake (a night's `storm` slots), lightning knocks the carrier off and
+  the wind pushes it around; hold it on frequency. Static rises as you drift. Your signal
+  multiplies your reach, and the ledger reports whether the Lamp held through the storm.
 - **Cue the next item** before the air goes silent. Every second of dead air costs
   Listeners and Credibility.
 - **Callers.** The phone lights up. Put them on air or let it ring. Choices matter.

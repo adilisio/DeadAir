@@ -22,8 +22,8 @@ Open http://localhost:5173 in Chrome or Edge and click to sign on. Use headphone
 1. **Prep.** Pick six cards from the crate into three segments. Hover a card to read it and
    see who it's for; the bars next to each segment show who's listening then.
 2. **Live.** Your show plays: records, news, warnings, ads, all read on air.
-   - **Hold A / D** (or the arrow keys, or press on the TRANSMITTER gauge) to keep the
-     signal on 1260. Static means fewer people heard you.
+   - When a storm hits, **hold A / D** (or the arrow keys, or press on the TRANSMITTER
+     gauge) to keep the signal on 1260. Static means fewer people heard you.
    - **SPACE** cues the next item when the cue opens near the end of the current one.
      If nothing's cued when an item ends, that's dead air.
    - When the phone rings: **1** puts the caller on air, **2** lets it ring.

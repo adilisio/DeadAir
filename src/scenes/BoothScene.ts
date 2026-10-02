@@ -9,7 +9,8 @@ import { speak, type Speech } from '../audio/voice';
 import { rng } from '../audio/pressings';
 import { run } from '../run';
 import { resolveNight, segmentOfSlot } from '../sim/resolver';
-import { Tuning } from '../sim/tuning';
+import { TUNING, Tuning } from '../sim/tuning';
+import { CALM_WIND, windForSlot } from '../sim/storm';
 import { SHOW_SLOTS, type Card, type CallerDecision, type TalkCard } from '../sim/types';
 import { RundownBuilder, SEGMENT_LABEL } from '../ui/RundownBuilder';
 import { resolveRecord } from '../data/records';
@@ -22,7 +23,6 @@ const RECORD_SECONDS = DEBUG.fast ? 5 : 75;
 const RING_SECONDS = DEBUG.fast ? 2.5 : 14;
 const CUE_WINDOW = 8;
 const DEAD_AIR_GRACE = 1.2;
-const WIND = { dusk: 0.6, late: 1.0, small: 1.4 } as const;
 
 
 type Phase = 'prep' | 'live' | 'other' | 'done';
@@ -77,6 +77,10 @@ export class BoothScene extends Phaser.Scene {
   private scriptLen = 1;
   private showClock = 0;
   private recentQ = 1;
+  private storm = false;
+  private nextBolt = 0;
+  private rainGfx!: Phaser.GameObjects.Graphics;
+  private flash!: Phaser.GameObjects.Rectangle;
   private ui: <T extends Phaser.GameObjects.GameObject>(o: T) => T = (o) => o;
   private fade: (out: boolean, ms: number, done?: () => void) => void = () => {};
 
@@ -108,6 +112,8 @@ export class BoothScene extends Phaser.Scene {
     this.speaking = false;
     this.showClock = 19 * 60 + 40;
     this.recentQ = 1;
+    this.storm = false;
+    this.nextBolt = 0;
   }
 
   create(): void {
@@ -163,6 +169,7 @@ export class BoothScene extends Phaser.Scene {
     for (const [x, y] of BOOTH.townLights) this.townGlows.push(glow(this, x * S, y * S, 9, hex(P.lamp), 0));
     glow(this, BOOTH.breakwaterLight.x * S, BOOTH.breakwaterLight.y * S, 10, hex(P.red), 0.8);
     this.beamGfx = this.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
+    this.rainGfx = this.add.graphics();
 
     // Platter.
     this.add.image(BOOTH.record.x * S, BOOTH.record.y * S, 'record').setScale(S);
@@ -189,6 +196,9 @@ export class BoothScene extends Phaser.Scene {
     this.onAirSign = this.add.container(0, 0, [signLit, signGlow]).setAlpha(0);
 
     this.phoneGlow = glow(this, BOOTH.phoneLamp.x * S, BOOTH.phoneLamp.y * S, 30, hex(P.red), 0);
+
+    // Lightning lights the whole room for an instant.
+    this.flash = this.add.rectangle(0, 0, W, 360, 0xdde8ff, 1).setOrigin(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(40).setAlpha(0);
 
     // A sick green wash for the Other Station.
     this.ghostTint = this.add.rectangle(0, 0, W, 360, 0x7dff9a, 1).setOrigin(0).setBlendMode(Phaser.BlendModes.MULTIPLY).setDepth(50).setAlpha(0);
@@ -428,8 +438,54 @@ export class BoothScene extends Phaser.Scene {
     if (DEBUG.auto) this.time.delayedCall(DEBUG.fast ? 900 : 2500, () => decide('onair'));
   }
 
+  // ───────────────────────────── Storm ─────────────────────────────
+
+  private setStorm(on: boolean): void {
+    this.storm = on;
+    audio.setRain(on ? 1 : 0);
+    if (on) {
+      markPhase('storm');
+      // The first strike knocks the carrier off frequency.
+      this.bolt(Math.random() < 0.5 ? -0.4 : 0.4);
+    } else this.rainGfx.clear();
+  }
+
+  private stormTick(): void {
+    if (this.time.now >= this.nextBolt) this.bolt((Math.random() * 2 - 1) * 0.25);
+    // Rain streaks on the window glass.
+    const w = BOOTH.window;
+    const g = this.rainGfx;
+    g.clear();
+    g.lineStyle(1, 0x9fb4d6, 0.35);
+    for (let k = 0; k < 46; k++) {
+      const seed = k * 7919;
+      const x = w.x + (seed % w.w);
+      const y = w.y + ((this.time.now / (3 + (k % 4)) + seed) % w.h);
+      g.lineBetween(x * S, y * S, (x - 1.5) * S, Math.min(w.y + w.h, y + 5) * S);
+    }
+  }
+
+  /** A lightning strike: flash, a kick to the dial, thunder a moment later. */
+  private bolt(kick: number): void {
+    this.nextBolt = this.time.now + 5000 + Math.random() * 6000;
+    this.tuning.error = Math.max(-1, Math.min(1, this.tuning.error + kick));
+    this.tweens.killTweensOf(this.flash);
+    this.flash.setAlpha(0);
+    this.tweens.chain({
+      targets: this.flash,
+      tweens: [
+        { alpha: 0.45, duration: 40 },
+        { alpha: 0.05, duration: 90 },
+        { alpha: 0.3, duration: 40 },
+        { alpha: 0, duration: 500, ease: 'Quad.easeOut' },
+      ],
+    });
+    this.time.delayedCall(250 + Math.random() * 900, () => audio.sfx('thunder'));
+  }
+
   private endShow(): void {
     if (this.phase !== 'live') return;
+    if (this.storm) this.setStorm(false);
     this.phase = 'other';
     this.hud?.setOnAir(false, 'OFF AIR');
     this.hud?.setCue('hidden', '');
@@ -487,12 +543,16 @@ export class BoothScene extends Phaser.Scene {
 
     if (this.phase === 'live') {
       const seg = segmentOfSlot(Math.max(0, Math.min(SHOW_SLOTS - 1, this.idx)));
+      const wind = this.idx >= 0 && this.idx < SHOW_SLOTS ? windForSlot(run.night, this.idx) : CALM_WIND;
+      if ((wind > CALM_WIND) !== this.storm) this.setStorm(wind > CALM_WIND);
+      if (this.storm) this.stormTick();
       let input = 0;
       if (this.keys.left.isDown || this.keys.a.isDown) input -= 1;
       if (this.keys.right.isDown || this.keys.d.isDown) input += 1;
       if (this.hud?.pointerTune) input = this.hud.pointerTune;
       if (DEBUG.auto) input = Math.max(-1, Math.min(1, -this.tuning.error * 12));
-      this.quality = this.tuning.step(dt, input, WIND[seg]);
+      this.quality = this.tuning.step(dt, input, wind);
+      this.hud?.setTransmitter(this.storm || Math.abs(this.tuning.error) > TUNING.deadZone * 1.5, this.storm);
       audio.setTuning(this.tuning.error);
       this.recentQ += (this.quality - this.recentQ) * Math.min(1, dt * 0.8);
       if (this.signalSlot !== null && this.signalSlot < SHOW_SLOTS) {
