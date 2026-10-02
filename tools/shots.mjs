@@ -1,7 +1,7 @@
 // Screenshot and smoke-run tool.
 //
 //   npm run shots            -> every shot below, PNGs in shots/
-//   npm run shots -- booth   -> only shots whose name contains "booth"
+//   npm run shots -- booth   -> only shots whose name matches the regex "booth"
 //
 // Starts a Vite dev server, drives the game in headless Chromium, and fails
 // (exit code 1) if the page logs any error. The game exposes window.__deadair
@@ -24,7 +24,9 @@ const SHOTS = [
   { name: '04-booth-live', query: '?mute&scene=booth&auto&fast', phase: 'live', settle: 2500 },
   { name: '05-booth-caller', query: '?mute&scene=booth&auto&fast', phase: 'caller', settle: 600 },
   { name: '06-other-station', query: '?mute&scene=booth&auto&fast', phase: 'other-station', settle: 2500, timeout: 180000 },
-  { name: '07-dawn', query: '?mute&scene=booth&auto&fast', phase: 'dawn', settle: 2500, timeout: 240000 },
+  { name: '07-dawn-numbers', query: '?mute&scene=booth&auto&fast', phase: 'dawn', settle: 2200, timeout: 240000 },
+  { name: '08-dawn-stories', query: '?mute&scene=dawn&auto', phase: 'dawn-page-1', settle: 3600 },
+  { name: '09-dawn-letter', query: '?mute&scene=dawn&auto', phase: 'dawn-letter', settle: 1200, timeout: 90000 },
 ];
 
 const server = await createServer({ server: { port: 5199, strictPort: false }, logLevel: 'error' });
@@ -39,7 +41,7 @@ const browser = await chromium.launch({
 mkdirSync('shots', { recursive: true });
 let failures = 0;
 
-for (const shot of SHOTS.filter((s) => s.name.includes(filter))) {
+for (const shot of SHOTS.filter((s) => new RegExp(filter).test(s.name))) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errors = [];
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));

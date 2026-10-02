@@ -1,0 +1,197 @@
+// The on-air HUD: teleprompter, tuning gauge, cue box, phone, running order chips.
+// Laid out to keep the ON AIR sign, tubes, dial, phone and turntable in view.
+import Phaser from 'phaser';
+import { UI } from '../art/palette';
+import type { Card } from '../sim/types';
+import { KIND_TAG } from './RundownBuilder';
+import { bar, button, label, panel, type Button } from './widgets';
+
+export type CueState = 'hidden' | 'waiting' | 'open' | 'cued' | 'dead';
+
+const TP = { x: 12, y: 290, w: 446, h: 64 };
+const CUE = { x: 464, y: 290, w: 164, h: 64 };
+const TUNE = { x: 232, y: 236, w: 220, h: 50 };
+const CALL = { x: 12, y: 214, w: 214, h: 72 };
+const CHIPS = { x: 14, y: 52, w: 42, h: 15 };
+
+export class LiveHud {
+  readonly root: Phaser.GameObjects.Container;
+  private onAirText: Phaser.GameObjects.Text;
+  private clockText: Phaser.GameObjects.Text;
+  private deadText: Phaser.GameObjects.Text;
+  private tpHeader: Phaser.GameObjects.Text;
+  private tpDim: Phaser.GameObjects.Text;
+  private tpLit: Phaser.GameObjects.Text;
+  private tpFull = '';
+  private tuneGfx: Phaser.GameObjects.Graphics;
+  private chipGfx: Phaser.GameObjects.Graphics;
+  private chipText: Phaser.GameObjects.Text[] = [];
+  private cueNext: Phaser.GameObjects.Text;
+  private cueHint: Phaser.GameObjects.Text;
+  private cueGfx: Phaser.GameObjects.Graphics;
+  private caller: Phaser.GameObjects.Container | null = null;
+  /** Pointer held on the tuning gauge: -1 left half, 1 right half. */
+  pointerTune = 0;
+
+  constructor(
+    private scene: Phaser.Scene,
+    private cards: Card[],
+    private uiLayer: <T extends Phaser.GameObjects.GameObject>(o: T) => T = (o) => o,
+  ) {
+    const parts: Phaser.GameObjects.GameObject[] = [];
+    const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => (parts.push(o), o);
+
+    this.onAirText = add(label(scene, 14, 4, 'STANDBY', { size: 26, color: UI.dim }));
+    this.clockText = add(label(scene, 14, 30, '', { size: 16, color: UI.text }));
+    this.deadText = add(label(scene, 200, 30, '', { size: 16, color: UI.bad }));
+
+    // Running order chips.
+    this.chipGfx = add(scene.add.graphics());
+    cards.forEach((c, i) => {
+      this.chipText.push(add(label(scene, CHIPS.x + i * (CHIPS.w + 3) + CHIPS.w / 2, CHIPS.y + 1, KIND_TAG[c.kind].tag, { size: 13, color: KIND_TAG[c.kind].color, align: 'center' }).setOrigin(0.5, 0)));
+    });
+
+    // Teleprompter.
+    add(panel(scene, TP.x, TP.y, TP.w, TP.h));
+    this.tpHeader = add(label(scene, TP.x + 8, TP.y + 2, '', { size: 14, color: UI.amber }));
+    this.tpDim = add(label(scene, TP.x + 8, TP.y + 17, '', { size: 14, color: '#8a7e6a', wrap: TP.w - 16 }));
+    this.tpLit = add(label(scene, TP.x + 8, TP.y + 17, '', { size: 14, color: UI.text, wrap: TP.w - 16 }));
+
+    // Cue box.
+    add(panel(scene, CUE.x, CUE.y, CUE.w, CUE.h));
+    this.cueGfx = add(scene.add.graphics());
+    add(label(scene, CUE.x + 8, CUE.y + 2, 'UP NEXT', { size: 14, color: UI.amber }));
+    this.cueNext = add(label(scene, CUE.x + 8, CUE.y + 18, '', { size: 15, color: UI.text, wrap: CUE.w - 16 }));
+    this.cueHint = add(label(scene, CUE.x + 8, CUE.y + 46, '', { size: 14, color: UI.dim }));
+
+    // Tuning gauge.
+    add(panel(scene, TUNE.x, TUNE.y, TUNE.w, TUNE.h));
+    add(label(scene, TUNE.x + 8, TUNE.y + 2, 'TRANSMITTER', { size: 14, color: UI.amber }));
+    add(label(scene, TUNE.x + TUNE.w - 8, TUNE.y + 2, 'hold A / D', { size: 14, color: UI.dim }).setOrigin(1, 0));
+    this.tuneGfx = add(scene.add.graphics());
+    for (const [k, f] of [[0, '1250'], [0.5, '1260'], [1, '1270']] as const) {
+      add(label(scene, TUNE.x + 12 + k * (TUNE.w - 24), TUNE.y + 31, f, { size: 12, color: UI.dim }).setOrigin(0.5, 0));
+    }
+    const zone = add(scene.add.zone(TUNE.x + TUNE.w / 2, TUNE.y + TUNE.h / 2, TUNE.w, TUNE.h).setInteractive({ useHandCursor: true }));
+    zone.on('pointerdown', (p: Phaser.Input.Pointer) => (this.pointerTune = p.x < TUNE.x + TUNE.w / 2 ? -1 : 1));
+    zone.on('pointerup', () => (this.pointerTune = 0));
+    zone.on('pointerout', () => (this.pointerTune = 0));
+
+    this.root = uiLayer(scene.add.container(0, 0, parts).setDepth(100));
+  }
+
+  setOnAir(on: boolean, text = on ? '[ ON AIR ]' : 'OFF AIR'): void {
+    this.onAirText.setText(text).setColor(on ? UI.bad : UI.dim);
+  }
+
+  setClock(text: string, deadAir = 0): void {
+    this.clockText.setText(text);
+    this.deadText.setX(this.clockText.x + this.clockText.width + 14);
+    this.deadText.setText(deadAir > 0.05 ? `dead air ${deadAir.toFixed(1)}s` : '');
+  }
+
+  setOrder(current: number, done: number): void {
+    const g = this.chipGfx;
+    g.clear();
+    this.cards.forEach((_c, i) => {
+      const x = CHIPS.x + i * (CHIPS.w + 3);
+      const isCur = i === current;
+      g.fillStyle(0x0a0b12, i < done && !isCur ? 0.5 : 0.85);
+      g.fillRect(x, CHIPS.y, CHIPS.w, CHIPS.h);
+      g.lineStyle(1, isCur ? 0xffe08a : 0xffb347, isCur ? 1 : 0.3);
+      g.strokeRect(x + 0.5, CHIPS.y + 0.5, CHIPS.w - 1, CHIPS.h - 1);
+      this.chipText[i].setAlpha(i < done && !isCur ? 0.35 : 1);
+    });
+  }
+
+  /** Show a script on the teleprompter; shrinks the type until it fits. */
+  setTeleprompter(header: string, text: string, color: string = UI.text): void {
+    this.tpHeader.setText(header);
+    this.tpFull = text;
+    for (const size of [14, 13, 12, 11]) {
+      this.tpDim.setFontSize(size).setText(text);
+      this.tpLit.setFontSize(size);
+      if (this.tpDim.height <= TP.h - 19) break;
+    }
+    this.tpLit.setText('').setColor(color);
+  }
+
+  setSpoken(chars: number): void {
+    if (!this.tpFull) return;
+    let end = Math.min(this.tpFull.length, Math.max(0, Math.round(chars)));
+    while (end < this.tpFull.length && /\S/.test(this.tpFull[end])) end++;
+    this.tpLit.setText(this.tpFull.slice(0, end));
+  }
+
+  drawTuning(error: number, quality: number, live: boolean): void {
+    const g = this.tuneGfx;
+    g.clear();
+    const x0 = TUNE.x + 12, w = TUNE.w - 24, y = TUNE.y + 18;
+    g.fillStyle(0x000000, 0.6);
+    g.fillRect(x0, y, w, 12);
+    g.fillStyle(0x9be37a, 0.28);
+    g.fillRect(x0 + w / 2 - w * 0.04, y, w * 0.08, 12);
+    for (let k = 0; k <= 20; k++) {
+      g.fillStyle(0xffb347, k % 5 === 0 ? 0.9 : 0.4);
+      g.fillRect(x0 + (k / 20) * w, y + (k % 5 === 0 ? 0 : 7), 1, k % 5 === 0 ? 12 : 5);
+    }
+    const nx = x0 + w / 2 + error * (w / 2);
+    g.fillStyle(live ? 0xff5040 : 0x777777, 1);
+    g.fillRect(Math.round(nx) - 1, y - 3, 2, 18);
+    const qColor = quality > 0.8 ? 0x9be37a : quality > 0.5 ? 0xffb347 : 0xff7a6b;
+    bar(g, x0, TUNE.y + 44, w, 3, quality, qColor);
+  }
+
+  setCue(state: CueState, nextTitle: string, deadSeconds = 0): void {
+    const g = this.cueGfx;
+    g.clear();
+    if (state === 'hidden') {
+      this.cueNext.setText('');
+      this.cueHint.setText('');
+      return;
+    }
+    const hint = {
+      waiting: 'cue opens near the end',
+      open: 'SPACE to cue it',
+      cued: 'cued - rolls next',
+      dead: `DEAD AIR ${deadSeconds.toFixed(1)}s - SPACE!`,
+    }[state];
+    const color = { waiting: UI.dim, open: UI.hot, cued: UI.good, dead: UI.bad }[state];
+    this.cueNext.setText(nextTitle);
+    this.cueHint.setText(hint).setColor(color);
+    const pulse = state === 'dead' || state === 'open' ? 0.55 + 0.45 * Math.abs(Math.sin(this.scene.time.now / 160)) : 1;
+    this.cueHint.setAlpha(pulse);
+    if (state !== 'waiting') {
+      g.lineStyle(1, Phaser.Display.Color.HexStringToColor(color).color, 0.9 * pulse);
+      g.strokeRect(CUE.x + 2.5, CUE.y + 2.5, CUE.w - 5, CUE.h - 5);
+    }
+  }
+
+  showCaller(prompt: string, onAir: () => void, letRing: () => void): void {
+    this.hideCaller();
+    const s = this.scene;
+    const { x, y, w, h } = CALL;
+    const parts: Phaser.GameObjects.GameObject[] = [panel(s, x, y, w, h, { edge: 0xff7a6b, alpha: 0.92 })];
+    parts.push(label(s, x + 8, y + 2, 'THE PHONE IS RINGING', { size: 16, color: UI.bad }));
+    parts.push(label(s, x + 8, y + 18, prompt, { size: 14, wrap: w - 16 }));
+    const a: Button = button(s, x + 6, y + h - 22, 98, 17, 'ON AIR [1]', onAir, { size: 14, color: 0x9be37a });
+    const b: Button = button(s, x + w - 104, y + h - 22, 98, 17, 'LET RING [2]', letRing, { size: 14, color: 0xff7a6b });
+    parts.push(a.container, b.container);
+    this.caller = this.uiLayer(s.add.container(0, 0, parts).setDepth(120));
+    s.tweens.add({ targets: this.caller, x: { from: -6, to: 0 }, duration: 60, yoyo: true, repeat: 3 });
+  }
+
+  hideCaller(): void {
+    this.caller?.destroy(true);
+    this.caller = null;
+  }
+
+  destroy(): void {
+    this.hideCaller();
+    this.root.destroy(true);
+  }
+}
+
+export function kindHeader(card: Card): string {
+  return KIND_TAG[card.kind].tag;
+}

@@ -12,6 +12,8 @@ export const DEBUG = {
   auto: params.has('auto'),
   /** Mutes all audio output (screenshots, CI). */
   mute: params.has('mute'),
+  /** Skip bloom, CRT curve and vignette (slow GPUs, debugging). */
+  nofx: params.has('nofx'),
   /** Jump straight to a scene: title | booth | dawn. */
   scene: params.get('scene') ?? '',
 };

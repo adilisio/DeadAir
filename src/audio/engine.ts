@@ -30,6 +30,8 @@ class AudioEngine {
   private noise!: AudioBuffer;
   private cache = new Map<string, Promise<AudioBuffer>>();
   private duckGain!: GainNode;
+  private analyser!: AnalyserNode;
+  private levelBuf = new Float32Array(new ArrayBuffer(1024 * 4));
 
   /** Must be called from a user gesture (click / key) the first time. */
   unlock(): void {
@@ -60,6 +62,9 @@ class AudioEngine {
     comp.threshold.value = -20;
     comp.ratio.value = 4;
     this.program.connect(this.duckGain).connect(hp).connect(this.programTone).connect(drive).connect(comp).connect(this.master);
+    this.analyser = ctx.createAnalyser();
+    this.analyser.fftSize = 1024;
+    comp.connect(this.analyser);
 
     // Static bed.
     this.noise = makeNoise(ctx, 3);
@@ -99,6 +104,15 @@ class AudioEngine {
     this.crackleGain.gain.value = 0;
     crackle.connect(this.crackleGain).connect(this.program);
     crackle.start();
+  }
+
+  /** Program loudness 0..1, for the VU meters. */
+  level(): number {
+    if (!this.ctx) return 0;
+    this.analyser.getFloatTimeDomainData(this.levelBuf);
+    let sum = 0;
+    for (let i = 0; i < this.levelBuf.length; i++) sum += this.levelBuf[i] * this.levelBuf[i];
+    return Math.min(1, Math.sqrt(sum / this.levelBuf.length) * 4);
   }
 
   get ready(): boolean {
