@@ -30,7 +30,10 @@ Open http://localhost:5173 in Chrome or Edge and click to sign on. Use headphone
      Land it on the green lead-in groove. Early scratches on air; late loses the intro.
    - If a tube blows, the music dies: **Q / W / E** seats the spare that matches the dead
      socket. A wrong one is a dud and costs a second.
-   - When the phone rings: **1** puts the caller on air, **2** lets it ring.
+   - When the switchboard lights up: **1 / 2 / 3** listens in on a line off air; press it
+     again (or **ENTER**) to put them on. **X** dumps a caller who says something that
+     mustn't go out. The station runs a few seconds behind the phone, so a quick dump
+     keeps it off the air. **SPACE** goes back to the show.
 3. **Sign-off.** Then leave the set on for a minute.
 4. **Dawn.** The town's paper tells you what your show did.
 

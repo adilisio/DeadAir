@@ -21,6 +21,7 @@ import {
 } from './types';
 import { STORM_HELD, STORM_LOST, stormSignal } from './storm';
 import { TUBE } from './tube';
+import { callResult, isReachCheck } from './calls';
 
 /** Who listens when. `total` scales town-wide effects; `share` scales each faction's. */
 export const AUDIENCE: Record<SegmentId, { total: number; share: Record<FactionId, number> }> = {
@@ -216,13 +217,19 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     }
   }
 
-  // The caller.
-  const c = night.caller;
-  if (perf.caller === 'onair') {
-    const passed = reachPasses(c.onAir, segmentOfSlot(c.slot), signalAt(c.slot));
-    applyOutcome(state, passed ? c.onAir.success : c.onAir.fail, lines);
-  } else {
-    applyOutcome(state, perf.caller === 'declined' ? c.declined : c.missed, lines);
+  // The switchboard.
+  const board = night.switchboard;
+  for (const line of board.lines) {
+    const result = callResult(line, perf.calls.find((c) => c.line === line.id));
+    let outcome: Outcome | undefined;
+    if (result === 'aired' || result === 'late') {
+      outcome = isReachCheck(line.aired)
+        ? reachPasses(line.aired, segmentOfSlot(board.slot), signalAt(board.slot)) ? line.aired.success : line.aired.fail
+        : line.aired;
+    } else if (result === 'caught') outcome = line.turn?.caught;
+    else if (result === 'cut') outcome = line.cut ?? line.notTaken;
+    else outcome = line.notTaken;
+    if (outcome) applyOutcome(state, outcome, lines);
   }
 
   // The needle.

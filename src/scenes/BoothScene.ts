@@ -15,7 +15,9 @@ import { NEEDLE, armPosition, lateSkip, needleResult, sweepFor } from '../sim/ne
 import { NeedlePanel } from '../ui/NeedlePanel';
 import { TubeFault } from '../sim/tube';
 import { TubePanel } from '../ui/TubePanel';
-import { SHOW_SLOTS, type Card, type CallerDecision, type NeedleResult, type RecordCard, type TalkCard } from '../sim/types';
+import { turnIndex } from '../sim/calls';
+import { SwitchboardPanel, type LineState } from '../ui/Switchboard';
+import { SHOW_SLOTS, type CallRecord, type Card, type NeedleResult, type RecordCard, type TalkCard } from '../sim/types';
 import { RundownBuilder, SEGMENT_LABEL } from '../ui/RundownBuilder';
 import { resolveRecord } from '../data/records';
 import { NIGHT_1_AUTO_RUNDOWN } from '../data/night1';
@@ -24,7 +26,7 @@ import { LiveHud, kindHeader } from '../ui/LiveHud';
 const S = ART_SCALE;
 /** Records play up to this long, then fade (a 78 side runs about three minutes). */
 const RECORD_SECONDS = DEBUG.fast ? 5 : 75;
-const RING_SECONDS = DEBUG.fast ? 2.5 : 14;
+const RING_SECONDS = DEBUG.fast ? 2.5 : 18;
 const CUE_WINDOW = 8;
 const DEAD_AIR_GRACE = 1.2;
 
@@ -57,7 +59,7 @@ export class BoothScene extends Phaser.Scene {
 
   // Show state.
   private cards: Card[] = [];
-  private keys!: Record<'left' | 'right' | 'a' | 'd' | 'space' | 'one' | 'two' | 'q' | 'w' | 'e', Phaser.Input.Keyboard.Key>;
+  private keys!: Record<'left' | 'right' | 'a' | 'd' | 'space' | 'q' | 'w' | 'e', Phaser.Input.Keyboard.Key>;
   private tuning = new Tuning(rng(1260));
   private quality = 1;
   private idx = -1; // -1 sign-on, 0..5 items, SHOW_SLOTS sign-off
@@ -70,8 +72,20 @@ export class BoothScene extends Phaser.Scene {
   private sigSum: number[] = [];
   private sigTime: number[] = [];
   private signalSlot: number | null = null;
-  private callerState: 'pending' | 'ringing' | 'done' = 'pending';
-  private callerDecision: CallerDecision = 'missed';
+  private board: {
+    slot: number;
+    states: LineState[];
+    selected: number | null;
+    onAir: number | null;
+    /** Seconds before the lines still ringing give up (paused while someone's on air). */
+    left: number;
+    opened: number;
+    dumpedAt: number | undefined;
+    autoT: number;
+  } | null = null;
+  private boardUsed = false;
+  private boardPanel: SwitchboardPanel | null = null;
+  private calls: CallRecord[] = [];
   private stopRing: (() => void) | null = null;
   private record: RecordHandle | null = null;
   private speech: Speech | null = null;
@@ -116,8 +130,10 @@ export class BoothScene extends Phaser.Scene {
     this.sigSum = Array(SHOW_SLOTS).fill(0);
     this.sigTime = Array(SHOW_SLOTS).fill(0);
     this.signalSlot = null;
-    this.callerState = 'pending';
-    this.callerDecision = 'missed';
+    this.board = null;
+    this.boardUsed = false;
+    this.boardPanel = null;
+    this.calls = [];
     this.record = null;
     this.speech = null;
     this.speaking = false;
@@ -146,11 +162,14 @@ export class BoothScene extends Phaser.Scene {
     const K = Phaser.Input.Keyboard.KeyCodes;
     this.keys = {
       left: kb.addKey(K.LEFT), right: kb.addKey(K.RIGHT), a: kb.addKey(K.A), d: kb.addKey(K.D),
-      space: kb.addKey(K.SPACE), one: kb.addKey(K.ONE), two: kb.addKey(K.TWO),
+      space: kb.addKey(K.SPACE),
       q: kb.addKey(K.Q), w: kb.addKey(K.W), e: kb.addKey(K.E),
     };
     this.keys.space.on('down', () => this.pressCue());
     (['q', 'w', 'e'] as const).forEach((k, i) => this.keys[k].on('down', () => this.pickTube(i)));
+    [K.ONE, K.TWO, K.THREE].forEach((code, i) => kb.addKey(code).on('down', () => this.selectLine(i)));
+    kb.addKey(K.ENTER).on('down', () => this.putOnAir());
+    kb.addKey(K.X).on('down', () => this.dumpCall());
 
     this.builder = new RundownBuilder(this, run.night, run.town, (ids) => this.startShow(ids), (ids) => {
       // Render records in the background as soon as they're picked.
@@ -293,7 +312,8 @@ export class BoothScene extends Phaser.Scene {
     this.sweepLight.intensity = 0.9 * Math.max(0, Math.sin(this.sweepT * Math.PI));
 
     // Ringing phone lamp.
-    const on = this.callerState === 'ringing' && Math.floor(this.time.now / 250) % 2 === 0;
+    const ringing = !!this.board && this.board.onAir === null && this.board.states.includes('ringing');
+    const on = ringing && Math.floor(this.time.now / 250) % 2 === 0;
     this.phoneLight.intensity = on ? 2.4 : 0;
     this.phoneGlow.setAlpha(on ? 0.9 : 0);
 
@@ -323,7 +343,7 @@ export class BoothScene extends Phaser.Scene {
   }
 
   /** Speak a script on air, lighting the teleprompter as it goes. */
-  private talk(i: number, header: string, script: string, opts: { pitch?: number; rate?: number; color?: string } = {}): Speech {
+  private talk(i: number, header: string, script: string, opts: { pitch?: number; rate?: number; color?: string; reveal?: boolean } = {}): Speech {
     this.idx = i;
     this.playing = true;
     this.speaking = true;
@@ -331,7 +351,7 @@ export class BoothScene extends Phaser.Scene {
     this.wordEvents = false;
     this.scriptLen = script.length;
     this.itemStart = this.time.now;
-    this.hud?.setTeleprompter(header, script, opts.color);
+    this.hud?.setTeleprompter(header, script, opts.color, opts.reveal);
     audio.duck(true);
     const sp = speak(script, {
       pitch: opts.pitch,
@@ -361,8 +381,8 @@ export class BoothScene extends Phaser.Scene {
       this.talk(SHOW_SLOTS, 'SIGN-OFF', run.night.signOff).done.then(() => this.endItem());
       return;
     }
-    if (i === run.night.caller.slot && this.callerState === 'pending') {
-      this.ring(i);
+    if (i === run.night.switchboard.slot && !this.boardUsed) {
+      this.openBoard(i);
       return;
     }
     this.idx = i;
@@ -456,7 +476,12 @@ export class BoothScene extends Phaser.Scene {
   }
 
   private pressCue(): void {
-    if (this.phase !== 'live' || this.callerState === 'ringing') return;
+    if (this.phase !== 'live') return;
+    if (this.board) {
+      // SPACE leaves the switchboard, but not in the first second (no accidental hang-ups).
+      if (this.time.now - this.board.opened > 1000) this.closeBoard();
+      return;
+    }
     if (this.needle) {
       this.dropNeedle();
       return;
@@ -476,36 +501,131 @@ export class BoothScene extends Phaser.Scene {
     return n >= SHOW_SLOTS ? 'sign-off' : this.cards[n].title;
   }
 
-  private ring(slot: number): void {
-    this.callerState = 'ringing';
+  // ─────────────────────────── Switchboard ───────────────────────────
+
+  private openBoard(slot: number): void {
+    const lines = run.night.switchboard.lines;
+    this.boardUsed = true;
     this.idx = slot - 1; // still between items
+    this.board = { slot, states: lines.map(() => 'ringing'), selected: null, onAir: null, left: RING_SECONDS, opened: this.time.now, dumpedAt: undefined, autoT: 0.5 };
+    this.boardPanel = new SwitchboardPanel(this, lines, {
+      select: (i) => this.selectLine(i),
+      onAir: () => this.putOnAir(),
+      dump: () => this.dumpCall(),
+      back: () => this.closeBoard(),
+    }, this.ui);
     this.stopRing = audio.ring();
-    markPhase('caller');
-    const c = run.night.caller;
-    const decide = (d: CallerDecision) => {
-      if (this.callerState !== 'ringing') return;
-      this.callerState = 'done';
-      this.callerDecision = d;
-      this.stopRing?.();
-      this.hud?.hideCaller();
-      if (d === 'onair') {
-        audio.sfx('pickup');
-        this.signalSlot = slot;
-        audio.setStatic(0.25);
-        this.talk(slot - 1, `LINE ONE · ${c.name.toUpperCase()}`, c.script, { pitch: 1.35, rate: 1.05, color: '#c9e7ff' }).done.then(() => {
-          audio.sfx('hangup');
-          this.beginItem(slot);
-        });
-      } else {
-        if (d === 'declined') audio.sfx('hangup');
-        this.beginItem(slot);
+    this.hud?.setTeleprompter('', '');
+    markPhase('switchboard');
+  }
+
+  /** First press listens in off air; pressing the same line again puts it on. */
+  private selectLine(i: number): void {
+    const b = this.board;
+    if (!b || b.onAir !== null || (b.states[i] !== 'ringing' && b.states[i] !== 'listening')) return;
+    if (b.selected === i) {
+      this.putOnAir();
+      return;
+    }
+    if (b.selected !== null && b.states[b.selected] === 'listening') b.states[b.selected] = 'ringing';
+    b.states[i] = 'listening';
+    b.selected = i;
+    audio.sfx('click');
+  }
+
+  private putOnAir(): void {
+    const b = this.board;
+    if (!b || b.onAir !== null || b.selected === null) return;
+    const i = b.selected;
+    const line = run.night.switchboard.lines[i];
+    b.onAir = i;
+    b.states[i] = 'onair';
+    b.dumpedAt = undefined;
+    this.stopRing?.();
+    this.stopRing = null;
+    audio.sfx('pickup');
+    this.signalSlot = b.slot;
+    markPhase('call');
+    const header = `LINE ${['ONE', 'TWO', 'THREE'][i]} · ${line.name.toUpperCase()}`;
+    this.talk(b.slot - 1, header, line.script, { pitch: line.voice?.pitch ?? 1.2, rate: line.voice?.rate ?? 1.05, color: '#c9e7ff', reveal: true })
+      .done.then(() => this.callEnded(i));
+  }
+
+  private dumpCall(): void {
+    const b = this.board;
+    if (!b || b.onAir === null || b.dumpedAt !== undefined) return;
+    b.dumpedAt = this.spokenNow();
+    audio.sfx('dump');
+    markPhase('dump');
+    this.speech?.cancel();
+  }
+
+  private callEnded(i: number): void {
+    const b = this.board;
+    if (!b || b.onAir !== i) return;
+    const line = run.night.switchboard.lines[i];
+    this.calls.push(b.dumpedAt === undefined ? { line: line.id } : { line: line.id, dumpedAt: b.dumpedAt });
+    b.states[i] = 'done';
+    b.onAir = null;
+    b.selected = null;
+    this.playing = false;
+    this.speaking = false;
+    audio.duck(false);
+    if (b.dumpedAt === undefined) audio.sfx('hangup');
+    if (b.dumpedAt !== undefined) this.hud?.setTeleprompter('DUMPED', `${line.script.slice(0, Math.round(b.dumpedAt))} --`, UI.dim);
+    if (b.states.some((s) => s === 'ringing') && b.left > 0) this.stopRing = audio.ring();
+    else this.closeBoard();
+  }
+
+  /** Back to the show; anyone still ringing hangs up. */
+  private closeBoard(): void {
+    const b = this.board;
+    if (!b || b.onAir !== null) return;
+    this.stopRing?.();
+    this.stopRing = null;
+    b.states = b.states.map((s) => (s === 'ringing' || s === 'listening' ? 'gone' : s));
+    this.boardPanel?.update({ states: b.states, selected: null, onAir: null, secondsLeft: 0 });
+    const panel = this.boardPanel;
+    this.tweens.add({ targets: panel?.root, alpha: 0, delay: 300, duration: 300, onComplete: () => panel?.destroy() });
+    this.boardPanel = null;
+    this.board = null;
+    this.beginItem(b.slot);
+  }
+
+  private boardTick(dt: number): void {
+    const b = this.board!;
+    if (b.onAir === null) {
+      b.left -= dt;
+      if (b.left <= 0) {
+        this.closeBoard();
+        return;
       }
-    };
-    this.hud?.showCaller(c.prompt, () => decide('onair'), () => decide('declined'));
-    this.keys.one.once('down', () => decide('onair'));
-    this.keys.two.once('down', () => decide('declined'));
-    this.time.delayedCall(RING_SECONDS * 1000, () => decide('missed'));
-    if (DEBUG.auto) this.time.delayedCall(DEBUG.fast ? 900 : 2500, () => decide('onair'));
+    }
+    this.boardPanel?.update({ states: b.states, selected: b.selected, onAir: b.onAir, secondsLeft: b.left });
+    if (b.onAir !== null) {
+      const line = run.night.switchboard.lines[b.onAir];
+      const turn = turnIndex(line);
+      if (turn >= 0 && this.spokenNow() >= turn) markPhase('call-turn');
+      if (DEBUG.auto && turn >= 0 && this.spokenNow() >= turn + 4) this.dumpCall();
+    } else if (DEBUG.auto) this.autoBoard(dt);
+  }
+
+  /** ?auto: take line one, then line two (and dump him when he turns), then back to the show. */
+  private autoBoard(dt: number): void {
+    const b = this.board!;
+    b.autoT -= dt;
+    if (b.autoT > 0) return;
+    b.autoT = DEBUG.fast ? 0.4 : 1.2;
+    const want = [0, 1].find((i) => b.states[i] === 'ringing' || b.states[i] === 'listening');
+    if (want === undefined) this.closeBoard();
+    else this.selectLine(want);
+  }
+
+  /** Characters of the current script spoken so far. */
+  private spokenNow(): number {
+    if (this.wordEvents) return this.spokenChars;
+    const frac = (this.time.now - this.itemStart) / 1000 / Math.max(0.5, this.itemDuration);
+    return Math.min(1, frac) * this.scriptLen;
   }
 
   // ───────────────────────────── Tube ─────────────────────────────
@@ -513,7 +633,7 @@ export class BoothScene extends Phaser.Scene {
   /** Blow the night's tube once its item is far enough along. */
   private tubeCheck(): void {
     const def = run.night.tube;
-    if (!def || this.tube || this.idx !== def.slot || !this.playing) return;
+    if (!def || this.tube || this.board || this.idx !== def.slot || !this.playing) return;
     if ((this.time.now - this.itemStart) / 1000 < def.at * this.itemDuration) return;
     this.tube = new TubeFault(def.socket, rng(1260 + def.socket));
     this.tubePanel = new TubePanel(this, this.tube, (i) => this.pickTube(i), this.ui);
@@ -609,7 +729,7 @@ export class BoothScene extends Phaser.Scene {
       rundown: this.cards.map((c) => c.id),
       signal,
       deadAirSeconds: this.deadAir,
-      caller: this.callerDecision,
+      calls: this.calls,
       needles: this.drops,
       tubeSeconds: this.tube?.down,
     });
@@ -678,14 +798,17 @@ export class BoothScene extends Phaser.Scene {
       }
 
       // Cueing and dead air.
-      if (this.needle) {
+      if (this.board) {
+        this.boardTick(dt);
+        this.hud?.setCue('hidden', '');
+      } else if (this.needle) {
         this.needleTick(dt);
         this.hud?.setCue('needle', this.cards[this.idx]?.title ?? '');
-      } else if (this.waitingSince !== null && this.callerState !== 'ringing') {
+      } else if (this.waitingSince !== null) {
         const silent = (this.time.now - this.waitingSince) / 1000;
         if (silent > DEAD_AIR_GRACE) this.deadAir += dt;
         this.hud?.setCue(silent > DEAD_AIR_GRACE ? 'dead' : 'open', this.nextTitle(), Math.max(0, silent - DEAD_AIR_GRACE));
-      } else if (this.playing && this.callerState !== 'ringing') {
+      } else if (this.playing) {
         const rem = this.remaining();
         if (this.recordNext()) this.hud?.setCue('needleNext', this.nextTitle());
         else this.hud?.setCue(this.cued ? 'cued' : rem <= CUE_WINDOW ? 'open' : 'waiting', this.nextTitle());
@@ -705,10 +828,7 @@ export class BoothScene extends Phaser.Scene {
     }
 
     // Teleprompter: word events when the voice provides them, otherwise reading pace.
-    if (this.speaking && this.hud) {
-      const frac = (this.time.now - this.itemStart) / 1000 / Math.max(0.5, this.itemDuration);
-      this.hud.setSpoken(this.wordEvents ? this.spokenChars : frac * this.scriptLen);
-    }
+    if (this.speaking && this.hud) this.hud.setSpoken(this.spokenNow());
 
     this.animateRoom(dt);
     this.drawNeedles(dt);

@@ -92,7 +92,15 @@ The show plays in real time.
   and the program drops to a whisper. Read which socket went dark, pick the matching spare
   from three; a dud costs a second of fumbling, the right one warms up and the Lamp comes
   back. Lost seconds cost signal; the ledger praises a quick swap or reports a slow one.
-- **Callers.** The phone lights up. Put them on air or let it ring. Choices matter.
+- **The switchboard.** Once a night (a night's `switchboard`), up to three lines ring at
+  once, each with a few words on the board. Listen in off air to hear a line before
+  deciding; put as many on as you like before the lines give up (the clock pauses while
+  someone's on). Each line has its own outcome for airing, never being taken, or being cut
+  off. On air, the teleprompter shows only what the caller has said so far.
+- **The dump button.** Some callers turn: `turn.at` marks the first words that must not go
+  out. The station runs a few seconds behind the phone (`DUMP_DELAY_CHARS`), so dumping
+  just after they turn still keeps it off the air. Dump too late and it went out; dump an
+  honest caller and you cut them off.
 
 ### 3. Sign-off, the Other Station, and dawn
 

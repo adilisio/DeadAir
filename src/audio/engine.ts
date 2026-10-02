@@ -256,7 +256,7 @@ class AudioEngine {
   }
 
   /** Short room sounds. */
-  sfx(name: 'click' | 'thunk' | 'needle' | 'tune' | 'pickup' | 'hangup' | 'thunder' | 'scratch' | 'pop'): void {
+  sfx(name: 'click' | 'thunk' | 'needle' | 'tune' | 'pickup' | 'hangup' | 'thunder' | 'scratch' | 'pop' | 'dump'): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const t = ctx.currentTime;
@@ -289,6 +289,19 @@ class AudioEngine {
       case 'tune': noiseBurst(0.06, 1800, 0.15); break;
       case 'pickup': noiseBurst(0.12, 700, 0.6); break;
       case 'hangup': noiseBurst(0.1, 500, 0.7); break;
+      case 'dump': {
+        // The dump button: the line clicks dead under a short censor tone.
+        noiseBurst(0.05, 900, 0.8);
+        const o = ctx.createOscillator();
+        o.frequency.value = 1000;
+        const og = ctx.createGain();
+        og.gain.setValueAtTime(0.12, t);
+        og.gain.setValueAtTime(0, t + 0.45);
+        o.connect(og).connect(this.master);
+        o.start(t);
+        o.stop(t + 0.5);
+        break;
+      }
       case 'pop': {
         // A tube going: a sharp crack and a fizz.
         noiseBurst(0.35, 2600, 0.9);

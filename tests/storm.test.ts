@@ -9,7 +9,7 @@ import type { ShowPerformance } from '../src/sim/types';
 const storm = NIGHT_1.storm!;
 
 function perf(signal: number[]): ShowPerformance {
-  return { rundown: NIGHT_1_AUTO_RUNDOWN, signal, deadAirSeconds: 0, caller: 'declined' };
+  return { rundown: NIGHT_1_AUTO_RUNDOWN, signal, deadAirSeconds: 0, calls: [] };
 }
 
 describe('storms', () => {

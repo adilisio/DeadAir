@@ -9,7 +9,7 @@ import {
   validateRundown,
 } from '../src/sim/resolver';
 import { NIGHT_1 } from '../src/data/night1';
-import type { CallerDecision, ShowPerformance } from '../src/sim/types';
+import type { ShowPerformance } from '../src/sim/types';
 
 const FILLER = ['rec_harris', 'rec_moonlight', 'rec_hymn', 'rec_deep', 'rec_sweetheart', 'ad_fish'];
 
@@ -21,7 +21,7 @@ function rundownWith(placed: Record<number, string>): string[] {
 }
 
 function perf(rundown: string[], opts: Partial<ShowPerformance> = {}): ShowPerformance {
-  return { rundown, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, caller: 'declined' as CallerDecision, ...opts };
+  return { rundown, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [], ...opts };
 }
 
 const run = (p: ShowPerformance) => resolveNight(NIGHT_1, STARTING_STATE, p);
@@ -136,21 +136,6 @@ describe('credibility and dead air', () => {
   });
 });
 
-describe('the caller', () => {
-  it('finds Teddy when put on air with a clear late signal', () => {
-    expect(run(perf(rundownWith({}), { caller: 'onair' })).after.flags).toContain('n1_teddy_found');
-  });
-
-  it('loses Teddy to static when the signal is poor at that slot', () => {
-    const r = run(perf(rundownWith({}), { caller: 'onair', signal: [1, 1, 0.5, 1, 1, 1] }));
-    expect(r.after.flags).toContain('n1_teddy_cold');
-  });
-
-  it('records declined and missed calls differently', () => {
-    expect(run(perf(rundownWith({}), { caller: 'declined' })).after.flags).toContain('n1_okafor_declined');
-    expect(run(perf(rundownWith({}), { caller: 'missed' })).after.flags).toContain('n1_okafor_missed');
-  });
-});
 
 describe('the Other Station', () => {
   it('reads back the first preferred card you left out', () => {
@@ -168,7 +153,7 @@ describe('the Other Station', () => {
 describe('state handling', () => {
   it('does not mutate the starting state and is deterministic', () => {
     const before = JSON.stringify(STARTING_STATE);
-    const p = perf(rundownWith({ 0: 'news_wells', 4: 'warn_ice' }), { caller: 'onair', deadAirSeconds: 4 });
+    const p = perf(rundownWith({ 0: 'news_wells', 4: 'warn_ice' }), { calls: [{ line: 'call_okafor' }], deadAirSeconds: 4 });
     expect(run(p)).toEqual(run(p));
     expect(JSON.stringify(STARTING_STATE)).toBe(before);
   });

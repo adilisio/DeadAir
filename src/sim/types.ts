@@ -94,18 +94,41 @@ export interface AdCard extends TalkCardBase {
 export type Card = RecordCard | NewsCard | WarningCard | AdCard;
 export type TalkCard = NewsCard | WarningCard | AdCard;
 
-export interface CallerDef {
-  /** The caller rings when this slot starts (0-based). */
-  slot: number;
+/** One caller on the switchboard. */
+export interface CallLine {
+  id: string;
+  /** For the teleprompter header while they're on air. */
   name: string;
-  /** What the caller says when put on air. */
-  script: string;
-  /** Shown on the phone while it rings. */
+  /** One short line on the board while it rings. */
   prompt: string;
-  onAir: ReachCheck;
-  declined: Outcome;
-  missed: Outcome;
+  /** What you hear when you pick up off air to listen first. */
+  preview: string;
+  /** What they say on air. */
+  script: string;
+  voice?: { pitch: number; rate: number };
+  /** Put on air and allowed to finish. A reach check when it matters who hears it. */
+  aired: ReachCheck | Outcome;
+  /** Never put on air. */
+  notTaken?: Outcome;
+  /** Dumped mid-call though they said nothing wrong. */
+  cut?: Outcome;
+  /** Where this caller turns: `at` is the first words that mustn't go out. */
+  turn?: { at: string; caught: Outcome };
 }
+
+/** Several lines ring at once when a slot starts; the player picks who goes on air. */
+export interface SwitchboardDef {
+  slot: number;
+  lines: CallLine[];
+}
+
+/** A call that went on air. `dumpedAt` is how many characters had been said when it was dumped. */
+export interface CallRecord {
+  line: string;
+  dumpedAt?: number;
+}
+
+export type CallResult = 'aired' | 'caught' | 'late' | 'cut' | 'notTaken';
 
 /** A squall off the lake. The transmitter only drifts while one is blowing. */
 export interface StormDef {
@@ -129,7 +152,7 @@ export interface NightDef {
   id: string;
   number: number;
   cards: Card[];
-  caller: CallerDef;
+  switchboard: SwitchboardDef;
   storm?: StormDef;
   tube?: TubeDef;
   signOn: string;
@@ -153,8 +176,6 @@ export interface TownState {
   flags: string[];
 }
 
-export type CallerDecision = 'onair' | 'declined' | 'missed';
-
 /** How a record's needle went down: on the lead-in, late into the song, or skating across. */
 export type NeedleResult = 'clean' | 'late' | 'scratch';
 
@@ -163,7 +184,8 @@ export interface ShowPerformance {
   rundown: string[];
   signal: number[];
   deadAirSeconds: number;
-  caller: CallerDecision;
+  /** Calls put on air, in order. Lines not listed were never taken. */
+  calls: CallRecord[];
   /** Per slot: how the needle dropped (records only; null or missing for talk). */
   needles?: (NeedleResult | null)[];
   /** Seconds the program was down to a blown tube (undefined if none blew). */

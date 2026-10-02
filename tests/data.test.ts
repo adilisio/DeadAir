@@ -4,6 +4,7 @@ import { validateRundown } from '../src/sim/resolver';
 import { RECORDS, REAL_RECORDS, LATEST_PD_RECORDING_YEAR, licenseNote, resolveRecord, sourceUrl, standInFor } from '../src/data/records';
 import { SHOW_SLOTS } from '../src/sim/types';
 import { TUBE_TYPES } from '../src/sim/tube';
+import { turnIndex } from '../src/sim/calls';
 
 describe('night 1 content', () => {
   it('has unique card ids and more cards than slots', () => {
@@ -36,9 +37,21 @@ describe('night 1 content', () => {
     for (const s of storm?.slots ?? []) expect(s >= 0 && s < SHOW_SLOTS, String(s)).toBe(true);
   });
 
-  it('points the caller and the Other Station at real things', () => {
-    expect(NIGHT_1.caller.slot).toBeGreaterThanOrEqual(0);
-    expect(NIGHT_1.caller.slot).toBeLessThan(SHOW_SLOTS);
+  it('has a switchboard of distinct lines whose turns appear in their scripts', () => {
+    const { slot, lines } = NIGHT_1.switchboard;
+    expect(slot).toBeGreaterThanOrEqual(0);
+    expect(slot).toBeLessThan(SHOW_SLOTS);
+    expect(lines.length).toBeGreaterThanOrEqual(2);
+    expect(lines.length).toBeLessThanOrEqual(3); // keys 1-3
+    expect(new Set(lines.map((l) => l.id)).size).toBe(lines.length);
+    for (const l of lines) {
+      if (l.turn) expect(turnIndex(l), l.id).toBeGreaterThan(0);
+      // The board row is narrow.
+      expect(l.prompt.length, l.id).toBeLessThanOrEqual(36);
+    }
+  });
+
+  it('points the Other Station at real things', () => {
     const ids = new Set(NIGHT_1.cards.map((c) => c.id));
     for (const id of NIGHT_1.otherStation.prefer) expect(ids.has(id), id).toBe(true);
   });

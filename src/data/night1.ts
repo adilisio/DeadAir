@@ -146,36 +146,84 @@ export const NIGHT_1: NightDef = {
     },
   ],
 
-  caller: {
+  switchboard: {
     slot: 2,
-    name: 'Mrs. Okafor',
-    prompt: "Line one: Mrs. Okafor. Her boy hasn't come home.",
-    script:
-      "Hello? Is this on? It's Grace Okafor, on Elm. My boy Teddy went up the Ridge Road pylons with the Linemen crew at sundown and he isn't back. He's fourteen. If anybody's out there, please, look for him.",
-    onAir: {
-      faction: 'linemen',
-      threshold: 0.5,
-      success: {
-        flag: 'n1_teddy_found', tone: 'good',
-        effects: { trust: { linemen: 8 }, morale: 6 },
-        line: "A Lineman crew heard Mrs. Okafor on the air and went back up Ridge Road. They found Teddy stuck on pylon four, cold and embarrassed, and walked him home.",
+    lines: [
+      {
+        id: 'call_okafor',
+        name: 'Mrs. Okafor',
+        prompt: 'a woman, crying',
+        preview: "Is this the Lamp? Please. It's my boy. He went up Ridge Road at sundown and he isn't back.",
+        script:
+          "Hello? Is this on? It's Grace Okafor, on Elm. My boy Teddy went up the Ridge Road pylons with the Linemen crew at sundown and he isn't back. He's fourteen. If anybody's out there, please, look for him.",
+        voice: { pitch: 1.35, rate: 1.05 },
+        aired: {
+          faction: 'linemen',
+          threshold: 0.5,
+          success: {
+            flag: 'n1_teddy_found', tone: 'good',
+            effects: { trust: { linemen: 8 }, morale: 6 },
+            line: "A Lineman crew heard Mrs. Okafor on the air and went back up Ridge Road. They found Teddy stuck on pylon four, cold and embarrassed, and walked him home.",
+          },
+          fail: {
+            flag: 'n1_teddy_cold', tone: 'bad',
+            effects: { morale: -4 },
+            line: "You put Mrs. Okafor on, but the static ate her words. Teddy walked home at dawn, half frozen. She's not angry. She's just tired.",
+          },
+        },
+        notTaken: {
+          flag: 'n1_okafor_missed', tone: 'bad',
+          effects: { morale: -3, trust: { linemen: -2 } },
+          line: 'Line one rang and rang. Mrs. Okafor walked the Ridge Road herself, all night. Teddy came home at dawn, half frozen.',
+        },
+        cut: {
+          flag: 'n1_okafor_cut', tone: 'bad',
+          effects: { morale: -4, credibility: -3, trust: { linemen: -3 } },
+          line: "You cut Mrs. Okafor off in the middle of her plea. Nobody heard where Teddy went. He walked home at dawn, half frozen, and Elm Street hasn't forgotten it.",
+        },
       },
-      fail: {
-        flag: 'n1_teddy_cold', tone: 'bad',
-        effects: { morale: -4 },
-        line: "You put Mrs. Okafor on, but the static ate her words. Teddy walked home at dawn, half frozen. She's not angry. She's just tired.",
+      {
+        id: 'call_chalk',
+        name: 'No name',
+        prompt: "a man, no name. 'about the Chapel'",
+        preview: "Yeah, I'll hold. Folks ought to hear what's going on up at that Chapel. Somebody has to say it.",
+        script:
+          "Evening, Lamp. Long-time listener. I won't give my name, you'll see why. Folks ought to know what's going on up at that Chapel. That sulfa powder Sister Agnes is handing out? It's chalk. She's cutting it with chalk and selling the real stuff downriver, and anybody who lines up for it is a fool.",
+        voice: { pitch: 0.8, rate: 1.0 },
+        aired: {
+          flag: 'n1_slander_aired', tone: 'bad',
+          effects: { credibility: -4, morale: -4, safety: -2, trust: { chapel: -8 } },
+          line: 'The man on line two called Sister Agnes a thief on your air. The infirmary sat empty all morning. People who needed it stayed home.',
+        },
+        turn: {
+          at: "It's chalk.",
+          caught: {
+            flag: 'n1_slander_dumped', tone: 'good',
+            effects: { credibility: 3, trust: { chapel: 4 } },
+            line: 'You dumped the man on line two before he got it out. Sister Agnes heard about it. She sent a jar of honey down to the station, no note.',
+          },
+        },
       },
-    },
-    declined: {
-      flag: 'n1_okafor_declined', tone: 'bad',
-      effects: { morale: -3, trust: { linemen: -2 } },
-      line: "You didn't put Mrs. Okafor on the air. Teddy walked home at dawn, half frozen. Word gets around about who picks up the phone.",
-    },
-    missed: {
-      flag: 'n1_okafor_missed', tone: 'bad',
-      effects: { morale: -3 },
-      line: 'The phone rang and rang. Mrs. Okafor walked the Ridge Road herself.',
-    },
+      {
+        id: 'call_lottie',
+        name: 'Lottie Kowalczyk',
+        prompt: 'Lottie K., smokehouse row. chipper',
+        preview: "Oh! Is this the Lamp? Oh, how exciting. I just want to say hello to my Walt.",
+        script:
+          "Hello, Lamp! It's Lottie Kowalczyk. I just want to tell my Walt, on the Linemen night crew: your supper's in the oven, the cat ate half of it, and I love you anyhow. That's all. Hi, everybody!",
+        voice: { pitch: 1.5, rate: 1.1 },
+        aired: {
+          flag: 'n1_lottie_aired', tone: 'good',
+          effects: { morale: 4, trust: { linemen: 3 } },
+          line: 'Walt Kowalczyk heard about his supper on the radio. The night crew ribbed him about the cat till sunrise. He did not mind one bit.',
+        },
+        cut: {
+          flag: 'n1_lottie_cut', tone: 'bad',
+          effects: { morale: -2, trust: { netters: -2 } },
+          line: "You cut Lottie Kowalczyk off mid-hello. She's telling the whole of smokehouse row about it.",
+        },
+      },
+    ],
   },
 
   tube: { slot: 1, at: 0.35, socket: 2 },

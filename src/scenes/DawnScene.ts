@@ -218,6 +218,6 @@ function demoResult(): NightResult {
     rundown: NIGHT_1_DEMO_RUNDOWN,
     signal: [1, 0.9, 0.6, 0.8, 1, 1],
     deadAirSeconds: 6,
-    caller: 'onair',
+    calls: [{ line: 'call_okafor' }, { line: 'call_chalk' }],
   });
 }

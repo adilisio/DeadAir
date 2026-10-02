@@ -1,17 +1,17 @@
-// The on-air HUD: teleprompter, tuning gauge, cue box, phone, running order chips.
+// The on-air HUD: teleprompter, tuning gauge, cue box, running order chips.
+// The booth tasks (turntable, tubes, switchboard) have their own panels.
 // Laid out to keep the ON AIR sign, tubes, dial, phone and turntable in view.
 import Phaser from 'phaser';
 import { UI } from '../art/palette';
 import type { Card } from '../sim/types';
 import { KIND_TAG } from './RundownBuilder';
-import { bar, button, label, panel, type Button } from './widgets';
+import { bar, label, panel } from './widgets';
 
 export type CueState = 'hidden' | 'waiting' | 'open' | 'cued' | 'dead' | 'needleNext' | 'needle';
 
 const TP = { x: 12, y: 290, w: 446, h: 64 };
 const CUE = { x: 464, y: 290, w: 164, h: 64 };
 const TUNE = { x: 232, y: 236, w: 220, h: 50 };
-const CALL = { x: 12, y: 214, w: 214, h: 72 };
 const CHIPS = { x: 14, y: 52, w: 42, h: 15 };
 
 export class LiveHud {
@@ -32,14 +32,13 @@ export class LiveHud {
   private cueNext: Phaser.GameObjects.Text;
   private cueHint: Phaser.GameObjects.Text;
   private cueGfx: Phaser.GameObjects.Graphics;
-  private caller: Phaser.GameObjects.Container | null = null;
   /** Pointer held on the tuning gauge: -1 left half, 1 right half. */
   pointerTune = 0;
 
   constructor(
     private scene: Phaser.Scene,
     private cards: Card[],
-    private uiLayer: <T extends Phaser.GameObjects.GameObject>(o: T) => T = (o) => o,
+    uiLayer: <T extends Phaser.GameObjects.GameObject>(o: T) => T = (o) => o,
   ) {
     const parts: Phaser.GameObjects.GameObject[] = [];
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => (parts.push(o), o);
@@ -124,8 +123,11 @@ export class LiveHud {
     });
   }
 
-  /** Show a script on the teleprompter; shrinks the type until it fits. */
-  setTeleprompter(header: string, text: string, color: string = UI.text): void {
+  /**
+   * Show a script on the teleprompter; shrinks the type until it fits.
+   * `reveal` hides the unspoken part (callers: you only know what they've said).
+   */
+  setTeleprompter(header: string, text: string, color: string = UI.text, reveal = false): void {
     this.tpHeader.setText(header);
     this.tpFull = text;
     for (const size of [14, 13, 12, 11]) {
@@ -133,6 +135,7 @@ export class LiveHud {
       this.tpLit.setFontSize(size);
       if (this.tpDim.height <= TP.h - 19) break;
     }
+    if (reveal) this.tpDim.setText('');
     this.tpLit.setText('').setColor(color);
   }
 
@@ -189,27 +192,7 @@ export class LiveHud {
     }
   }
 
-  showCaller(prompt: string, onAir: () => void, letRing: () => void): void {
-    this.hideCaller();
-    const s = this.scene;
-    const { x, y, w, h } = CALL;
-    const parts: Phaser.GameObjects.GameObject[] = [panel(s, x, y, w, h, { edge: 0xff7a6b, alpha: 0.92 })];
-    parts.push(label(s, x + 8, y + 2, 'THE PHONE IS RINGING', { size: 16, color: UI.bad }));
-    parts.push(label(s, x + 8, y + 18, prompt, { size: 14, wrap: w - 16 }));
-    const a: Button = button(s, x + 6, y + h - 22, 98, 17, 'ON AIR [1]', onAir, { size: 14, color: 0x9be37a });
-    const b: Button = button(s, x + w - 104, y + h - 22, 98, 17, 'LET RING [2]', letRing, { size: 14, color: 0xff7a6b });
-    parts.push(a.container, b.container);
-    this.caller = this.uiLayer(s.add.container(0, 0, parts).setDepth(120));
-    s.tweens.add({ targets: this.caller, x: { from: -6, to: 0 }, duration: 60, yoyo: true, repeat: 3 });
-  }
-
-  hideCaller(): void {
-    this.caller?.destroy(true);
-    this.caller = null;
-  }
-
   destroy(): void {
-    this.hideCaller();
     this.root.destroy(true);
   }
 }

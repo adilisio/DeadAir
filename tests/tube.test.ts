@@ -6,7 +6,7 @@ import { rng } from '../src/audio/pressings';
 import type { ShowPerformance } from '../src/sim/types';
 
 const run = (tubeSeconds?: number) => {
-  const p: ShowPerformance = { rundown: NIGHT_1_AUTO_RUNDOWN, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, caller: 'declined', tubeSeconds };
+  const p: ShowPerformance = { rundown: NIGHT_1_AUTO_RUNDOWN, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [], tubeSeconds };
   return resolveNight(NIGHT_1, STARTING_STATE, p);
 };
 

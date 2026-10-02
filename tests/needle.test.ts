@@ -7,7 +7,7 @@ import type { NeedleResult, ShowPerformance } from '../src/sim/types';
 
 // Auto rundown: records at slots 1, 3 and 5.
 function perf(needles: (NeedleResult | null)[]): ShowPerformance {
-  return { rundown: NIGHT_1_AUTO_RUNDOWN, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, caller: 'declined', needles };
+  return { rundown: NIGHT_1_AUTO_RUNDOWN, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [], needles };
 }
 const run = (p: ShowPerformance) => resolveNight(NIGHT_1, STARTING_STATE, p);
 
