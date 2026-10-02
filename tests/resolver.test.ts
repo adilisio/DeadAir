@@ -11,7 +11,7 @@ import {
 import { NIGHT_1 } from '../src/data/night1';
 import type { CallerDecision, ShowPerformance } from '../src/sim/types';
 
-const FILLER = ['rec_rag', 'rec_waltz', 'rec_march', 'rec_blues', 'rec_ballad', 'ad_fish'];
+const FILLER = ['rec_harris', 'rec_moonlight', 'rec_hymn', 'rec_deep', 'rec_sweetheart', 'ad_fish'];
 
 /** Build a 6-slot rundown with the given cards at the given slots, filling the rest with harmless items. */
 function rundownWith(placed: Record<number, string>): string[] {
@@ -41,9 +41,9 @@ describe('schedule', () => {
 
 describe('validateRundown', () => {
   it('rejects short, unknown and duplicate rundowns', () => {
-    expect(validateRundown(NIGHT_1, ['rec_rag'])).toMatch(/6 items/);
+    expect(validateRundown(NIGHT_1, ['rec_harris'])).toMatch(/6 items/);
     expect(validateRundown(NIGHT_1, rundownWith({ 0: 'nope' }))).toMatch(/Unknown/);
-    expect(validateRundown(NIGHT_1, ['rec_rag', 'rec_rag', 'rec_waltz', 'rec_march', 'rec_blues', 'ad_fish'])).toMatch(/once/);
+    expect(validateRundown(NIGHT_1, ['rec_harris', 'rec_harris', 'rec_moonlight', 'rec_hymn', 'rec_deep', 'ad_fish'])).toMatch(/once/);
     expect(validateRundown(NIGHT_1, rundownWith({}))).toBeNull();
   });
 });
@@ -77,10 +77,10 @@ describe('reach checks', () => {
 describe('sequence rules', () => {
   it('breather: a record after grim news cancels its morale hit', () => {
     // The wells story costs morale; followed by a record, that cost is waived.
-    const calmed = run(perf(rundownWith({ 2: 'news_wells', 3: 'rec_rag' })));
-    const raw = run(perf(rundownWith({ 2: 'news_wells', 3: 'ad_tonic', 5: 'rec_rag' })));
+    const calmed = run(perf(rundownWith({ 2: 'news_wells', 3: 'rec_harris' })));
+    const raw = run(perf(rundownWith({ 2: 'news_wells', 3: 'ad_tonic', 5: 'rec_harris' })));
     expect(calmed.after.morale).toBeGreaterThan(raw.after.morale);
-    const withBreather = run(perf(rundownWith({ 0: 'warn_dogs', 1: 'rec_rag' })));
+    const withBreather = run(perf(rundownWith({ 0: 'warn_dogs', 1: 'rec_harris' })));
     const withoutBreather = run(perf(rundownWith({ 0: 'warn_dogs', 1: 'ad_tonic' })));
     expect(withBreather.lines.some((l) => l.rule === 'breather')).toBe(true);
     expect(withoutBreather.lines.some((l) => l.rule === 'breather')).toBe(false);
@@ -94,8 +94,8 @@ describe('sequence rules', () => {
   });
 
   it('breather lines vary by slot', () => {
-    const a = run(perf(rundownWith({ 0: 'warn_dogs', 1: 'rec_rag' }))).lines.find((l) => l.rule === 'breather')!;
-    const b = run(perf(rundownWith({ 2: 'warn_dogs', 3: 'rec_rag' }))).lines.find((l) => l.rule === 'breather')!;
+    const a = run(perf(rundownWith({ 0: 'warn_dogs', 1: 'rec_harris' }))).lines.find((l) => l.rule === 'breather')!;
+    const b = run(perf(rundownWith({ 2: 'warn_dogs', 3: 'rec_harris' }))).lines.find((l) => l.rule === 'breather')!;
     expect(a.text).not.toBe(b.text);
   });
 
@@ -107,8 +107,8 @@ describe('sequence rules', () => {
   });
 
   it('dedication: a loved record after helpful news earns extra trust', () => {
-    const dedicated = run(perf(rundownWith({ 0: 'news_infirmary', 1: 'rec_march' })));
-    const plain = run(perf(rundownWith({ 0: 'news_infirmary', 1: 'rec_rag', 3: 'rec_march' })));
+    const dedicated = run(perf(rundownWith({ 0: 'news_infirmary', 1: 'rec_hymn' })));
+    const plain = run(perf(rundownWith({ 0: 'news_infirmary', 1: 'rec_harris', 3: 'rec_hymn' })));
     expect(dedicated.lines.some((l) => l.rule === 'dedication')).toBe(true);
     expect(dedicated.after.trust.chapel).toBeGreaterThan(plain.after.trust.chapel);
   });

@@ -1,26 +1,28 @@
 # Records
 
-Real records are audio files in this folder, registered in `src/data/records.ts`.
+Real records are public-domain 78s listed in `src/data/records.json` and downloaded
+here by `npm run records`. `CREDITS.md` (generated) lists every source.
 
 ## The rule
 
 Only **public-domain** recordings. In the United States, sound recordings first
 published **before 1926** are public domain as of 2026 (Music Modernization Act; the
-cutoff moves forward one year every January 1). The **composition** must also be public
-domain: published before 1931 as of 2026.
+cutoff moves forward one year every January 1). The **song** must also be public domain:
+published before 1931 as of 2026. Prefer original US pressings over modern reissues.
 
-So for now: a record must be **published 1925 or earlier**, and its song written 1930 or
-earlier. `tests/records.test.ts` enforces the year and that every field below is filled.
+`tests/data.test.ts` enforces the year and that every provenance field is filled.
 
 ## Adding a record
 
-1. Find a recording from a source that states its date and public-domain status, e.g.
-   the Library of Congress National Jukebox, the UCSB Cylinder Audio Archive, or
-   Wikimedia Commons. Prefer sources that say "public domain" outright.
-2. Save it here as `.mp3` or `.ogg` (browsers play both). Keep files small: mono, 96 kbps is plenty.
-3. Add an entry in `src/data/records.ts` with every provenance field:
-   `title`, `performer`, `year` (first published), `composer`, `sourceUrl`, `licenseNote`.
-4. Run `npm test`.
+1. Find the record on the Internet Archive's Great 78 Project (https://archive.org/details/georgeblood).
+   Check the label and date look right for an original pressing.
+2. Add an entry to `src/data/records.json`: id, title, performer, year, label, composer
+   (with the song's year), `archiveId` (the item id from the URL), `sourceFile` (the mp3's
+   file name in that item), `file` (a short `snake_case.mp3` name), and a `fallback`
+   stand-in style.
+3. `npm run records` downloads it, converts it with ffmpeg if you have it (mono, trimmed,
+   loudness-matched), and rewrites `CREDITS.md`.
+4. `npm test`, then use it on a card in a night file.
 
-The build can't download these by itself in every environment, so adding records is a
-human step for now. Until then the game uses synthesized stand-in pressings.
+If a file is missing the game plays a synthesized stand-in in its place and says so on
+the teleprompter.

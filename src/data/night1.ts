@@ -14,30 +14,35 @@ export const NIGHT_1: NightDef = {
     "That's the show. Lock your doors, bank your stoves, and if you can't sleep, well, you know where to find me. This is the Lamp, signing off.",
 
   cards: [
-    // ── Records ──────────────────────────────────────────────
+    // ── Records (real 78s; see records.json) ─────────────────
     {
-      id: 'rec_rag', kind: 'record', recordId: 'breakwater_rag', title: 'Breakwater Rag',
-      blurb: 'Bright piano rag. The Linemen stomp to it on the pylons.',
-      mood: 'bright', loves: ['linemen'],
+      id: 'rec_moonlight', kind: 'record', recordId: 'moonlight_bay', title: 'Moonlight Bay',
+      blurb: 'A barbershop quartet sailing along on Moonlight Bay. Netter kids sing it on the docks.',
+      mood: 'bright', loves: ['netters'],
     },
     {
-      id: 'rec_waltz', kind: 'record', recordId: 'lamp_is_lit', title: 'The Lamp Is Lit',
-      blurb: 'A slow waltz. Netter wives hum it mending nets.',
+      id: 'rec_deep', kind: 'record', recordId: 'asleep_in_the_deep', title: 'Asleep in the Deep',
+      blurb: 'A bass voice from the bottom of the lake. The old Netters take their caps off for it.',
       mood: 'blue', loves: ['netters'],
     },
     {
-      id: 'rec_march', kind: 'record', recordId: 'volunteers_march', title: 'Vesper Volunteers March',
-      blurb: 'Brass and drum. The Chapel band plays it every Easter. The Linemen call it "the funeral".',
+      id: 'rec_hymn', kind: 'record', recordId: 'nearer_my_god', title: 'Nearer My God to Thee',
+      blurb: 'The hymn from the Titanic. The Chapel sings it every Sunday. The Linemen call it "the funeral".',
       mood: 'stirring', loves: ['chapel'], dislikes: ['linemen'],
     },
     {
-      id: 'rec_blues', kind: 'record', recordId: 'copper_wire_blues', title: 'Copper Wire Blues',
-      blurb: 'Low and rolling. A Lineman song if there ever was one.',
-      mood: 'blue', loves: ['linemen'],
+      id: 'rec_harris', kind: 'record', recordId: 'it_had_to_be_you', title: 'It Had to Be You',
+      blurb: "Marion Harris, the newest thing on the dial a hundred years ago. The Linemen whistle it on the pylons.",
+      mood: 'bright', loves: ['linemen'],
     },
     {
-      id: 'rec_ballad', kind: 'record', recordId: 'far_shore', title: 'Light Me to the Far Shore',
-      blurb: 'A sweet, sad ballad. Everybody pretends not to cry.',
+      id: 'rec_hot', kind: 'record', recordId: 'swanee_butterfly', title: 'Swanee Butterfly',
+      blurb: 'Hot jazz, all brass. The Linemen say it sounds like the future. The Chapel says it sounds like sin.',
+      mood: 'bright', loves: ['linemen'], dislikes: ['chapel'],
+    },
+    {
+      id: 'rec_sweetheart', kind: 'record', recordId: 'let_me_call_you_sweetheart', title: 'Let Me Call You Sweetheart',
+      blurb: 'Everybody knows the words. Everybody pretends not to cry.',
       mood: 'blue', loves: ['netters', 'chapel'],
     },
 

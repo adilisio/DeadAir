@@ -7,12 +7,14 @@
 // Browser TTS can't be routed into this graph; see voice.ts.
 
 import { DEBUG } from '../config';
-import { resolveRecord } from '../data/records';
+import { resolveRecord, standInFor } from '../data/records';
 import { generateScore, rng } from './pressings';
 import { renderScore } from './render';
 
 export interface RecordHandle {
   duration: number;
+  /** False when a synthesized stand-in played instead of the real record. */
+  real: boolean;
   elapsed(): number;
   stop(fadeSeconds?: number): void;
   ended: Promise<void>;
@@ -28,7 +30,7 @@ class AudioEngine {
   private whistleGain!: GainNode;
   private crackleGain!: GainNode;
   private noise!: AudioBuffer;
-  private cache = new Map<string, Promise<AudioBuffer>>();
+  private cache = new Map<string, Promise<{ buffer: AudioBuffer; real: boolean }>>();
   private duckGain!: GainNode;
   private analyser!: AnalyserNode;
   private levelBuf = new Float32Array(new ArrayBuffer(1024 * 4));
@@ -143,17 +145,30 @@ class AudioEngine {
     this.duckGain.gain.setTargetAtTime(on ? 0.18 : 1, this.ctx.currentTime, 0.25);
   }
 
-  private bufferFor(recordId: string, seconds: number): Promise<AudioBuffer> {
+  /** Loads (or synthesizes) a record. `real` is false when a stand-in was used. */
+  private bufferFor(recordId: string, seconds: number): Promise<{ buffer: AudioBuffer; real: boolean }> {
     const key = `${recordId}:${seconds}`;
     let p = this.cache.get(key);
     if (!p) {
       const entry = resolveRecord(recordId);
       if (!entry) return Promise.reject(new Error(`No record ${recordId}`));
+      const synth = () => {
+        const s = standInFor(entry);
+        return renderScore(generateScore(s.style, s.seed, seconds)).then((buffer) => ({ buffer, real: false }));
+      };
       p = entry.standIn
-        ? renderScore(generateScore(entry.style, entry.seed, seconds))
+        ? synth()
         : fetch(`records/${entry.file}`)
-            .then((r) => r.arrayBuffer())
-            .then((b) => this.ctx!.decodeAudioData(b));
+            .then((r) => {
+              if (!r.ok) throw new Error(`HTTP ${r.status}`);
+              return r.arrayBuffer();
+            })
+            .then((b) => this.ctx!.decodeAudioData(b))
+            .then((buffer) => ({ buffer, real: true }))
+            .catch((e) => {
+              console.warn(`Record file records/${entry.file} unavailable (${e}); playing a stand-in. Run: npm run records`);
+              return synth();
+            });
       this.cache.set(key, p);
     }
     return p;
@@ -166,14 +181,14 @@ class AudioEngine {
 
   async playRecord(recordId: string, maxSeconds: number): Promise<RecordHandle> {
     const ctx = this.ctx!;
-    const buffer = await this.bufferFor(recordId, maxSeconds);
+    const { buffer, real } = await this.bufferFor(recordId, maxSeconds);
     const src = ctx.createBufferSource();
     src.buffer = buffer;
-    // Wow: a slow wobble in speed, like a warped 78.
+    // Wow: a slow wobble in speed, like a warped 78. Real transfers have their own character.
     const wow = ctx.createOscillator();
     wow.frequency.value = 0.55;
     const wowDepth = ctx.createGain();
-    wowDepth.gain.value = 0.004;
+    wowDepth.gain.value = real ? 0 : 0.004;
     wow.connect(wowDepth).connect(src.playbackRate);
     const gain = ctx.createGain();
     src.connect(gain).connect(this.program);
@@ -185,7 +200,8 @@ class AudioEngine {
       gain.gain.setValueAtTime(1, start + duration - 1.5);
       gain.gain.linearRampToValueAtTime(0, start + duration);
     }
-    this.crackleGain.gain.setTargetAtTime(0.35, ctx.currentTime, 0.1);
+    // Synthetic surface noise only on stand-ins; real 78s bring their own.
+    this.crackleGain.gain.setTargetAtTime(real ? 0.06 : 0.35, ctx.currentTime, 0.1);
     this.sfx('needle');
 
     let resolveEnded!: () => void;
@@ -197,6 +213,7 @@ class AudioEngine {
     };
     return {
       duration,
+      real,
       elapsed: () => Math.max(0, ctx.currentTime - start),
       stop: (fade = 0.6) => {
         const t = ctx.currentTime;

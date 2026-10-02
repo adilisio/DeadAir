@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { NIGHT_1 } from '../src/data/night1';
-import { RECORDS, LATEST_PD_RECORDING_YEAR, resolveRecord } from '../src/data/records';
+import { RECORDS, REAL_RECORDS, LATEST_PD_RECORDING_YEAR, licenseNote, resolveRecord, sourceUrl, standInFor } from '../src/data/records';
 import { SHOW_SLOTS } from '../src/sim/types';
 
 describe('night 1 content', () => {
@@ -36,13 +36,20 @@ describe('records', () => {
   });
 
   it('only contains public-domain real records with full provenance', () => {
-    for (const r of RECORDS) {
-      if (r.standIn) continue;
+    expect(REAL_RECORDS.length).toBeGreaterThan(0);
+    for (const r of REAL_RECORDS) {
       expect(r.year, r.id).toBeLessThanOrEqual(LATEST_PD_RECORDING_YEAR);
-      for (const field of ['title', 'performer', 'file', 'composer', 'sourceUrl', 'licenseNote'] as const) {
+      for (const field of ['title', 'performer', 'label', 'composer', 'archiveId', 'sourceFile', 'file'] as const) {
         expect(r[field].trim().length, `${r.id}.${field}`).toBeGreaterThan(0);
       }
-      expect(r.sourceUrl, r.id).toMatch(/^https:\/\//);
+      expect(r.file, r.id).toMatch(/^[a-z0-9_]+\.mp3$/);
+      expect(sourceUrl(r), r.id).toMatch(/^https:\/\/archive\.org\/details\//);
+      expect(licenseNote(r), r.id).toContain(String(r.year));
+      expect(['ragtime', 'waltz', 'blues', 'march', 'ballad'], r.id).toContain(r.fallback);
     }
+  });
+
+  it('can synthesize a stand-in for every record', () => {
+    for (const r of RECORDS) expect(standInFor(r).style, r.id).toBeTruthy();
   });
 });

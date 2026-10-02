@@ -121,10 +121,11 @@ Pure TypeScript in `src/sim/`, fully unit-tested. In short:
 - One Web Audio graph. Every program source goes through the **radio chain**
   (band-limit ~250 Hz–4 kHz, tube saturation, compression) and is mixed with **static**
   driven by tuning error.
-- **Records:** real public-domain 78s are the goal (US recordings published before
-  1926). See `public/records/README.md`; every real record carries its provenance and a
-  test enforces it. Until those are added, **stand-in pressings** are synthesized in code
-  (ragtime, waltz, blues, march, ballad) with crackle and wow.
+- **Records:** real public-domain 78s (US recordings published before 1926) from the
+  Internet Archive's Great 78 Project, listed in `src/data/records.json` with full
+  provenance and fetched by `npm run records`. Each faction has its music: sea songs for
+  the Netters, hymns for the Chapel, the "new music" (1920s jazz and blues singers) for the
+  Linemen. If a file is missing, a synthesized stand-in pressing plays in its place.
 - **Voices:** `speechSynthesis` for v1. Note: browser TTS can't be routed through Web
   Audio, so its radio effect is static and crackle *under* the voice, not a filter on it.
   Upgrade path: an in-browser neural TTS that renders to audio buffers (filterable), and

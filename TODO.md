@@ -18,7 +18,8 @@ Light process: one list. Move items to Done with the commit that did them.
 - One ruin run (sneak + loot → records, parts)
 
 ## Owner
-- Add real public-domain 78s (`public/records/README.md`)
+- Allow `archive.org` and `*.archive.org` in the cloud environment's network settings,
+  so `npm run records` can download the 78s in-session (or run it on your PC)
 - Final name for the DJ
 
 ## Done

@@ -12,17 +12,19 @@ import { resolveNight, segmentOfSlot } from '../sim/resolver';
 import { Tuning } from '../sim/tuning';
 import { SHOW_SLOTS, type Card, type CallerDecision, type TalkCard } from '../sim/types';
 import { RundownBuilder, SEGMENT_LABEL } from '../ui/RundownBuilder';
+import { resolveRecord } from '../data/records';
 import { LiveHud, kindHeader } from '../ui/LiveHud';
 
 const S = ART_SCALE;
-const RECORD_SECONDS = DEBUG.fast ? 5 : 40;
+/** Records play up to this long, then fade (a 78 side runs about three minutes). */
+const RECORD_SECONDS = DEBUG.fast ? 5 : 75;
 const RING_SECONDS = DEBUG.fast ? 2.5 : 14;
 const CUE_WINDOW = 8;
 const DEAD_AIR_GRACE = 1.2;
 const WIND = { dusk: 0.6, late: 1.0, small: 1.4 } as const;
 
 /** A sensible show for ?auto runs: dedications and breathers, warnings when they land. */
-const AUTO_RUNDOWN = ['news_infirmary', 'rec_march', 'warn_dogs', 'rec_blues', 'warn_ice', 'rec_waltz'];
+const AUTO_RUNDOWN = ['news_infirmary', 'rec_hymn', 'warn_dogs', 'rec_harris', 'warn_ice', 'rec_deep'];
 
 type Phase = 'prep' | 'live' | 'other' | 'done';
 
@@ -340,10 +342,17 @@ export class BoothScene extends Phaser.Scene {
     this.playing = true;
     this.itemStart = this.time.now;
     this.itemDuration = RECORD_SECONDS;
-    this.hud?.setTeleprompter(`REC · ${card.title}`, card.blurb, UI.dim);
-    this.hud?.setSpoken(card.blurb.length);
+    const entry = resolveRecord(card.recordId);
+    const credit = entry ? `${entry.performer}${entry.standIn ? '' : `, ${entry.year}`}` : '';
+    const show = (standIn: boolean) => {
+      const text = `${credit}${standIn ? ' (stand-in pressing)' : ''}. ${card.blurb}`;
+      this.hud?.setTeleprompter(`REC · ${card.title}`, text, UI.dim);
+      this.hud?.setSpoken(text.length);
+    };
+    show(!!entry?.standIn);
     try {
       const h = await audio.playRecord(card.recordId, RECORD_SECONDS);
+      if (!h.real) show(true);
       this.record = h;
       this.itemStart = this.time.now;
       this.itemDuration = h.duration;

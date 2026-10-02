@@ -1,0 +1,137 @@
+{
+  "_comment": "Real public-domain records. Rules: public/records/README.md. Fetch with: npm run records. Every field is required (tests/data.test.ts).",
+  "records": [
+    {
+      "id": "moonlight_bay",
+      "title": "Moonlight Bay",
+      "performer": "Premier Quartet",
+      "year": 1915,
+      "label": "Edison (matrix 3743)",
+      "composer": "Percy Wenrich & Edward Madden (1912)",
+      "archiveId": "78_moonlight-bay_premier-quartet-percy-wenrich_gbia0082848a",
+      "sourceFile": "Moonlight Bay - Premier Quartet - Percy Wenrich.mp3",
+      "file": "moonlight_bay.mp3",
+      "fallback": "waltz"
+    },
+    {
+      "id": "asleep_in_the_deep",
+      "title": "Asleep in the Deep",
+      "performer": "Charles Laird",
+      "year": 1924,
+      "label": "Emerson (matrix 41255-1)",
+      "composer": "H. W. Petrie & Arthur J. Lamb (1897)",
+      "archiveId": "78_asleep-in-the-deep_charles-laird-petrie-lamb_gbia3014455b",
+      "sourceFile": "ASLEEP IN THE DEEP - Charles Laird - Petrie.mp3",
+      "file": "asleep_in_the_deep.mp3",
+      "fallback": "ballad"
+    },
+    {
+      "id": "rocked_cradle_deep",
+      "title": "Rocked in the Cradle of the Deep",
+      "performer": "Haydn Quartet",
+      "year": 1905,
+      "label": "His Master's Voice (matrix 31048)",
+      "composer": "Joseph Philip Knight & Emma Willard (1839)",
+      "archiveId": "78_rocked-in-the-cradle-of-the-deep_haydn-quartet_gbia0299467a",
+      "sourceFile": "Rocked in the Cradle of the Deep - Haydn Quartet.mp3",
+      "file": "rocked_cradle_deep.mp3",
+      "fallback": "ballad"
+    },
+    {
+      "id": "nearer_my_god",
+      "title": "Nearer My God to Thee",
+      "performer": "Haydn Quartet",
+      "year": 1907,
+      "label": "Monarch / Victor (matrix 109)",
+      "composer": "Lowell Mason & Sarah Flower Adams (1841/1856)",
+      "archiveId": "78_nearer-my-god-to-thee_haydn-quartet_gbia0319137a",
+      "sourceFile": "Nearer My God to Thee - Haydn Quartet.mp3",
+      "file": "nearer_my_god.mp3",
+      "fallback": "ballad"
+    },
+    {
+      "id": "home_over_there",
+      "title": "The Home Over There",
+      "performer": "The Calvary Choir",
+      "year": 1917,
+      "label": "Edison (matrix 5896-A)",
+      "composer": "Tullius C. O'Kane & D. W. C. Huntington (19th century)",
+      "archiveId": "78_the-home-over-there_the-calvary-choir-tullias-c-okane_gbia0197111b",
+      "sourceFile": "The Home Over There - The Calvary Choir - Tullias C. O'Kane.mp3",
+      "file": "home_over_there.mp3",
+      "fallback": "ballad"
+    },
+    {
+      "id": "it_had_to_be_you",
+      "title": "It Had to Be You",
+      "performer": "Marion Harris",
+      "year": 1924,
+      "label": "Simolian per archive.org (catalog 2610A)",
+      "composer": "Isham Jones & Gus Kahn (1924)",
+      "archiveId": "78_it-had-to-be-you_marion-harris-phil-ohman-isham-jones-gus-kahn_gbia3004828a",
+      "sourceFile": "IT HAD TO BE YOU - MARION HARRIS - Phil Ohman.mp3",
+      "file": "it_had_to_be_you.mp3",
+      "fallback": "ragtime"
+    },
+    {
+      "id": "how_come_you_do_me",
+      "title": "How Come You Do Me Like You Do?",
+      "performer": "Marion Harris",
+      "year": 1924,
+      "label": "Simolian per archive.org (catalog 2610B)",
+      "composer": "Gene Austin & Roy Bergere (1924)",
+      "archiveId": "78_how-come-you-do-me-like-you-do_marion-harris-phil-ohman-austin-hergere_gbia3004828b",
+      "sourceFile": "HOW COME YOU DO ME LIKE YOU DO? - MARION HARRIS.mp3",
+      "file": "how_come_you_do_me.mp3",
+      "fallback": "ragtime"
+    },
+    {
+      "id": "swanee_butterfly",
+      "title": "Swanee Butterfly",
+      "performer": "Fletcher Henderson's Orchestra",
+      "year": 1925,
+      "label": "Banner (matrix 5836)",
+      "composer": "Walter Donaldson & Billy Rose (1925)",
+      "archiveId": "78_swanee-butterfly_fletcher-hendersons-orchestra-rose-donaldson_gbia0278916a",
+      "sourceFile": "SWANEE BUTTERFLY - FLETCHER HENDERSON'S ORCHESTRA.mp3",
+      "file": "swanee_butterfly.mp3",
+      "fallback": "ragtime"
+    },
+    {
+      "id": "let_me_call_you_sweetheart",
+      "title": "Let Me Call You Sweetheart",
+      "performer": "Arthur Hall",
+      "year": 1925,
+      "label": "Bell (matrix 338A)",
+      "composer": "Leo Friedman & Beth Slater Whitson (1910)",
+      "archiveId": "78_let-me-call-you-sweetheart_arthur-hall-friedman-whitson_gbia0268473a",
+      "sourceFile": "LET ME CALL YOU SWEETHEART - ARTHUR HALL.mp3",
+      "file": "let_me_call_you_sweetheart.mp3",
+      "fallback": "waltz"
+    },
+    {
+      "id": "meet_me_in_dreamland",
+      "title": "Meet Me Tonight in Dreamland",
+      "performer": "Walter Miller",
+      "year": 1912,
+      "label": "Rexophone (matrix 60150)",
+      "composer": "Leo Friedman & Beth Slater Whitson (1909)",
+      "archiveId": "78_meet-me-tonight-in-dreamland_walter-miller_gbia3007754b",
+      "sourceFile": "Meet Me Tonight In Dreamland - Walter Miller.mp3",
+      "file": "meet_me_in_dreamland.mp3",
+      "fallback": "waltz"
+    },
+    {
+      "id": "old_mill_stream",
+      "title": "Down by the Old Mill Stream",
+      "performer": "Ballard and Nair",
+      "year": 1923,
+      "label": "Federal (matrix 2-1957)",
+      "composer": "Tell Taylor (1910)",
+      "archiveId": "78_down-by-the-old-mill-stream_ballard-and-nair-taylor_gbia0363982b",
+      "sourceFile": "DOWN BY THE OLD MILL STREAM - BALLARD AND NAIR.mp3",
+      "file": "old_mill_stream.mp3",
+      "fallback": "waltz"
+    }
+  ]
+}

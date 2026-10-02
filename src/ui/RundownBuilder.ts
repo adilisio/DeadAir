@@ -5,6 +5,7 @@ import { AUDIENCE, validateRundown } from '../sim/resolver';
 import { FACTIONS, FACTION_NAMES, SEGMENTS, SHOW_SLOTS, type Card, type FactionId, type NightDef, type TownState } from '../sim/types';
 import { bar, button, label, panel, toNum, type Button } from './widgets';
 import { audio } from '../audio/engine';
+import { resolveRecord } from '../data/records';
 
 export const KIND_TAG: Record<Card['kind'], { tag: string; color: string }> = {
   record: { tag: 'REC', color: '#e8bd52' },
@@ -22,7 +23,9 @@ export function describeCard(card: Card): string {
     case 'record': {
       const loves = card.loves.map((f) => FACTION_NAMES[f]).join(' & ');
       const hates = card.dislikes?.length ? ` · the ${card.dislikes.map((f) => FACTION_NAMES[f]).join(' & ')} can't stand it` : '';
-      return `RECORD · ${card.mood} · loved by the ${loves}${hates}`;
+      const r = resolveRecord(card.recordId);
+      const who = r ? ` · ${r.performer}${r.standIn ? '' : `, ${r.year}`}` : '';
+      return `RECORD${who} · loved by the ${loves}${hates}`;
     }
     case 'news':
       return `NEWS · ${TRUTH_LABEL[card.truth]}${card.grim ? ' · hard news' : ''}`;
@@ -42,7 +45,7 @@ function focusOf(card: Card): FactionId[] {
 }
 
 const L = {
-  crate: { x: 12, y: 40, w: 236, rowH: 18 },
+  crate: { x: 12, y: 40, w: 236, rowH: 16 },
   show: { x: 392, y: 40, w: 236 },
   detail: { x: 12, y: 292, w: 616, h: 60 },
 };
@@ -76,7 +79,7 @@ export class RundownBuilder {
     add(label(scene, 14, 26, 'Pick six. When it airs matters.', { size: 14, color: UI.dim }));
     const t = town.trust;
     add(label(scene, 628, 8, `MORALE ${town.morale}   SAFETY ${town.safety}   CREDIBILITY ${town.credibility}`, { size: 14, color: UI.dim }).setOrigin(1, 0));
-    add(label(scene, 628, 22, `LISTENERS ${town.listeners}   CHITS ${town.chits}   TRUST: NETTERS ${t.netters}  GRANGE ${t.chapel}  LINEMEN ${t.linemen}`, { size: 14, color: UI.dim }).setOrigin(1, 0));
+    add(label(scene, 628, 22, `LISTENERS ${town.listeners}   CHITS ${town.chits}   TRUST: NETTERS ${t.netters}  CHAPEL ${t.chapel}  LINEMEN ${t.linemen}`, { size: 14, color: UI.dim }).setOrigin(1, 0));
 
     // Crate.
     const c = L.crate;
@@ -85,8 +88,8 @@ export class RundownBuilder {
     night.cards.forEach((card, i) => {
       const y = c.y + 24 + i * c.rowH;
       const bg = add(scene.add.graphics());
-      const tag = add(label(scene, c.x + 8, y, KIND_TAG[card.kind].tag, { size: 16, color: KIND_TAG[card.kind].color }));
-      const text = add(label(scene, c.x + 46, y, truncate(card.title, 26), { size: 16 }));
+      const tag = add(label(scene, c.x + 8, y, KIND_TAG[card.kind].tag, { size: 15, color: KIND_TAG[card.kind].color }));
+      const text = add(label(scene, c.x + 46, y, truncate(card.title, 27), { size: 15 }));
       const zone = add(scene.add.zone(c.x + c.w / 2, y + c.rowH / 2, c.w - 8, c.rowH).setInteractive({ useHandCursor: true }));
       zone.on('pointerover', () => this.showDetail(card));
       zone.on('pointerdown', () => this.toggleCard(card.id));
