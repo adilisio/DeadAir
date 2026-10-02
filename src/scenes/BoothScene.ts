@@ -13,6 +13,7 @@ import { Tuning } from '../sim/tuning';
 import { SHOW_SLOTS, type Card, type CallerDecision, type TalkCard } from '../sim/types';
 import { RundownBuilder, SEGMENT_LABEL } from '../ui/RundownBuilder';
 import { resolveRecord } from '../data/records';
+import { NIGHT_1_AUTO_RUNDOWN } from '../data/night1';
 import { LiveHud, kindHeader } from '../ui/LiveHud';
 
 const S = ART_SCALE;
@@ -23,8 +24,6 @@ const CUE_WINDOW = 8;
 const DEAD_AIR_GRACE = 1.2;
 const WIND = { dusk: 0.6, late: 1.0, small: 1.4 } as const;
 
-/** A sensible show for ?auto runs: dedications and breathers, warnings when they land. */
-const AUTO_RUNDOWN = ['news_infirmary', 'rec_hymn', 'warn_dogs', 'rec_harris', 'warn_ice', 'rec_deep'];
 
 type Phase = 'prep' | 'live' | 'other' | 'done';
 
@@ -139,9 +138,9 @@ export class BoothScene extends Phaser.Scene {
 
     if (DEBUG.auto) {
       this.time.delayedCall(500, () => {
-        this.builder?.fill(AUTO_RUNDOWN);
+        this.builder?.fill(NIGHT_1_AUTO_RUNDOWN);
         markPhase('prep-filled');
-        this.time.delayedCall(1200, () => this.startShow(AUTO_RUNDOWN));
+        this.time.delayedCall(1200, () => this.startShow(NIGHT_1_AUTO_RUNDOWN));
       });
     }
   }
@@ -354,6 +353,7 @@ export class BoothScene extends Phaser.Scene {
       const h = await audio.playRecord(card.recordId, RECORD_SECONDS);
       if (!h.real) show(true);
       this.record = h;
+      markPhase(h.real ? 'record' : 'record-standin');
       this.itemStart = this.time.now;
       this.itemDuration = h.duration;
       await h.ended;

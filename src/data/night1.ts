@@ -185,3 +185,9 @@ export const NIGHT_1: NightDef = {
     outro: "Goodnight, Port Vesper. We'll be listening.",
   },
 };
+
+/** A sensible show for ?auto runs: dedications and breathers, warnings when they land. */
+export const NIGHT_1_AUTO_RUNDOWN = ['news_infirmary', 'rec_hymn', 'warn_dogs', 'rec_harris', 'warn_ice', 'rec_deep'];
+
+/** A messier show for ?scene=dawn, so the ledger has plenty to report. */
+export const NIGHT_1_DEMO_RUNDOWN = ['news_wells', 'rec_harris', 'ad_tonic', 'ad_fish', 'warn_ice', 'rec_moonlight'];

@@ -6,6 +6,7 @@ import { applyScreenLook, glow, splitCameras } from './fx';
 import { EXTERIOR } from '../art/exterior';
 import { hex, P } from '../art/palette';
 import { run, resetRun } from '../run';
+import { NIGHT_1_DEMO_RUNDOWN } from '../data/night1';
 import { STARTING_STATE, resolveNight } from '../sim/resolver';
 import { FACTIONS, FACTION_NAMES, type DawnLine, type NightResult } from '../sim/types';
 import { button, label } from '../ui/widgets';
@@ -214,7 +215,7 @@ export class DawnScene extends Phaser.Scene {
 /** For ?scene=dawn: a plausible night, so the ledger can be looked at directly. */
 function demoResult(): NightResult {
   return resolveNight(run.night, STARTING_STATE, {
-    rundown: ['news_wells', 'rec_rag', 'ad_tonic', 'ad_fish', 'warn_ice', 'rec_waltz'],
+    rundown: NIGHT_1_DEMO_RUNDOWN,
     signal: [1, 0.9, 0.6, 0.8, 1, 1],
     deadAirSeconds: 6,
     caller: 'onair',

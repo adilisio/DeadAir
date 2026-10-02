@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { NIGHT_1 } from '../src/data/night1';
+import { NIGHT_1, NIGHT_1_AUTO_RUNDOWN, NIGHT_1_DEMO_RUNDOWN } from '../src/data/night1';
+import { validateRundown } from '../src/sim/resolver';
 import { RECORDS, REAL_RECORDS, LATEST_PD_RECORDING_YEAR, licenseNote, resolveRecord, sourceUrl, standInFor } from '../src/data/records';
 import { SHOW_SLOTS } from '../src/sim/types';
 
@@ -19,6 +20,11 @@ describe('night 1 content', () => {
       expect(c.blurb.length, c.id).toBeGreaterThan(0);
       if (c.kind !== 'record') expect(c.script.length, c.id).toBeGreaterThan(20);
     }
+  });
+
+  it('has valid auto-play and demo rundowns', () => {
+    expect(validateRundown(NIGHT_1, NIGHT_1_AUTO_RUNDOWN)).toBeNull();
+    expect(validateRundown(NIGHT_1, NIGHT_1_DEMO_RUNDOWN)).toBeNull();
   });
 
   it('points the caller and the Other Station at real things', () => {
