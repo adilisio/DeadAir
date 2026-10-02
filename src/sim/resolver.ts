@@ -41,6 +41,18 @@ export const RULES = {
   signalListenerScale: 60,
 } as const;
 
+const BREATHER_LINES = [
+  (t: string) => `You followed "${t}" with music. People took the news, and then they breathed.`,
+  (t: string) => `After "${t}" you let a record play. Somebody on Dock Street said it was the kindest thing they'd heard all week.`,
+  (t: string) => `"${t}" was hard to hear. The song after it made it easier to sleep.`,
+];
+
+const DEDICATION_LINES = [
+  (rec: string, item: string, f: string) => `"${rec}" right after "${item}". The ${f} took it as a dedication.`,
+  (rec: string, item: string, f: string) => `The ${f} noticed you played "${rec}" for them after "${item}". They won't say so. They noticed.`,
+  (rec: string, _item: string, f: string) => `Somebody heard "${rec}" and said, "That one's for us." The ${f} are telling it that way, anyhow.`,
+];
+
 export const STARTING_STATE: TownState = {
   morale: 50,
   safety: 50,
@@ -159,21 +171,21 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     if (card.grim && next?.kind === 'record') {
       // Breather: a record right after hard news lets people take it in.
       fx = { ...fx, morale: Math.max(0, fx.morale ?? 0) };
-      lines.push({ text: `You followed "${card.title}" with music. People took the news, and then they breathed.`, tone: 'good' });
+      lines.push({ text: BREATHER_LINES[i % BREATHER_LINES.length](card.title), tone: 'good', rule: 'breather' });
     } else if (card.grim && next && isTalk(next) && next.grim) {
       applyEffects(state, { morale: RULES.panicMorale }, scale);
-      lines.push({ text: `"${card.title}" and then "${next.title}", back to back. Some folks sat up all night with the lamps lit.`, tone: 'bad' });
+      lines.push({ text: `"${card.title}" and then "${next.title}", back to back. Some folks sat up all night with the lamps lit.`, tone: 'bad', rule: 'panic' });
     }
     applyEffects(state, fx, scale);
 
     if (card.kind === 'ad' && next?.kind === 'ad') {
       applyEffects(state, { listeners: RULES.adFatigueListeners }, scale);
-      lines.push({ text: 'Two ads in a row. Somewhere, a radio clicked off.', tone: 'bad' });
+      lines.push({ text: 'Two ads in a row. Somewhere, a radio clicked off.', tone: 'bad', rule: 'adFatigue' });
     }
 
     if (card.helps && next?.kind === 'record' && next.loves.includes(card.helps)) {
       applyEffects(state, { trust: { [card.helps]: RULES.dedicationTrust } }, scale);
-      lines.push({ text: `"${next.title}" right after "${card.title}". The ${FACTION_NAMES[card.helps]} took it as a dedication.`, tone: 'good' });
+      lines.push({ text: DEDICATION_LINES[i % DEDICATION_LINES.length](next.title, card.title, FACTION_NAMES[card.helps]), tone: 'good', rule: 'dedication' });
     }
 
     if (card.reach) {

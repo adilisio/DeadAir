@@ -76,30 +76,40 @@ describe('reach checks', () => {
 
 describe('sequence rules', () => {
   it('breather: a record after grim news cancels its morale hit', () => {
+    // The wells story costs morale; followed by a record, that cost is waived.
+    const calmed = run(perf(rundownWith({ 2: 'news_wells', 3: 'rec_rag' })));
+    const raw = run(perf(rundownWith({ 2: 'news_wells', 3: 'ad_tonic', 5: 'rec_rag' })));
+    expect(calmed.after.morale).toBeGreaterThan(raw.after.morale);
     const withBreather = run(perf(rundownWith({ 0: 'warn_dogs', 1: 'rec_rag' })));
     const withoutBreather = run(perf(rundownWith({ 0: 'warn_dogs', 1: 'ad_tonic' })));
-    expect(withBreather.lines.some((l) => /breathed/.test(l.text))).toBe(true);
-    expect(withoutBreather.lines.some((l) => /breathed/.test(l.text))).toBe(false);
+    expect(withBreather.lines.some((l) => l.rule === 'breather')).toBe(true);
+    expect(withoutBreather.lines.some((l) => l.rule === 'breather')).toBe(false);
   });
 
   it('panic: two grim items back to back cost extra morale', () => {
     const panic = run(perf(rundownWith({ 0: 'warn_dogs', 1: 'news_wells' })));
     const spaced = run(perf(rundownWith({ 0: 'warn_dogs', 1: 'ad_tonic', 2: 'news_wells' })));
-    expect(panic.lines.some((l) => /back to back/.test(l.text))).toBe(true);
-    expect(spaced.lines.some((l) => /back to back/.test(l.text))).toBe(false);
+    expect(panic.lines.some((l) => l.rule === 'panic')).toBe(true);
+    expect(spaced.lines.some((l) => l.rule === 'panic')).toBe(false);
+  });
+
+  it('breather lines vary by slot', () => {
+    const a = run(perf(rundownWith({ 0: 'warn_dogs', 1: 'rec_rag' }))).lines.find((l) => l.rule === 'breather')!;
+    const b = run(perf(rundownWith({ 2: 'warn_dogs', 3: 'rec_rag' }))).lines.find((l) => l.rule === 'breather')!;
+    expect(a.text).not.toBe(b.text);
   });
 
   it('ad fatigue: two ads in a row lose listeners', () => {
     const tired = run(perf(rundownWith({ 0: 'ad_tonic', 1: 'ad_fish' })));
     const spaced = run(perf(rundownWith({ 0: 'ad_tonic', 2: 'ad_fish' })));
     expect(tired.after.listeners).toBeLessThan(spaced.after.listeners);
-    expect(tired.lines.some((l) => /radio clicked off/.test(l.text))).toBe(true);
+    expect(tired.lines.some((l) => l.rule === 'adFatigue')).toBe(true);
   });
 
   it('dedication: a loved record after helpful news earns extra trust', () => {
     const dedicated = run(perf(rundownWith({ 0: 'news_bread', 1: 'rec_march' })));
     const plain = run(perf(rundownWith({ 0: 'news_bread', 1: 'rec_rag', 3: 'rec_march' })));
-    expect(dedicated.lines.some((l) => /dedication/.test(l.text))).toBe(true);
+    expect(dedicated.lines.some((l) => l.rule === 'dedication')).toBe(true);
     expect(dedicated.after.trust.grange).toBeGreaterThan(plain.after.trust.grange);
   });
 });

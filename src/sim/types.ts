@@ -27,6 +27,8 @@ export type Tone = 'good' | 'bad' | 'neutral' | 'eerie';
 export interface DawnLine {
   text: string;
   tone: Tone;
+  /** Which sequence rule produced this line, if any. */
+  rule?: 'breather' | 'panic' | 'adFatigue' | 'dedication';
 }
 
 /** What happens when a reach check resolves. `effects` are applied unscaled. */
