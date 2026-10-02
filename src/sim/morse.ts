@@ -99,10 +99,14 @@ export class MorseCopy {
   }
 }
 
-/** The code chart beside the tape: the word's letters plus decoys, alphabetical. */
+/**
+ * The code chart beside the tape: the word's letters plus decoys, alphabetical.
+ * Only chart letters count as guesses, so decoys skip the tuning keys (A, D):
+ * riding the dial mid-copy shouldn't cost the player time.
+ */
 export function chartFor(word: string, rand: () => number, size = MORSE_TIMING.chartSize): string[] {
   const letters = new Set(word.toUpperCase());
-  const pool = Object.keys(MORSE).filter((l) => !letters.has(l));
+  const pool = Object.keys(MORSE).filter((l) => !letters.has(l) && l !== 'A' && l !== 'D');
   while (letters.size < size && pool.length) letters.add(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
   return [...letters].sort();
 }

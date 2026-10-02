@@ -11,8 +11,9 @@ live, and what you air changes the town. After sign-off, another station on your
 reads back what you chose *not* to air. Phaser 4 + TypeScript + Vite, Vitest for rules.
 
 **Milestone status:** M0 (scaffold) and M1 (One Night) are done and playtested by the
-owner. Night 1 now plays real public-domain 78s. **Next work is the owner's call**; see
-"What to do next".
+owner. Night 1 plays real public-domain 78s. The booth mini-games (the main playtest
+complaint) are built but **not yet playtested by the owner**. Next work is the owner's
+call; see "What to do next".
 
 ## The owner
 
@@ -45,35 +46,46 @@ owner. Night 1 now plays real public-domain 78s. **Next work is the owner's call
 - **Music should have singing** → fixed with real 78s (quartets, choir, Marion Harris).
 - **Narration should sound human**; "a good start".
 - **Tuning + cueing is "mildly fun", "a little repetitive"**. Suggested *different mini-games
-  through the night instead of just the one*. **Not built yet; the main open gameplay item.**
+  through the night instead of just the one*. → Built (2026-10-02): storms, needle drop,
+  tube swap, switchboard + dump, Morse. Waiting on the owner's playtest.
 
 ## Current state of the code
 
-- `main` on GitHub (`adilisio/DeadAir`) is at `e84dd91` unless the owner has applied the
-  latest bundle. Local work in the last session added `069f1ff` (renames, quieter static),
-  `aa7732b` + `a3dd83b` (real 78s), and this handoff. **First thing: `git log` and confirm
-  GitHub has them**; if not, ask the owner to push (they were sent as a git bundle).
-- Verified at handoff: 42 tests pass, `npm run build` clean, `npm run shots` (11 shots,
+- The 2026-10-02 session ran on the owner's Windows PC. It started with GitHub in sync at
+  `91cafb7`, then added one commit per booth task (`ad3c0cf` storms, `f233fff` needle,
+  `c209871` tube, `96f4cd4` switchboard + dump, `51c8ae4` Morse) plus a docs commit. **These
+  were not pushed**; `git status -sb` shows whether the owner has pushed since.
+- Verified at handoff: 79 tests pass, `npm run build` clean, `npm run shots` (17 shots,
   full night headless) green with no console errors.
 
 ### How it fits together
 
 - `src/sim/` — pure rules, no Phaser. `resolver.ts` turns a rundown + live performance
-  (per-slot signal, dead air seconds, caller decision) into the next town state and dawn
-  lines. Rules: audience shares per segment, reach checks, breather/panic, ad fatigue,
-  dedications, lies unravel at dawn. `tuning.ts` is the transmitter drift model.
-- `src/data/night1.ts` — Night 1's 13 cards, the caller, the Other Station config, and the
-  `?auto` / `?scene=dawn` rundowns (tested for validity). `records.json` + `records.ts` —
-  the record catalog: 11 real 78s and 5 synthesized stand-ins.
+  (`ShowPerformance`: per-slot signal, dead air, calls, needle drops, tube seconds, Morse)
+  into the next town state and dawn lines. Rules: audience shares per segment, reach
+  checks, breather/panic, ad fatigue, dedications, lies unravel at dawn, plus each booth
+  task's outcome. `tuning.ts` is the transmitter drift model.
+  - Booth tasks, one file each with its pure logic and constants: `storm.ts` (wind per
+    slot, storm report), `needle.ts` (arm sweep, groove band, late skip), `tube.ts`
+    (`TubeFault` state machine), `calls.ts` (call results, the dump delay), `morse.ts`
+    (code table, keying timeline/tape, `MorseCopy`, chart). Tests in `tests/<name>.test.ts`.
+- `src/data/night1.ts` — Night 1's 13 cards, the switchboard (three lines), the storm,
+  tube and Morse schedule, the Other Station config, and the `?auto` / `?scene=dawn`
+  rundowns (tested for validity). `records.json` + `records.ts` — the record catalog: 11
+  real 78s and 5 synthesized stand-ins.
 - `src/audio/` — `engine.ts` (one Web Audio graph: radio chain, static/whistle/hum by tuning
   error, record playback with stand-in fallback, phone ring, Other Station drone, level meter),
   `pressings.ts` + `render.ts` (seeded stand-in tunes), `voice.ts` (speechSynthesis with a
   timed fallback).
 - `src/scenes/` — Boot (paints textures, waits for the VT323 font), Title, **Booth** (prep →
-  live → sign-off → Other Station; owns the live state machine), Dawn (the 3–4 page ledger).
+  live → sign-off → Other Station; owns the live state machine and drives each booth task,
+  with an `?auto` player for every one), Dawn (the 3–4 page ledger).
   `fx.ts`: post effects and `splitCameras` (UI on a clean second camera).
-- `src/ui/` — `RundownBuilder` (prep), `LiveHud` (teleprompter, tuning gauge, cue box,
-  phone, running-order chips), `widgets`.
+- `src/ui/` — `RundownBuilder` (prep), `LiveHud` (teleprompter with a reveal mode for
+  callers, storm-only tuning gauge, cue box, running-order chips), one panel per task
+  (`NeedlePanel`, `TubePanel`, `Switchboard`, `MorsePanel`), `widgets`.
+- Live controls: A/D tune (storms), SPACE cue / drop needle / leave switchboard, Q/W/E
+  spare tubes, 1/2/3 + ENTER switchboard, X dump, letters for Morse.
 - `tools/shots.mjs` — the eyes. Drives the game with `?auto&fast&mute`, waits on phases
   from `window.__deadair`, saves PNGs, fails on any console error. **Look at the PNGs**
   after visual changes; this caught several real bugs.
@@ -92,6 +104,16 @@ owner. Night 1 now plays real public-domain 78s. **Next work is the owner's call
   filter. The upgrade is a TTS that renders buffers (e.g. Kokoro in the browser) or recorded files.
 - Headless rendering of stand-in records is slow here (3–9 s each); the game pre-renders
   records as soon as they're placed in the rundown.
+- `BoothScene` already has a `needles` field (the VU/dial/clock graphics). Vite serves code
+  with type errors, so a name clash there shows up only in `npm run typecheck`, not in shots.
+  Run typecheck before trusting a shot.
+
+### Owner's-PC gotchas (Windows)
+
+- Playwright's own Chromium isn't installed; point shots at Chrome:
+  `CHROMIUM_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe" npm run shots`.
+- No Python in Git Bash. Source files are CRLF, so multi-line string replacements from
+  `node -e` scripts miss; use the editor tools or `sed` for one-liners.
 
 ### Cloud-session gotchas
 
@@ -104,17 +126,14 @@ owner. Night 1 now plays real public-domain 78s. **Next work is the owner's call
 
 ## What to do next (ask the owner which; recommendation first)
 
-1. **Booth mini-games** (recommended; addresses the main playtest complaint). Proposed set,
-   one or two per segment so the night has variety, each feeding the resolver:
-   - *Tube swap:* a tube blows mid-record; find and replace it before the music dies.
-   - *Needle drop:* land the needle at the groove start; a miss scratches on air.
-   - *Switchboard:* several callers, a few seconds of each; choose who goes on air
-     (liar, prankster, someone in trouble). Generalizes the current single caller.
-   - *Dump button:* cut a caller before they say something dangerous, or don't.
-   - *Morse:* decode a faint signal under the static to unlock a card for later.
-   - *Tuning:* keep, but only when a storm event hits, not constantly.
-   Design notes: extend `ShowPerformance` with mini-game outcomes rather than putting rules
-   in scenes; keep outcomes testable in `src/sim/`; add phases + shots for each.
+1. **Playtest the booth tasks with the owner** (recommended), then tune or cut. Night 1's
+   shape: dusk has the needle drop and a tube blowing mid-record; late opens on the
+   switchboard (Mrs. Okafor, a nameless slanderer to dump, Lottie's hello) and a storm
+   rolls in for slots 3–4; the small hours bring Morse ("HELP" from an ice shanty). The
+   knobs are listed in `TODO.md`. Open design questions for the owner:
+   - The handoff idea was that Morse *unlocks a card for later*; with no Night 2 yet it
+     resolves at dawn instead. Revisit when there's a next night to unlock into.
+   - Whether some tasks should move between segments or vary night to night.
    Also pending from the playtest list: volume sliders (music / voice / static) and pause.
 2. **Human-sounding voices.** (a) A drop-in folder for the owner's recorded lines (e.g.
    `public/voice/<card-id>.mp3`, used when present, routed through the radio chain).

@@ -88,7 +88,7 @@ export class BoothScene extends Phaser.Scene {
   private boardUsed = false;
   private boardPanel: SwitchboardPanel | null = null;
   private calls: CallRecord[] = [];
-  private morse: { copy: MorseCopy; t: number; left: number; panel: MorsePanel; autoT: number } | null = null;
+  private morse: { copy: MorseCopy; chart: string[]; t: number; left: number; panel: MorsePanel; autoT: number } | null = null;
   private morseResult: 'decoded' | 'missed' | undefined = undefined;
   private stopRing: (() => void) | null = null;
   private record: RecordHandle | null = null;
@@ -681,14 +681,16 @@ export class BoothScene extends Phaser.Scene {
   private startMorse(): void {
     const def = run.night.morse!;
     const copy = new MorseCopy(def.word);
-    const panel = new MorsePanel(this, copy.word.length, chartFor(copy.word, rng(def.word.length * 31)), this.ui);
-    this.morse = { copy, t: 0, left: DEBUG.fast ? 14 : def.seconds, panel, autoT: 1.5 };
+    const chart = chartFor(copy.word, rng(def.word.length * 31));
+    const panel = new MorsePanel(this, copy.word.length, chart, this.ui);
+    this.morse = { copy, chart, t: 0, left: DEBUG.fast ? 14 : def.seconds, panel, autoT: 1.5 };
     markPhase('morse');
   }
 
   private typeMorse(key: string): void {
     const m = this.morse;
-    if (this.phase !== 'live' || !m || key.length !== 1) return;
+    // Only letters on the chart are guesses; other keys (tuning, tubes) pass through.
+    if (this.phase !== 'live' || !m || key.length !== 1 || !m.chart.includes(key.toUpperCase())) return;
     const r = m.copy.type(key);
     if (r === 'wrong') {
       m.left -= MORSE_TIMING.wrongPenalty;

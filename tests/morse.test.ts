@@ -56,6 +56,16 @@ describe('Morse', () => {
     expect([...chart].sort()).toEqual(chart);
   });
 
+  it('keeps the tuning keys off the chart as decoys', () => {
+    for (let seed = 1; seed < 30; seed++) {
+      const chart = chartFor('HELP', rng(seed));
+      expect(chart).not.toContain('A');
+      expect(chart).not.toContain('D');
+    }
+    // Unless the word needs them.
+    expect(chartFor('DAWN', rng(1))).toEqual(expect.arrayContaining(['A', 'D']));
+  });
+
   it('copying the signal helps the Netters; missing it costs them', () => {
     const p = (morse?: 'decoded' | 'missed'): ShowPerformance => ({ rundown: NIGHT_1_AUTO_RUNDOWN, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [], morse });
     const got = resolveNight(NIGHT_1, STARTING_STATE, p('decoded'));
