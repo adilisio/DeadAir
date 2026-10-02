@@ -1,7 +1,8 @@
 # Dead Air — agent guide
 
 A small browser game: run a pirate-ish AM radio station in a post-collapse Lake Erie town.
-Phaser 4 + TypeScript + Vite. Read `DESIGN.md` for the game, `TODO.md` for what's next.
+Phaser 4 + TypeScript + Vite. Read `HANDOFF.md` first if you're new to the project, then
+`DESIGN.md` for the game and `TODO.md` for what's next.
 
 ## Commands
 

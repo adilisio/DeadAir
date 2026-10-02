@@ -2,15 +2,14 @@
 
 Light process: one list. Move items to Done with the commit that did them.
 
-## Now — M1: One Night (built; waiting on the owner's playtest)
-- [ ] Owner plays a full night with sound and reports: is building the show interesting?
-      Is tuning + cueing fun or a chore? Too easy / too hard? Does the Other Station land?
-- [ ] Tune from that: drift strength (`src/sim/tuning.ts`), cue window and record length
-      (`src/scenes/BoothScene.ts`), rule numbers (`RULES` in `src/sim/resolver.ts`)
-- [ ] Check speech on the owner's browser: which voice it picks, whether word highlighting
-      follows it (`src/audio/voice.ts`)
-- [ ] Known rough edges: the record glint is a stand-in for a spinning label; no settings
-      menu yet (volume, effects); no pause
+## Now — owner picks the next piece (see HANDOFF.md, "What to do next")
+- [ ] Booth mini-games so the night isn't one task on repeat (playtest: tuning + cueing is
+      "mildly fun", "a little repetitive"): tube swap, needle drop, switchboard, dump button,
+      Morse; tuning only during storms. Outcomes feed the resolver.
+- [ ] Volume sliders (music / voice / static) and a pause
+- [ ] Human-sounding voices: owner's recorded lines as drop-in files; in-browser neural TTS
+- [ ] Night 2 content using the five unused 78s
+- [ ] Known rough edges: the record glint stands in for a spinning label
 
 ## Next — M2: One Day
 - Town walk (top-down, talk to people → cards)
@@ -18,12 +17,18 @@ Light process: one list. Move items to Done with the commit that did them.
 - One ruin run (sneak + loot → records, parts)
 
 ## Owner
-- Allow `archive.org` and `*.archive.org` in the cloud environment's network settings,
-  so `npm run records` can download the 78s in-session (or run it on your PC)
+- Push the latest commits if a cloud session couldn't (it gets sent as a git bundle)
 - Final name for the DJ
+- Optional: record your own voice lines for the sign-on, sign-off and the Other Station
 
 ## Done
 - M0 scaffold: Vite + TS + Phaser 4, Vitest, screenshot tool, docs
 - M1 One Night: resolver + Night 1 content, audio engine and stand-in pressings, booth art
   and lighting, prep, live show (tuning, cueing, dead air, caller), the Other Station,
   the dawn ledger. 40 tests; `npm run shots` plays a full night headless.
+- Owner playtest of M1: plays start to finish, runs smoothly; static was too loud (fixed),
+  music needed singing (fixed with real 78s), voice should sound human (open), tuning +
+  cueing gets repetitive (open: mini-games)
+- Names settled: Port Vesper, the Lamp, Netters / Chapel / Linemen (grid restorers) (`069f1ff`)
+- Real 78s: 11 public-domain records with credits, `npm run records`, Night 1 on real
+  songs, stand-in fallback (`aa7732b`, `a3dd83b`)
