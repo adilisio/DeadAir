@@ -13,7 +13,13 @@ Phaser 4 + TypeScript + Vite. Read `DESIGN.md` for the game, `TODO.md` for what'
   Pass a filter: `npm run shots -- dawn`. Set `CHROMIUM_PATH` if Playwright's browser isn't installed.
 
 URL switches (see `src/config.ts`): `?fast` short records/talk, `?auto` plays itself,
-`?mute` silent, `?scene=booth|dawn` jump in.
+`?mute` silent, `?nofx` no post effects, `?scene=booth|dawn` jump in.
+`window.__deadair` exposes the current phase and the game object for debugging.
+
+Rendering notes: the room is lit with Phaser 4 lights (`setLighting`) and post effects in
+`src/scenes/fx.ts`. UI lives on a second, clean camera (`splitCameras`); pass new UI roots
+through its `ui()` helper or they'll render twice. Phaser 4's vignette darkens from the
+center outward, so keep its strength low.
 
 ## Layout
 

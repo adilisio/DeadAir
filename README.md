@@ -15,7 +15,32 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and click to sign on. Use headphones: it's a radio game.
+Open http://localhost:5173 in Chrome or Edge and click to sign on. Use headphones: it's a radio game.
+
+## How a night works
+
+1. **Prep.** Pick six cards from the crate into three segments. Hover a card to read it and
+   see who it's for; the bars next to each segment show who's listening then.
+2. **Live.** Your show plays: records, news, warnings, ads, all read on air.
+   - **Hold A / D** (or the arrow keys, or press on the TRANSMITTER gauge) to keep the
+     signal on 1260. Static means fewer people heard you.
+   - **SPACE** cues the next item when the cue opens near the end of the current one.
+     If nothing's cued when an item ends, that's dead air.
+   - When the phone rings: **1** puts the caller on air, **2** lets it ring.
+3. **Sign-off.** Then leave the set on for a minute.
+4. **Dawn.** The town's paper tells you what your show did.
+
+## Settings (URL switches)
+
+| Add to the URL | Effect |
+| --- | --- |
+| `?nofx` | No bloom, CRT curve or vignette (slow PCs) |
+| `?mute` | Silent |
+| `?fast` | Short records and talk: a whole night in about a minute |
+| `?auto` | The game plays itself (for testing) |
+| `?scene=booth` / `?scene=dawn` | Skip straight to a scene |
+
+Combine them with `&`, e.g. http://localhost:5173/?scene=booth&fast
 
 ## Develop
 
