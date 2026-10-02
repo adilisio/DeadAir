@@ -16,6 +16,8 @@ import { NeedlePanel } from '../ui/NeedlePanel';
 import { TubeFault } from '../sim/tube';
 import { TubePanel } from '../ui/TubePanel';
 import { turnIndex } from '../sim/calls';
+import { MORSE_TIMING, MorseCopy, chartFor, keyState } from '../sim/morse';
+import { MorsePanel } from '../ui/MorsePanel';
 import { SwitchboardPanel, type LineState } from '../ui/Switchboard';
 import { SHOW_SLOTS, type CallRecord, type Card, type NeedleResult, type RecordCard, type TalkCard } from '../sim/types';
 import { RundownBuilder, SEGMENT_LABEL } from '../ui/RundownBuilder';
@@ -86,6 +88,8 @@ export class BoothScene extends Phaser.Scene {
   private boardUsed = false;
   private boardPanel: SwitchboardPanel | null = null;
   private calls: CallRecord[] = [];
+  private morse: { copy: MorseCopy; t: number; left: number; panel: MorsePanel; autoT: number } | null = null;
+  private morseResult: 'decoded' | 'missed' | undefined = undefined;
   private stopRing: (() => void) | null = null;
   private record: RecordHandle | null = null;
   private speech: Speech | null = null;
@@ -134,6 +138,8 @@ export class BoothScene extends Phaser.Scene {
     this.boardUsed = false;
     this.boardPanel = null;
     this.calls = [];
+    this.morse = null;
+    this.morseResult = undefined;
     this.record = null;
     this.speech = null;
     this.speaking = false;
@@ -170,6 +176,7 @@ export class BoothScene extends Phaser.Scene {
     [K.ONE, K.TWO, K.THREE].forEach((code, i) => kb.addKey(code).on('down', () => this.selectLine(i)));
     kb.addKey(K.ENTER).on('down', () => this.putOnAir());
     kb.addKey(K.X).on('down', () => this.dumpCall());
+    kb.on('keydown', (e: KeyboardEvent) => this.typeMorse(e.key));
 
     this.builder = new RundownBuilder(this, run.night, run.town, (ids) => this.startShow(ids), (ids) => {
       // Render records in the background as soon as they're picked.
@@ -385,6 +392,7 @@ export class BoothScene extends Phaser.Scene {
       this.openBoard(i);
       return;
     }
+    if (i === run.night.morse?.slot && !this.morse && !this.morseResult) this.startMorse();
     this.idx = i;
     this.signalSlot = i;
     this.hud?.setOrder(i, i);
@@ -668,6 +676,50 @@ export class BoothScene extends Phaser.Scene {
     return f.strength;
   }
 
+  // ───────────────────────────── Morse ─────────────────────────────
+
+  private startMorse(): void {
+    const def = run.night.morse!;
+    const copy = new MorseCopy(def.word);
+    const panel = new MorsePanel(this, copy.word.length, chartFor(copy.word, rng(def.word.length * 31)), this.ui);
+    this.morse = { copy, t: 0, left: DEBUG.fast ? 14 : def.seconds, panel, autoT: 1.5 };
+    markPhase('morse');
+  }
+
+  private typeMorse(key: string): void {
+    const m = this.morse;
+    if (this.phase !== 'live' || !m || key.length !== 1) return;
+    const r = m.copy.type(key);
+    if (r === 'wrong') {
+      m.left -= MORSE_TIMING.wrongPenalty;
+      m.panel.wrong(key);
+    } else if (r === 'done') this.finishMorse(true);
+  }
+
+  private morseTick(dt: number): void {
+    const m = this.morse!;
+    m.t += dt;
+    m.left -= dt;
+    const k = keyState(m.copy.word, m.t);
+    audio.morseKey(k.on);
+    m.panel.update(k.on, k.tape, m.copy.typed, m.left);
+    if (DEBUG.auto && (m.autoT -= dt) <= 0) {
+      m.autoT = 0.8;
+      this.typeMorse(m.copy.word[m.copy.typed.length]);
+    }
+    if (this.morse && m.left <= 0) this.finishMorse(false);
+  }
+
+  private finishMorse(decoded: boolean): void {
+    const m = this.morse;
+    if (!m) return;
+    this.morse = null;
+    this.morseResult = decoded ? 'decoded' : 'missed';
+    audio.morseKey(false);
+    m.panel.finish(decoded, m.copy.word);
+    markPhase(decoded ? 'morse-copied' : 'morse-faded');
+  }
+
   // ───────────────────────────── Storm ─────────────────────────────
 
   private setStorm(on: boolean): void {
@@ -716,6 +768,8 @@ export class BoothScene extends Phaser.Scene {
   private endShow(): void {
     if (this.phase !== 'live') return;
     if (this.storm) this.setStorm(false);
+    // Sign-off ends whatever was still coming through.
+    if (this.morse) this.finishMorse(false);
     this.phase = 'other';
     this.hud?.setOnAir(false, 'OFF AIR');
     this.hud?.setCue('hidden', '');
@@ -732,6 +786,7 @@ export class BoothScene extends Phaser.Scene {
       calls: this.calls,
       needles: this.drops,
       tubeSeconds: this.tube?.down,
+      morse: this.morseResult,
     });
     run.result = result;
     exposeDebug('result', result);
@@ -796,6 +851,8 @@ export class BoothScene extends Phaser.Scene {
         this.sigSum[this.signalSlot] += this.quality * dt;
         this.sigTime[this.signalSlot] += dt;
       }
+
+      if (this.morse) this.morseTick(dt);
 
       // Cueing and dead air.
       if (this.board) {

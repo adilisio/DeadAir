@@ -29,6 +29,7 @@ const SHOTS = [
   { name: '05a-booth-call', query: '?mute&scene=booth&auto&fast', phase: 'call', settle: 900, timeout: 90000 },
   { name: '05b-booth-dump', query: '?mute&scene=booth&auto&fast', phase: 'dump', settle: 150, timeout: 90000 },
   { name: '05c-booth-storm', query: '?mute&scene=booth&auto&fast', phase: 'storm', settle: 900, timeout: 120000 },
+  { name: '05d-booth-morse', query: '?mute&scene=booth&auto&fast', phase: 'morse', settle: 2300, timeout: 150000 },
   { name: '06-other-station', query: '?mute&scene=booth&auto&fast', phase: 'other-station', settle: 2500, timeout: 180000 },
   { name: '07-dawn-numbers', query: '?mute&scene=booth&auto&fast', phase: 'dawn', settle: 2200, timeout: 240000 },
   { name: '08-dawn-stories', query: '?mute&scene=dawn&auto', phase: 'dawn-page-1', settle: 3600 },

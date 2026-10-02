@@ -228,6 +228,22 @@ export const NIGHT_1: NightDef = {
 
   tube: { slot: 1, at: 0.35, socket: 2 },
 
+  morse: {
+    slot: 5,
+    word: 'HELP',
+    seconds: 50,
+    decoded: {
+      flag: 'n1_shanty_found', tone: 'good',
+      effects: { safety: 4, morale: 3, trust: { netters: 6 } },
+      line: 'You copied H-E-L-P off the static at two in the morning, from somewhere past the breakwater. Three Netters rowed out with lanterns and found the Wozniak ice shanty adrift, two men inside, cold and very sorry.',
+    },
+    missed: {
+      flag: 'n1_shanty_adrift', tone: 'bad',
+      effects: { morale: -2, trust: { netters: -3 } },
+      line: 'Somebody was tapping under the static around two in the morning. Nobody copied it. At dawn the Wozniak shanty fetched up against the breakwater, and the two men in it walked the ice home with frostbitten feet.',
+    },
+  },
+
   storm: {
     slots: [3, 4],
     held: {

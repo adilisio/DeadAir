@@ -266,6 +266,9 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     }
   }
 
+  // The signal under the static.
+  if (night.morse && perf.morse) applyOutcome(state, perf.morse === 'decoded' ? night.morse.decoded : night.morse.missed, lines);
+
   // Dead air and signal quality.
   const dead = Math.max(0, perf.deadAirSeconds);
   if (dead > 0) {

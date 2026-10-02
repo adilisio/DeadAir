@@ -34,6 +34,8 @@ Open http://localhost:5173 in Chrome or Edge and click to sign on. Use headphone
      again (or **ENTER**) to put them on. **X** dumps a caller who says something that
      mustn't go out. The station runs a few seconds behind the phone, so a quick dump
      keeps it off the air. **SPACE** goes back to the show.
+   - In the small hours something taps under the static. Read the dots and dashes off the
+     tape against the chart and **type the letters** before it fades. Wrong guesses cost time.
 3. **Sign-off.** Then leave the set on for a minute.
 4. **Dawn.** The town's paper tells you what your show did.
 

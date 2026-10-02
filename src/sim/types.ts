@@ -148,6 +148,17 @@ export interface TubeDef {
   socket: number;
 }
 
+/** A faint signal keyed under the static, to be copied before it fades. */
+export interface MorseDef {
+  /** It starts when this slot starts. */
+  slot: number;
+  word: string;
+  /** How long it keys before fading out. */
+  seconds: number;
+  decoded: Outcome;
+  missed: Outcome;
+}
+
 export interface NightDef {
   id: string;
   number: number;
@@ -155,6 +166,7 @@ export interface NightDef {
   switchboard: SwitchboardDef;
   storm?: StormDef;
   tube?: TubeDef;
+  morse?: MorseDef;
   signOn: string;
   signOff: string;
   otherStation: {
@@ -190,6 +202,8 @@ export interface ShowPerformance {
   needles?: (NeedleResult | null)[];
   /** Seconds the program was down to a blown tube (undefined if none blew). */
   tubeSeconds?: number;
+  /** Whether the Morse signal was copied (undefined if it never keyed). */
+  morse?: 'decoded' | 'missed';
 }
 
 export interface NightResult {

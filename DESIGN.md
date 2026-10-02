@@ -101,6 +101,13 @@ The show plays in real time.
   out. The station runs a few seconds behind the phone (`DUMP_DELAY_CHARS`), so dumping
   just after they turn still keeps it off the air. Dump too late and it went out; dump an
   honest caller and you cut them off.
+- **Morse under the static.** A night's `morse` keys a word over and over from a slot's
+  start, faint, for a set time. The panel shows a keying lamp, a tape of the current pass,
+  and a chart of the word's letters among decoys; the player types the letters (a wrong
+  one costs three seconds). Copied or faded, each has its own outcome at dawn.
+
+Each night schedules its tasks (`switchboard`, `storm`, `tube`, `morse` in the night data)
+so the show changes texture segment to segment instead of repeating one task.
 
 ### 3. Sign-off, the Other Station, and dawn
 

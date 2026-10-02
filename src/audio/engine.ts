@@ -31,6 +31,8 @@ class AudioEngine {
   private crackleGain!: GainNode;
   private rainGain!: GainNode;
   private fault = 0;
+  private morseGain!: GainNode;
+  private morseOn = false;
   private noise!: AudioBuffer;
   private cache = new Map<string, Promise<{ buffer: AudioBuffer; real: boolean }>>();
   private duckGain!: GainNode;
@@ -121,6 +123,21 @@ class AudioEngine {
     this.rainGain.gain.value = 0;
     rain.connect(rainTone).connect(this.rainGain).connect(this.master);
     rain.start();
+
+    // A faint CW tone for Morse under the static.
+    const cw = ctx.createOscillator();
+    cw.frequency.value = 640;
+    this.morseGain = ctx.createGain();
+    this.morseGain.gain.value = 0;
+    cw.connect(this.morseGain).connect(this.master);
+    cw.start();
+  }
+
+  /** Key the Morse tone up or down. */
+  morseKey(on: boolean): void {
+    if (!this.ctx || on === this.morseOn) return;
+    this.morseOn = on;
+    this.morseGain.gain.setTargetAtTime(on ? 0.035 : 0, this.ctx.currentTime, 0.006);
   }
 
   /** Rain against the window (0 = dry). */
