@@ -28,6 +28,8 @@ Open http://localhost:5173 in Chrome or Edge and click to sign on. Use headphone
      If nothing's cued when an item ends, that's dead air.
    - Records start themselves: the tonearm swings in, and **SPACE** drops the needle.
      Land it on the green lead-in groove. Early scratches on air; late loses the intro.
+   - If a tube blows, the music dies: **Q / W / E** seats the spare that matches the dead
+     socket. A wrong one is a dud and costs a second.
    - When the phone rings: **1** puts the caller on air, **2** lets it ring.
 3. **Sign-off.** Then leave the set on for a minute.
 4. **Dawn.** The town's paper tells you what your show did.

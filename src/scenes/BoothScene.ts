@@ -13,6 +13,8 @@ import { TUNING, Tuning } from '../sim/tuning';
 import { CALM_WIND, windForSlot } from '../sim/storm';
 import { NEEDLE, armPosition, lateSkip, needleResult, sweepFor } from '../sim/needle';
 import { NeedlePanel } from '../ui/NeedlePanel';
+import { TubeFault } from '../sim/tube';
+import { TubePanel } from '../ui/TubePanel';
 import { SHOW_SLOTS, type Card, type CallerDecision, type NeedleResult, type RecordCard, type TalkCard } from '../sim/types';
 import { RundownBuilder, SEGMENT_LABEL } from '../ui/RundownBuilder';
 import { resolveRecord } from '../data/records';
@@ -55,7 +57,7 @@ export class BoothScene extends Phaser.Scene {
 
   // Show state.
   private cards: Card[] = [];
-  private keys!: Record<'left' | 'right' | 'a' | 'd' | 'space' | 'one' | 'two', Phaser.Input.Keyboard.Key>;
+  private keys!: Record<'left' | 'right' | 'a' | 'd' | 'space' | 'one' | 'two' | 'q' | 'w' | 'e', Phaser.Input.Keyboard.Key>;
   private tuning = new Tuning(rng(1260));
   private quality = 1;
   private idx = -1; // -1 sign-on, 0..5 items, SHOW_SLOTS sign-off
@@ -86,6 +88,8 @@ export class BoothScene extends Phaser.Scene {
   private needle: { slot: number; card: RecordCard; t: number; sweep: number } | null = null;
   private drops: (NeedleResult | null)[] = [];
   private needleRand = rng(78);
+  private tube: TubeFault | null = null;
+  private tubePanel: TubePanel | null = null;
   private rainGfx!: Phaser.GameObjects.Graphics;
   private flash!: Phaser.GameObjects.Rectangle;
   private ui: <T extends Phaser.GameObjects.GameObject>(o: T) => T = (o) => o;
@@ -125,6 +129,9 @@ export class BoothScene extends Phaser.Scene {
     this.needle = null;
     this.drops = Array(SHOW_SLOTS).fill(null);
     this.needleRand = rng(78);
+    this.tube = null;
+    this.tubePanel = null;
+    audio.setFault(0);
   }
 
   create(): void {
@@ -140,8 +147,10 @@ export class BoothScene extends Phaser.Scene {
     this.keys = {
       left: kb.addKey(K.LEFT), right: kb.addKey(K.RIGHT), a: kb.addKey(K.A), d: kb.addKey(K.D),
       space: kb.addKey(K.SPACE), one: kb.addKey(K.ONE), two: kb.addKey(K.TWO),
+      q: kb.addKey(K.Q), w: kb.addKey(K.W), e: kb.addKey(K.E),
     };
     this.keys.space.on('down', () => this.pressCue());
+    (['q', 'w', 'e'] as const).forEach((k, i) => this.keys[k].on('down', () => this.pickTube(i)));
 
     this.builder = new RundownBuilder(this, run.night, run.town, (ids) => this.startShow(ids), (ids) => {
       // Render records in the background as soon as they're picked.
@@ -253,7 +262,12 @@ export class BoothScene extends Phaser.Scene {
     // Tube flicker.
     const flick = 0.9 + Math.random() * 0.1;
     const cold = this.phase === 'other' || this.phase === 'done';
-    this.tubeGlows.forEach((t, i) => t.setAlpha((cold ? 0.3 : 0.85) * (0.92 + 0.08 * Math.sin(this.time.now / 70 + i * 2)) * flick));
+    this.tubeGlows.forEach((t, i) => {
+      // A blown tube is dark; a fresh one flickers as it warms.
+      const f = this.tube && i === this.tube.socket && !this.tube.fixed ? this.tube : null;
+      const out = f ? (f.state === 'warming' ? (f.strength - 0.15) * (0.6 + 0.4 * Math.random()) : 0) : 1;
+      t.setAlpha((cold ? 0.3 : 0.85) * (0.92 + 0.08 * Math.sin(this.time.now / 70 + i * 2)) * flick * out);
+    });
     this.tubeLight.intensity = (cold ? 0.6 : 1.8) * flick;
 
     // Record glint orbits the platter at 78 rpm while a record plays.
@@ -494,6 +508,46 @@ export class BoothScene extends Phaser.Scene {
     if (DEBUG.auto) this.time.delayedCall(DEBUG.fast ? 900 : 2500, () => decide('onair'));
   }
 
+  // ───────────────────────────── Tube ─────────────────────────────
+
+  /** Blow the night's tube once its item is far enough along. */
+  private tubeCheck(): void {
+    const def = run.night.tube;
+    if (!def || this.tube || this.idx !== def.slot || !this.playing) return;
+    if ((this.time.now - this.itemStart) / 1000 < def.at * this.itemDuration) return;
+    this.tube = new TubeFault(def.socket, rng(1260 + def.socket));
+    this.tubePanel = new TubePanel(this, this.tube, (i) => this.pickTube(i), this.ui);
+    audio.sfx('pop');
+    const t = BOOTH.tubes[def.socket];
+    const spark = glow(this, t.x * S, t.y * S, 40, 0xfff1c2, 1);
+    this.tweens.add({ targets: spark, alpha: 0, scale: 1.8, duration: 350, onComplete: () => spark.destroy() });
+    markPhase('tube');
+    if (DEBUG.auto) {
+      const fault = this.tube;
+      this.time.delayedCall(DEBUG.fast ? 800 : 2500, () => this.pickTube(fault.spares.indexOf(fault.need)));
+    }
+  }
+
+  private pickTube(i: number): void {
+    if (this.phase !== 'live' || !this.tube) return;
+    const r = this.tube.pick(i);
+    if (r === 'right') audio.sfx('thunk');
+    else if (r === 'wrong') audio.sfx('pop');
+  }
+
+  /** Advance a blown tube; returns the program strength (1 when healthy). */
+  private tubeTick(dt: number): number {
+    const f = this.tube;
+    if (!f || f.fixed) return 1;
+    f.step(dt);
+    this.tubePanel?.update();
+    if (f.fixed) {
+      this.tubePanel?.close();
+      this.tubePanel = null;
+    }
+    return f.strength;
+  }
+
   // ───────────────────────────── Storm ─────────────────────────────
 
   private setStorm(on: boolean): void {
@@ -557,6 +611,7 @@ export class BoothScene extends Phaser.Scene {
       deadAirSeconds: this.deadAir,
       caller: this.callerDecision,
       needles: this.drops,
+      tubeSeconds: this.tube?.down,
     });
     run.result = result;
     exposeDebug('result', result);
@@ -588,6 +643,7 @@ export class BoothScene extends Phaser.Scene {
         this.fade(true, 1800, () => {
           this.hud?.destroy();
           this.needlePanel?.destroy();
+          this.tubePanel?.destroy();
           this.scene.start('Dawn');
         });
       });
@@ -609,7 +665,10 @@ export class BoothScene extends Phaser.Scene {
       if (this.keys.right.isDown || this.keys.d.isDown) input += 1;
       if (this.hud?.pointerTune) input = this.hud.pointerTune;
       if (DEBUG.auto) input = Math.max(-1, Math.min(1, -this.tuning.error * 12));
-      this.quality = this.tuning.step(dt, input, wind);
+      this.tubeCheck();
+      const strength = this.tubeTick(dt);
+      audio.setFault(1 - strength);
+      this.quality = this.tuning.step(dt, input, wind) * strength;
       this.hud?.setTransmitter(this.storm || Math.abs(this.tuning.error) > TUNING.deadZone * 1.5, this.storm);
       audio.setTuning(this.tuning.error);
       this.recentQ += (this.quality - this.recentQ) * Math.min(1, dt * 0.8);

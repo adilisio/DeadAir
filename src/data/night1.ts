@@ -178,6 +178,8 @@ export const NIGHT_1: NightDef = {
     },
   },
 
+  tube: { slot: 1, at: 0.35, socket: 2 },
+
   storm: {
     slots: [3, 4],
     held: {

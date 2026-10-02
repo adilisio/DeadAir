@@ -3,6 +3,7 @@ import { NIGHT_1, NIGHT_1_AUTO_RUNDOWN, NIGHT_1_DEMO_RUNDOWN } from '../src/data
 import { validateRundown } from '../src/sim/resolver';
 import { RECORDS, REAL_RECORDS, LATEST_PD_RECORDING_YEAR, licenseNote, resolveRecord, sourceUrl, standInFor } from '../src/data/records';
 import { SHOW_SLOTS } from '../src/sim/types';
+import { TUBE_TYPES } from '../src/sim/tube';
 
 describe('night 1 content', () => {
   it('has unique card ids and more cards than slots', () => {
@@ -25,6 +26,14 @@ describe('night 1 content', () => {
   it('has valid auto-play and demo rundowns', () => {
     expect(validateRundown(NIGHT_1, NIGHT_1_AUTO_RUNDOWN)).toBeNull();
     expect(validateRundown(NIGHT_1, NIGHT_1_DEMO_RUNDOWN)).toBeNull();
+  });
+
+  it('schedules the tube and the storm inside the show', () => {
+    const { tube, storm } = NIGHT_1;
+    expect(tube && tube.slot >= 0 && tube.slot < SHOW_SLOTS).toBe(true);
+    expect(tube && tube.at > 0 && tube.at < 1).toBe(true);
+    expect(tube && tube.socket >= 0 && tube.socket < TUBE_TYPES.length).toBe(true);
+    for (const s of storm?.slots ?? []) expect(s >= 0 && s < SHOW_SLOTS, String(s)).toBe(true);
   });
 
   it('points the caller and the Other Station at real things', () => {

@@ -88,6 +88,10 @@ The show plays in real time.
   drops it on the lead-in groove. Too early skates across the record on air (Listeners,
   Credibility, and the ledger names the record); too late skips the intro (a little
   Listeners). Every record clean gets a kind word at dawn.
+- **Swap a blown tube.** Once a night (a night's `tube`), a transmitter tube blows mid-item
+  and the program drops to a whisper. Read which socket went dark, pick the matching spare
+  from three; a dud costs a second of fumbling, the right one warms up and the Lamp comes
+  back. Lost seconds cost signal; the ledger praises a quick swap or reports a slow one.
 - **Callers.** The phone lights up. Put them on air or let it ring. Choices matter.
 
 ### 3. Sign-off, the Other Station, and dawn

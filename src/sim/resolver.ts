@@ -20,6 +20,7 @@ import {
   type TownState,
 } from './types';
 import { STORM_HELD, STORM_LOST, stormSignal } from './storm';
+import { TUBE } from './tube';
 
 /** Who listens when. `total` scales town-wide effects; `share` scales each faction's. */
 export const AUDIENCE: Record<SegmentId, { total: number; share: Record<FactionId, number> }> = {
@@ -44,6 +45,9 @@ export const RULES = {
   needleScratch: { listeners: -4, credibility: -1 },
   /** A needle dropped into the song, intro gone. */
   needleLate: { listeners: -1 },
+  /** A blown tube swapped fast, or slow. */
+  tubeQuick: { credibility: 2 },
+  tubeSlow: { listeners: -6, credibility: -2 },
 } as const;
 
 const SCRATCH_LINES = [
@@ -237,6 +241,21 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
       lines.push({ text, tone: 'bad', rule: 'needles' });
     } else if (records.length >= 2 && records.every((d) => d === 'clean')) {
       lines.push({ text: "Every record went down clean tonight. Somebody's grandmother says you've got gentle hands.", tone: 'good', rule: 'needles' });
+    }
+  }
+
+  // A blown tube. The lost signal already cost listeners; this is what people say about it.
+  if (night.tube && perf.tubeSeconds !== undefined) {
+    const secs = Math.round(perf.tubeSeconds);
+    const during = show[night.tube.slot]?.title ?? 'the show';
+    if (perf.tubeSeconds <= TUBE.quickSeconds) {
+      applyEffects(state, RULES.tubeQuick);
+      lines.push({ text: `A tube blew in the middle of "${during}". You had a spare seated before most people noticed.`, tone: 'good', rule: 'tube' });
+    } else if (perf.tubeSeconds >= TUBE.slowSeconds) {
+      applyEffects(state, RULES.tubeSlow);
+      lines.push({ text: `The Lamp went quiet for ${secs} seconds in the middle of "${during}". A blown tube, they say. Some folks thought that was the end of the station.`, tone: 'bad', rule: 'tube' });
+    } else {
+      lines.push({ text: `A tube blew during "${during}" and the Lamp sputtered for ${secs} seconds. Most people just thumped their radios.`, tone: 'neutral', rule: 'tube' });
     }
   }
 

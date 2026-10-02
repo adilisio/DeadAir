@@ -30,6 +30,7 @@ class AudioEngine {
   private whistleGain!: GainNode;
   private crackleGain!: GainNode;
   private rainGain!: GainNode;
+  private fault = 0;
   private noise!: AudioBuffer;
   private cache = new Map<string, Promise<{ buffer: AudioBuffer; real: boolean }>>();
   private duckGain!: GainNode;
@@ -141,14 +142,20 @@ class AudioEngine {
     return this.ctx !== null;
   }
 
+  /** A failing transmitter tube: 0 healthy .. 1 dead. Applied on the next setTuning. */
+  setFault(level: number): void {
+    this.fault = Math.max(0, Math.min(1, level));
+  }
+
   /** error: -1..1 distance from the station's frequency. */
   setTuning(error: number): void {
     if (!this.ctx) return;
     const e = Math.min(1, Math.abs(error));
+    const f = this.fault;
     const t = this.ctx.currentTime;
-    this.staticGain.gain.setTargetAtTime(0.02 + 0.26 * Math.pow(e, 1.3), t, 0.05);
-    this.program.gain.setTargetAtTime(1 - 0.75 * Math.pow(e, 1.1), t, 0.05);
-    this.programTone.frequency.setTargetAtTime(4000 - 2800 * e, t, 0.05);
+    this.staticGain.gain.setTargetAtTime(0.02 + 0.26 * Math.pow(e, 1.3) + 0.08 * f, t, 0.05);
+    this.program.gain.setTargetAtTime((1 - 0.75 * Math.pow(e, 1.1)) * (1 - 0.9 * f), t, 0.05);
+    this.programTone.frequency.setTargetAtTime((4000 - 2800 * e) * (1 - 0.7 * f), t, 0.05);
     this.whistle.frequency.setTargetAtTime(200 + 2400 * e, t, 0.05);
     this.whistleGain.gain.setTargetAtTime(e > 0.15 ? 0.022 * e : 0, t, 0.05);
   }
@@ -249,7 +256,7 @@ class AudioEngine {
   }
 
   /** Short room sounds. */
-  sfx(name: 'click' | 'thunk' | 'needle' | 'tune' | 'pickup' | 'hangup' | 'thunder' | 'scratch'): void {
+  sfx(name: 'click' | 'thunk' | 'needle' | 'tune' | 'pickup' | 'hangup' | 'thunder' | 'scratch' | 'pop'): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const t = ctx.currentTime;
@@ -282,6 +289,18 @@ class AudioEngine {
       case 'tune': noiseBurst(0.06, 1800, 0.15); break;
       case 'pickup': noiseBurst(0.12, 700, 0.6); break;
       case 'hangup': noiseBurst(0.1, 500, 0.7); break;
+      case 'pop': {
+        // A tube going: a sharp crack and a fizz.
+        noiseBurst(0.35, 2600, 0.9);
+        const o = ctx.createOscillator();
+        o.type = 'square';
+        o.frequency.setValueAtTime(900, t);
+        o.frequency.exponentialRampToValueAtTime(80, t + 0.06);
+        o.connect(g);
+        o.start(t);
+        o.stop(t + 0.07);
+        break;
+      }
       case 'scratch': {
         // The needle skating across the grooves: a falling, gritty zip, on air.
         const s = ctx.createBufferSource();

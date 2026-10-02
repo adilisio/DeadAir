@@ -28,7 +28,7 @@ export interface DawnLine {
   text: string;
   tone: Tone;
   /** Which sequence rule produced this line, if any. */
-  rule?: 'breather' | 'panic' | 'adFatigue' | 'dedication' | 'needles';
+  rule?: 'breather' | 'panic' | 'adFatigue' | 'dedication' | 'needles' | 'tube';
 }
 
 /** What happens when a reach check resolves. `effects` are applied unscaled. */
@@ -116,12 +116,22 @@ export interface StormDef {
   lost: { line: string; effects: Effects };
 }
 
+/** A transmitter tube that blows partway through an item. */
+export interface TubeDef {
+  slot: number;
+  /** When it blows, as a fraction of the item's length. */
+  at: number;
+  /** Which socket (0..4, V1..V5). */
+  socket: number;
+}
+
 export interface NightDef {
   id: string;
   number: number;
   cards: Card[];
   caller: CallerDef;
   storm?: StormDef;
+  tube?: TubeDef;
   signOn: string;
   signOff: string;
   otherStation: {
@@ -156,6 +166,8 @@ export interface ShowPerformance {
   caller: CallerDecision;
   /** Per slot: how the needle dropped (records only; null or missing for talk). */
   needles?: (NeedleResult | null)[];
+  /** Seconds the program was down to a blown tube (undefined if none blew). */
+  tubeSeconds?: number;
 }
 
 export interface NightResult {
