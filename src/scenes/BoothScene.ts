@@ -74,8 +74,10 @@ interface ActiveBoard {
   states: LineState[];
   selected: number | null;
   onAir: number | null;
-  /** Seconds each line keeps ringing before it gives up. A line you're listening to holds. */
+  /** Seconds each line keeps ringing before it gives up. The line on the handset holds while the handset is still talking. */
   left: number[];
+  /** The handset has finished (preview and confide): the listened line counts down again. */
+  listenOver: boolean;
   /** Lines that have begun to confide on the handset. */
   confided: boolean[];
   /** When the selected line was picked up off air. */
@@ -821,7 +823,7 @@ export class BoothScene extends Phaser.Scene {
     this.board = {
       event, lines, slot, signal: event.at.slot, during,
       states: lines.map(() => 'ringing'), selected: null, onAir: null,
-      left: lines.map((l) => patienceOf(l, RING_DEFAULT)), confided: lines.map(() => false), listenedAt: 0, after: false,
+      left: lines.map((l) => patienceOf(l, RING_DEFAULT)), confided: lines.map(() => false), listenedAt: 0, listenOver: false, after: false,
       opened: this.time.now, dumpedAt: undefined, autoT: 0.5,
     };
     exposeDebug('board', { id: event.id, lines: lines.map((l) => l.id), during });
@@ -849,9 +851,13 @@ export class BoothScene extends Phaser.Scene {
     b.states[i] = 'listening';
     b.selected = i;
     b.listenedAt = this.time.now;
+    b.listenOver = false;
     audio.sfx('click');
     this.listen?.cancel();
-    this.listen = this.listenIn(b, i);
+    const listen = (this.listen = this.listenIn(b, i));
+    void listen.done.then(() => {
+      if (this.listen === listen && this.board === b) b.listenOver = true;
+    });
   }
 
   /**
@@ -918,7 +924,12 @@ export class BoothScene extends Phaser.Scene {
 
   private putOnAir(): void {
     const b = this.board;
-    if (!b || b.onAir !== null || b.after || b.selected === null) return;
+    if (!b || b.onAir !== null || b.selected === null) return;
+    if (b.after) {
+      // Taking a call cuts the DJ's after-line short: a person would.
+      b.after = false;
+      this.speech?.cancel();
+    }
     const i = b.selected;
     const line = b.lines[i];
     this.listen?.cancel();
@@ -967,7 +978,7 @@ export class BoothScene extends Phaser.Scene {
       // The DJ picks the mic back up; the record stays ducked under them (talk un-ducks after).
       b.after = true;
       this.talk(b.slot - 1, 'YOU', line.after).done.then(() => {
-        if (this.board !== b) return;
+        if (this.board !== b || !b.after || b.onAir !== null) return;
         b.after = false;
         this.boardResumes(b);
       });
@@ -1022,7 +1033,7 @@ export class BoothScene extends Phaser.Scene {
     const b = this.board!;
     // Each line rings on its own clock, on air or not; the one on the handset holds.
     b.states.forEach((s, i) => {
-      if (s !== 'ringing') return;
+      if (s !== 'ringing' && !(s === 'listening' && b.listenOver)) return;
       b.left[i] -= dt;
       if (b.left[i] <= 0) b.states[i] = 'gone';
     });
