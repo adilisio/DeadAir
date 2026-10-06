@@ -150,7 +150,7 @@ export const NIGHT_1: NightDef = {
     slot: 2,
     lines: [
       {
-        id: 'call_okafor',
+        id: 'call_okafor', person: 'grace',
         name: 'Mrs. Okafor',
         prompt: 'a woman, crying',
         preview: "Is this the Lamp? Please. It's my boy. He went up Ridge Road at sundown and he isn't back.",
@@ -183,7 +183,7 @@ export const NIGHT_1: NightDef = {
         },
       },
       {
-        id: 'call_chalk',
+        id: 'call_chalk', person: 'anon',
         name: 'No name',
         prompt: "a man, no name. 'about the Chapel'",
         preview: "Yeah, I'll hold. Folks ought to hear what's going on up at that Chapel. Somebody has to say it.",
@@ -205,7 +205,7 @@ export const NIGHT_1: NightDef = {
         },
       },
       {
-        id: 'call_lottie',
+        id: 'call_lottie', person: 'lottie',
         name: 'Lottie Kowalczyk',
         prompt: 'Lottie K., smokehouse row. chipper',
         preview: "Oh! Is this the Lamp? Oh, how exciting. I just want to say hello to my Walt.",

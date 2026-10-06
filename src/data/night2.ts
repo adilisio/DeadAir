@@ -169,7 +169,7 @@ export const NIGHT_2: NightDef = {
     slot: 1,
     lines: [
       {
-        id: 'call_grace_thanks',
+        id: 'call_grace_thanks', person: 'grace',
         gate: { requires: ['n1_teddy_found'] },
         name: 'Grace Okafor',
         prompt: 'Mrs. Okafor again. cheerful',
@@ -189,7 +189,7 @@ export const NIGHT_2: NightDef = {
         },
       },
       {
-        id: 'call_grace_angry',
+        id: 'call_grace_angry', person: 'grace',
         gate: { unless: ['n1_teddy_found'] },
         name: 'Grace Okafor',
         prompt: 'Mrs. Okafor. sounds angry',
@@ -214,7 +214,7 @@ export const NIGHT_2: NightDef = {
         },
       },
       {
-        id: 'call_sparky',
+        id: 'call_sparky', person: 'sparky',
         name: 'Sparky',
         prompt: "a man, excited. 'with the Linemen'",
         preview: "Hey! Is this the radio? I'm with the Linemen, kind of. Everybody's got to come see this.",
@@ -236,7 +236,7 @@ export const NIGHT_2: NightDef = {
         },
       },
       {
-        id: 'call_bill',
+        id: 'call_bill', person: 'bill',
         name: 'Old Bill',
         prompt: 'Old Bill, Dock Street. rambling',
         preview: "Is this the Lamp? It's Bill. My knee's been talking to me. I'd like to share what it says.",

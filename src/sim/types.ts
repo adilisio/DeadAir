@@ -107,7 +107,9 @@ export interface CallLine {
   id: string;
   /** Only rings when the town's flags allow it. */
   gate?: Gate;
-  /** For the teleprompter header while they're on air. */
+  /** Who is calling (src/data/people.ts). Voice and person flags come from here. */
+  person: import('../data/people').PersonId;
+  /** For the teleprompter header while they're on air (may differ from the person's name: "No name"). */
   name: string;
   /** One short line on the board while it rings. */
   prompt: string;
