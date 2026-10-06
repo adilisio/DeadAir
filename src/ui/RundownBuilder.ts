@@ -1,7 +1,7 @@
 // Prep phase: pick six cards from the crate into three segments.
 import Phaser from 'phaser';
 import { UI } from '../art/palette';
-import { AUDIENCE, validateRundown } from '../sim/resolver';
+import { AUDIENCE, reachHint, validateRundown } from '../sim/resolver';
 import { FACTIONS, FACTION_NAMES, SEGMENTS, SHOW_SLOTS, type Card, type FactionId, type NightDef, type TownState } from '../sim/types';
 import { bar, button, label, panel, toNum, type Button } from './widgets';
 import { audio } from '../audio/engine';
@@ -18,7 +18,7 @@ export const SEGMENT_LABEL = { dusk: 'DUSK   8 PM', late: 'LATE  11 PM', small: 
 
 const TRUTH_LABEL = { true: 'CONFIRMED', rumor: 'RUMOR', false: 'UNVERIFIED' } as const;
 
-export function describeCard(card: Card): string {
+export function describeCard(card: Card, town?: TownState): string {
   switch (card.kind) {
     case 'record': {
       const loves = card.loves.map((f) => FACTION_NAMES[f]).join(' & ');
@@ -30,7 +30,7 @@ export function describeCard(card: Card): string {
     case 'news':
       return `NEWS · ${TRUTH_LABEL[card.truth]}${card.grim ? ' · hard news' : ''}`;
     case 'warning':
-      return `WARNING · the ${card.reach ? FACTION_NAMES[card.reach.faction] : 'town'} need to hear this${card.grim ? ' · hard news' : ''}`;
+      return `WARNING · the ${card.reach ? FACTION_NAMES[card.reach.faction] : 'town'} need to hear this${card.reach && town ? ` · ${reachHint(card.reach, town)}` : ''}${card.grim ? ' · hard news' : ''}`;
     case 'ad':
       return `AD · ${card.sponsor} · pays ${card.effects.chits ?? 0} chits`;
   }
@@ -68,7 +68,7 @@ export class RundownBuilder {
   constructor(
     scene: Phaser.Scene,
     private night: NightDef,
-    town: TownState,
+    private town: TownState,
     private onGoLive: (rundown: string[]) => void,
     private onChange: (rundown: (string | null)[]) => void = () => {},
   ) {
@@ -195,7 +195,7 @@ export class RundownBuilder {
 
   private showDetail(card: Card): void {
     this.detailTitle.setText(card.title);
-    this.detailTag.setText(describeCard(card)).setColor(KIND_TAG[card.kind].color);
+    this.detailTag.setText(describeCard(card, this.town)).setColor(KIND_TAG[card.kind].color);
     this.detailBody.setText(card.blurb);
     this.focus = focusOf(card);
     this.drawAudience();

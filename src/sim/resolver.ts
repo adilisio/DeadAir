@@ -151,21 +151,49 @@ function clampState(s: TownState): void {
   for (const f of FACTIONS) s.trust[f] = c(s.trust[f]);
 }
 
-function audienceScale(segment: SegmentId, signal: number) {
+/**
+ * How big tonight's audience is next to a normal one: listeners / 140, kept between half
+ * and one and a half. Computed once from the town as the night starts.
+ */
+export function audienceFactor(listeners: number): number {
+  return Math.max(0.5, Math.min(1.5, listeners / STARTING_STATE.listeners));
+}
+
+/**
+ * A reach threshold shifted by how much the faction trusts the station:
+ * threshold × (1.3 − 0.6 × trust / 100). Trust 50 changes nothing, trust 100 asks for
+ * 30% less (they act on a whisper), trust 0 asks for 30% more.
+ */
+export function effectiveThreshold(threshold: number, trust: number): number {
+  return threshold * (1.3 - (0.6 * trust) / 100);
+}
+
+function audienceScale(segment: SegmentId, signal: number, factor = 1) {
   const a = AUDIENCE[segment];
   return {
-    town: a.total * signal,
+    town: a.total * signal * factor,
     faction: {
-      netters: a.share.netters * signal,
-      chapel: a.share.chapel * signal,
-      linemen: a.share.linemen * signal,
+      netters: a.share.netters * signal * factor,
+      chapel: a.share.chapel * signal * factor,
+      linemen: a.share.linemen * signal * factor,
     },
   };
 }
 
-/** Does this check pass for an item aired in `segment` at `signal`? */
-export function reachPasses(check: ReachCheck, segment: SegmentId, signal: number): boolean {
-  return AUDIENCE[segment].share[check.faction] * signal >= check.threshold - 1e-9;
+/**
+ * Does this check pass for an item aired in `segment` at `signal`? `factor` is the night's
+ * audienceFactor and `trust` the faction's trust; both default to a neutral town.
+ */
+export function reachPasses(check: ReachCheck, segment: SegmentId, signal: number, factor = 1, trust = 50): boolean {
+  return AUDIENCE[segment].share[check.faction] * signal * factor >= effectiveThreshold(check.threshold, trust) - 1e-9;
+}
+
+/** A plain-language read on how hard a warning is to land, for the prep screen. */
+export function reachHint(check: ReachCheck, town: TownState): string {
+  const need = effectiveThreshold(check.threshold, town.trust[check.faction]) / audienceFactor(town.listeners);
+  if (need <= 0.45) return "they'll act on a whisper";
+  if (need <= 0.7) return "they'll need a clear signal";
+  return "they'll need the whole town listening";
 }
 
 function applyOutcome(state: TownState, o: Outcome, lines: DawnLine[]): void {
@@ -197,6 +225,9 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
 
   const byId = new Map(night.cards.map((c) => [c.id, c] as const));
   const state = cloneState(start);
+  const factor = audienceFactor(start.listeners);
+  const reaches = (check: ReachCheck, segment: SegmentId, signal: number) =>
+    reachPasses(check, segment, signal, factor, start.trust[check.faction]);
   const lines: DawnLine[] = [];
   const show = perf.rundown.map((id) => byId.get(id)!);
   const signalAt = (i: number) => Math.max(0, Math.min(1, perf.signal[i] ?? 1));
@@ -204,7 +235,7 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   show.forEach((card, i) => {
     const segment = segmentOfSlot(i);
     const signal = signalAt(i);
-    const scale = audienceScale(segment, signal);
+    const scale = audienceScale(segment, signal, factor);
     const next = show[i + 1];
 
     if (card.kind === 'record') {
@@ -238,7 +269,7 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     }
 
     if (card.reach) {
-      const passed = reachPasses(card.reach, segment, signal);
+      const passed = reaches(card.reach, segment, signal);
       applyOutcome(state, passed ? card.reach.success : card.reach.fail, lines);
     }
   });
@@ -260,7 +291,7 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
       let outcome: Outcome | undefined;
       if (result === 'aired' || result === 'late') {
         outcome = isReachCheck(line.aired)
-          ? reachPasses(line.aired, segmentOfSlot(slot), signalAt(slot)) ? line.aired.success : line.aired.fail
+          ? reaches(line.aired, segmentOfSlot(slot), signalAt(slot)) ? line.aired.success : line.aired.fail
           : line.aired;
       } else if (result === 'caught') outcome = line.turn?.caught;
       else if (result === 'cut') outcome = line.cut ?? line.notTaken;

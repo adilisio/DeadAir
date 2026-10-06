@@ -156,6 +156,12 @@ Pure TypeScript in `src/sim/`, fully unit-tested. In short:
 - A card's effect on a faction = its base effect × that faction's share of the segment's
   audience × your signal quality.
 - Town effects (Morale, Safety, Listeners) scale with the segment's total audience.
+- **Listeners scale the audience:** everything above is also multiplied by tonight's
+  audience factor, listeners / 140 kept between 0.5 and 1.5 (set from the night's start).
+  A town that has stopped tuning in hears you less; a crowd hears you more.
+- **Trust shifts reach thresholds:** a faction's threshold is multiplied by
+  1.3 − 0.6 × trust / 100 (trust 50: unchanged, 100: ×0.7, 0: ×1.3). A faction that trusts
+  you acts on less; one that doesn't needs more of its people listening.
 - **Breather:** a grim item followed directly by a record cancels the grim item's Morale hit.
   Two grim items in a row cause panic (extra Morale loss).
 - **Ad fatigue:** two ads back to back lose Listeners.
