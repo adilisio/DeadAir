@@ -14,8 +14,9 @@ Phaser 4 + TypeScript + Vite. Read `HANDOFF.md` first if you're new to the proje
   Pass a filter: `npm run shots -- dawn`. Set `CHROMIUM_PATH` if Playwright's browser isn't installed.
 
 URL switches (see `src/config.ts`): `?fast` short records/talk, `?auto` plays itself,
-`?mute` silent, `?nofx` no post effects, `?scene=booth|dawn` jump in, `?night=N` start at
-night N (earlier nights resolved as their `?auto` shows).
+`?mute` silent, `?nofx` no post effects, `?scene=booth|dawn` jump in (booth continues a
+saved run), `?night=N` start at night N (earlier nights resolved as their `?auto` shows;
+wins over a save), `?reset` forget the saved run.
 `window.__deadair` exposes the current phase and the game object for debugging.
 
 Rendering notes: the room is lit with Phaser 4 lights (`setLighting`) and post effects in
@@ -26,8 +27,13 @@ center outward, so keep its strength low.
 ## Layout
 
 - `src/sim/` — game rules. **Pure TS, no Phaser, no DOM.** Everything here is unit-tested.
-- `src/data/` — content: nights (`nights.ts` lists them in order), cards, records (with
-  provenance). Typed TS objects. Cards and callers can be gated on earlier nights' flags.
+  `events.ts` schedules a night's events (`eventsDue`); `nights.ts` has gates
+  (flags, stats, tonight); the resolver sets person flags (`grace_cut`, `grace_cut_2`);
+  `save.ts` is the versioned save shape (`run.ts` reads and writes `localStorage`).
+- `src/data/` — content: nights (`nights.ts` lists them in order), cards, a night's
+  `events` (switchboards, tubes, Morse, storms; any number of each), records (with
+  provenance), people (`people.ts`: every caller is one). Typed TS objects. Cards and
+  callers can be gated on earlier nights' flags, town stats, and (callers) what aired tonight.
 - `src/audio/` — Web Audio: radio chain, static, stand-in pressings, voice.
 - `src/art/` — pixel art painted in code at boot (palette + painter + scenes).
 - `src/scenes/` — Phaser scenes. `src/ui/` — reusable UI pieces.

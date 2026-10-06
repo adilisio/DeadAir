@@ -3,11 +3,12 @@ import { TUBE, TUBE_TYPES, TubeFault } from '../src/sim/tube';
 import { STARTING_STATE, resolveNight } from '../src/sim/resolver';
 import { NIGHT_1, NIGHT_1_AUTO_RUNDOWN } from '../src/data/night1';
 import { rng } from '../src/audio/pressings';
-import type { ShowPerformance } from '../src/sim/types';
+import type { NightDef, ShowPerformance } from '../src/sim/types';
 
-const run = (tubeSeconds?: number) => {
-  const p: ShowPerformance = { rundown: NIGHT_1_AUTO_RUNDOWN, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [], tubeSeconds };
-  return resolveNight(NIGHT_1, STARTING_STATE, p);
+const run = (tubeSeconds?: number, night: NightDef = NIGHT_1, extra: { id: string; seconds: number }[] = []) => {
+  const tubes = [...(tubeSeconds === undefined ? [] : [{ id: 'n1_tube', seconds: tubeSeconds }]), ...extra];
+  const p: ShowPerformance = { rundown: NIGHT_1_AUTO_RUNDOWN, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [], tubes };
+  return resolveNight(night, STARTING_STATE, p);
 };
 
 function stepFor(f: TubeFault, seconds: number) {
@@ -71,5 +72,15 @@ describe('tube swap', () => {
     expect(slow.lines.some((l) => l.rule === 'tube' && l.tone === 'bad' && l.text.includes('20 seconds'))).toBe(true);
     expect(slow.after.listeners).toBeLessThan(quick.after.listeners);
     expect(run(undefined).lines.some((l) => l.rule === 'tube')).toBe(false);
+  });
+
+  it('reports each tube that blew, during its own item', () => {
+    const night: NightDef = { ...NIGHT_1, events: [...NIGHT_1.events, { kind: 'tube', id: 'late_tube', at: { slot: 4, frac: 0.5 }, socket: 0 }] };
+    const r = run(2, night, [{ id: 'late_tube', seconds: 20 }]);
+    const tubeLines = r.lines.filter((l) => l.rule === 'tube');
+    expect(tubeLines).toHaveLength(2);
+    expect(tubeLines[0].text).toContain('Nearer My God to Thee');
+    expect(tubeLines[1].text).toContain('Rotten ice');
+    expect(run(2, night).lines.filter((l) => l.rule === 'tube')).toHaveLength(1);
   });
 });

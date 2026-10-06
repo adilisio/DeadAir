@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { DUMP_DELAY_CHARS, callResult, turnIndex } from '../src/sim/calls';
 import { STARTING_STATE, resolveNight } from '../src/sim/resolver';
 import { NIGHT_1, NIGHT_1_AUTO_RUNDOWN } from '../src/data/night1';
+import { eventsOf } from '../src/sim/events';
 import type { CallRecord, ShowPerformance } from '../src/sim/types';
 
-const line = (id: string) => NIGHT_1.switchboard.lines.find((l) => l.id === id)!;
+const board = eventsOf(NIGHT_1, 'switchboard')[0];
+const line = (id: string) => board.lines.find((l) => l.id === id)!;
 const chalk = line('call_chalk');
 const okafor = line('call_okafor');
 
@@ -43,7 +45,7 @@ describe('the switchboard at dawn', () => {
   });
 
   it('loses Teddy to static when the signal is poor at the switchboard slot', () => {
-    const slot = NIGHT_1.switchboard.slot;
+    const slot = board.at.slot;
     const signal = [1, 1, 1, 1, 1, 1];
     signal[slot] = 0.5;
     expect(run([{ line: 'call_okafor' }], signal).after.flags).toContain('n1_teddy_cold');

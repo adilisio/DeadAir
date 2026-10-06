@@ -7,6 +7,7 @@ import {
   SHOW_SLOTS,
   SLOTS_PER_SEGMENT,
   SEGMENTS,
+  type CallResult,
   type Card,
   type DawnLine,
   type Effects,
@@ -14,6 +15,7 @@ import {
   type NightDef,
   type NightResult,
   type Outcome,
+  type PersonRecord,
   type ReachCheck,
   type SegmentId,
   type ShowPerformance,
@@ -22,6 +24,9 @@ import {
 import { STORM_HELD, STORM_LOST, stormSignal } from './storm';
 import { TUBE } from './tube';
 import { callResult, isReachCheck } from './calls';
+import { airedWhenBoardOpens, eventsOf } from './events';
+import { linesOpenNow } from './nights';
+import type { PersonId } from '../data/people';
 
 /** Who listens when. `total` scales town-wide effects; `share` scales each faction's. */
 export const AUDIENCE: Record<SegmentId, { total: number; share: Record<FactionId, number> }> = {
@@ -76,6 +81,7 @@ export const STARTING_STATE: TownState = {
   chits: 10,
   trust: { netters: 50, chapel: 50, linemen: 50 },
   flags: [],
+  people: {},
 };
 
 export function segmentOfSlot(slot: number): SegmentId {
@@ -83,7 +89,35 @@ export function segmentOfSlot(slot: number): SegmentId {
 }
 
 export function cloneState(s: TownState): TownState {
-  return { ...s, trust: { ...s.trust }, flags: [...s.flags] };
+  const people: TownState['people'] = {};
+  for (const [id, rec] of Object.entries(s.people ?? {})) if (rec) people[id as PersonId] = { ...rec };
+  return { ...s, trust: { ...s.trust }, flags: [...s.flags], people };
+}
+
+/** Which of a person's counters a call result adds to. A late dump went out and was dumped. */
+const PERSON_COUNTS: Record<CallResult, (keyof PersonRecord)[]> = {
+  aired: ['aired'],
+  late: ['aired', 'dumped'],
+  caught: ['dumped'],
+  cut: ['cut'],
+  notTaken: ['ignored'],
+};
+
+/**
+ * Remember what the station did to a caller: bump their counters and set flags
+ * `<person>_<counter>`, plus `<person>_<counter>_2` once it has happened twice.
+ */
+export function notePerson(state: TownState, person: PersonId, result: CallResult): void {
+  const rec = (state.people[person] ??= { aired: 0, cut: 0, dumped: 0, ignored: 0 });
+  for (const k of PERSON_COUNTS[result]) rec[k] += 1;
+  for (const k of ['aired', 'cut', 'dumped', 'ignored'] as const) {
+    if (rec[k] >= 1) addFlag(state, `${person}_${k}`);
+    if (rec[k] >= 2) addFlag(state, `${person}_${k}_2`);
+  }
+}
+
+function addFlag(state: TownState, flag: string): void {
+  if (!state.flags.includes(flag)) state.flags.push(flag);
 }
 
 function isTalk(card: Card): card is Exclude<Card, { kind: 'record' }> {
@@ -136,7 +170,7 @@ export function reachPasses(check: ReachCheck, segment: SegmentId, signal: numbe
 
 function applyOutcome(state: TownState, o: Outcome, lines: DawnLine[]): void {
   applyEffects(state, o.effects);
-  if (!state.flags.includes(o.flag)) state.flags.push(o.flag);
+  addFlag(state, o.flag);
   lines.push({ text: o.line, tone: o.tone });
 }
 
@@ -217,19 +251,23 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     }
   }
 
-  // The switchboard.
-  const board = night.switchboard;
-  for (const line of board.lines) {
-    const result = callResult(line, perf.calls.find((c) => c.line === line.id));
-    let outcome: Outcome | undefined;
-    if (result === 'aired' || result === 'late') {
-      outcome = isReachCheck(line.aired)
-        ? reachPasses(line.aired, segmentOfSlot(board.slot), signalAt(board.slot)) ? line.aired.success : line.aired.fail
-        : line.aired;
-    } else if (result === 'caught') outcome = line.turn?.caught;
-    else if (result === 'cut') outcome = line.cut ?? line.notTaken;
-    else outcome = line.notTaken;
-    if (outcome) applyOutcome(state, outcome, lines);
+  // The switchboards. Only lines that rang count: tonight-gated ones are checked against
+  // what had aired by the time their board opened.
+  for (const board of eventsOf(night, 'switchboard')) {
+    const slot = board.at.slot;
+    for (const line of linesOpenNow(board, start, airedWhenBoardOpens(board, perf.rundown))) {
+      const result = callResult(line, perf.calls.find((c) => c.line === line.id));
+      let outcome: Outcome | undefined;
+      if (result === 'aired' || result === 'late') {
+        outcome = isReachCheck(line.aired)
+          ? reachPasses(line.aired, segmentOfSlot(slot), signalAt(slot)) ? line.aired.success : line.aired.fail
+          : line.aired;
+      } else if (result === 'caught') outcome = line.turn?.caught;
+      else if (result === 'cut') outcome = line.cut ?? line.notTaken;
+      else outcome = line.notTaken;
+      if (outcome) applyOutcome(state, outcome, lines);
+      notePerson(state, line.person, result);
+    }
   }
 
   // The needle.
@@ -251,14 +289,16 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     }
   }
 
-  // A blown tube. The lost signal already cost listeners; this is what people say about it.
-  if (night.tube && perf.tubeSeconds !== undefined) {
-    const secs = Math.round(perf.tubeSeconds);
-    const during = show[night.tube.slot]?.title ?? 'the show';
-    if (perf.tubeSeconds <= TUBE.quickSeconds) {
+  // Blown tubes. The lost signal already cost listeners; this is what people say about it.
+  for (const tube of eventsOf(night, 'tube')) {
+    const seconds = perf.tubes?.find((t) => t.id === tube.id)?.seconds;
+    if (seconds === undefined) continue;
+    const secs = Math.round(seconds);
+    const during = show[tube.at.slot]?.title ?? 'the show';
+    if (seconds <= TUBE.quickSeconds) {
       applyEffects(state, RULES.tubeQuick);
       lines.push({ text: `A tube blew in the middle of "${during}". You had a spare seated before most people noticed.`, tone: 'good', rule: 'tube' });
-    } else if (perf.tubeSeconds >= TUBE.slowSeconds) {
+    } else if (seconds >= TUBE.slowSeconds) {
       applyEffects(state, RULES.tubeSlow);
       lines.push({ text: `The Lamp went quiet for ${secs} seconds in the middle of "${during}". A blown tube, they say. Some folks thought that was the end of the station.`, tone: 'bad', rule: 'tube' });
     } else {
@@ -266,8 +306,11 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     }
   }
 
-  // The signal under the static.
-  if (night.morse && perf.morse) applyOutcome(state, perf.morse === 'decoded' ? night.morse.decoded : night.morse.missed, lines);
+  // Signals under the static.
+  for (const morse of eventsOf(night, 'morse')) {
+    const result = perf.morse?.find((m) => m.id === morse.id)?.result;
+    if (result) applyOutcome(state, result === 'decoded' ? morse.decoded : morse.missed, lines);
+  }
 
   // Dead air and signal quality.
   const dead = Math.max(0, perf.deadAirSeconds);
@@ -280,16 +323,17 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   }
   const avgSignal = show.reduce((sum, _c, i) => sum + signalAt(i), 0) / show.length;
   applyEffects(state, { listeners: (avgSignal - RULES.signalListenerPivot) * RULES.signalListenerScale });
-  if (night.storm) {
-    const held = stormSignal(night.storm, show.map((_c, i) => signalAt(i)));
-    const report = held >= STORM_HELD ? night.storm.held : held < STORM_LOST ? night.storm.lost : null;
+  const storms = eventsOf(night, 'storm');
+  for (const storm of storms) {
+    const held = stormSignal(storm, show.map((_c, i) => signalAt(i)));
+    const report = held >= STORM_HELD ? storm.held : held < STORM_LOST ? storm.lost : null;
     if (report) {
       applyEffects(state, report.effects);
-      lines.push({ text: report.line, tone: report === night.storm.held ? 'good' : 'bad' });
+      lines.push({ text: report.line, tone: report === storm.held ? 'good' : 'bad' });
     }
   }
   if (avgSignal < 0.6) lines.push({ text: 'Half the town heard more static than show.', tone: 'bad' });
-  else if (avgSignal > 0.9 && !night.storm) lines.push({ text: 'Clear signal all night. They heard you all the way up in the Chapel bell tower.', tone: 'good' });
+  else if (avgSignal > 0.9 && !storms.length) lines.push({ text: 'Clear signal all night. They heard you all the way up in the Chapel bell tower.', tone: 'good' });
 
   // Lies come apart at dawn.
   for (const card of show) {

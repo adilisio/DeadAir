@@ -7,8 +7,10 @@ import { applyScreenLook, glow, splitCameras } from './fx';
 import { audio, type RecordHandle } from '../audio/engine';
 import { speak, type Speech } from '../audio/voice';
 import { rng } from '../audio/pressings';
-import { run } from '../run';
+import { finishNight, run } from '../run';
 import { resolveNight, segmentOfSlot } from '../sim/resolver';
+import { eventsDue } from '../sim/events';
+import { linesOpenNow } from '../sim/nights';
 import { TUNING, Tuning } from '../sim/tuning';
 import { CALM_WIND, windForSlot } from '../sim/storm';
 import { NEEDLE, armPosition, lateSkip, needleResult, sweepFor } from '../sim/needle';
@@ -19,7 +21,19 @@ import { turnIndex } from '../sim/calls';
 import { MORSE_TIMING, MorseCopy, chartFor, keyState } from '../sim/morse';
 import { MorsePanel } from '../ui/MorsePanel';
 import { SwitchboardPanel, type LineState } from '../ui/Switchboard';
-import { SHOW_SLOTS, type CallRecord, type Card, type NeedleResult, type RecordCard, type TalkCard } from '../sim/types';
+import {
+  SHOW_SLOTS,
+  type CallLine,
+  type CallRecord,
+  type Card,
+  type MorseEvent,
+  type NeedleResult,
+  type NightEvent,
+  type RecordCard,
+  type SwitchboardEvent,
+  type TalkCard,
+  type TubeEvent,
+} from '../sim/types';
 import { RundownBuilder, SEGMENT_LABEL } from '../ui/RundownBuilder';
 import { resolveRecord } from '../data/records';
 
@@ -74,8 +88,23 @@ export class BoothScene extends Phaser.Scene {
   private sigSum: number[] = [];
   private sigTime: number[] = [];
   private signalSlot: number | null = null;
+  /** Night events already started (each fires once), and boards waiting their turn. */
+  private fired = new Set<string>();
+  private boardQueue: SwitchboardEvent[] = [];
+  /** Card ids in the order their items began tonight (gates for callers read it). */
+  private airedTonight: string[] = [];
+  /** A record ended while a call was on over it; move on once the board closes. */
+  private endPending = false;
   private board: {
+    event: SwitchboardEvent;
+    /** The lines ringing on this board (tonight's gates applied when it opened). */
+    lines: CallLine[];
+    /** The item that begins when the board closes (slot - 1 is the one in progress or just ended). */
     slot: number;
+    /** The slot whose signal a call on this board goes out on. */
+    signal: number;
+    /** Ringing over a record that keeps playing under the call. */
+    during: boolean;
     states: LineState[];
     selected: number | null;
     onAir: number | null;
@@ -85,11 +114,11 @@ export class BoothScene extends Phaser.Scene {
     dumpedAt: number | undefined;
     autoT: number;
   } | null = null;
-  private boardUsed = false;
   private boardPanel: SwitchboardPanel | null = null;
   private calls: CallRecord[] = [];
-  private morse: { copy: MorseCopy; chart: string[]; t: number; left: number; panel: MorsePanel; autoT: number } | null = null;
-  private morseResult: 'decoded' | 'missed' | undefined = undefined;
+  private morse: { event: MorseEvent; copy: MorseCopy; chart: string[]; t: number; left: number; panel: MorsePanel; autoT: number } | null = null;
+  private morseQueue: MorseEvent[] = [];
+  private morseResults: { id: string; result: 'decoded' | 'missed' }[] = [];
   private stopRing: (() => void) | null = null;
   private record: RecordHandle | null = null;
   private speech: Speech | null = null;
@@ -97,6 +126,9 @@ export class BoothScene extends Phaser.Scene {
   private spokenChars = 0;
   private wordEvents = false;
   private scriptLen = 1;
+  /** When the current speech started and how long it should take (a call over a record has its own clock). */
+  private speechStart = 0;
+  private speechEstimate = 1;
   private showClock = 0;
   private recentQ = 1;
   private storm = false;
@@ -106,8 +138,14 @@ export class BoothScene extends Phaser.Scene {
   private needle: { slot: number; card: RecordCard; t: number; sweep: number } | null = null;
   private drops: (NeedleResult | null)[] = [];
   private needleRand = rng(78);
+  /** The teleprompter's record credit, to put back after a call over the record. */
+  private recordPrompt: { header: string; text: string } | null = null;
+  /** The tube that's blown now (or the last one, fixed). */
   private tube: TubeFault | null = null;
   private tubePanel: TubePanel | null = null;
+  /** Tube events due but waiting for an item to be playing (and the board to close). */
+  private pendingTubes: TubeEvent[] = [];
+  private tubeLog: { id: string; fault: TubeFault }[] = [];
   private rainGfx!: Phaser.GameObjects.Graphics;
   private flash!: Phaser.GameObjects.Rectangle;
   private ui: <T extends Phaser.GameObjects.GameObject>(o: T) => T = (o) => o;
@@ -135,11 +173,15 @@ export class BoothScene extends Phaser.Scene {
     this.sigTime = Array(SHOW_SLOTS).fill(0);
     this.signalSlot = null;
     this.board = null;
-    this.boardUsed = false;
+    this.fired = new Set();
+    this.boardQueue = [];
+    this.airedTonight = [];
+    this.endPending = false;
     this.boardPanel = null;
     this.calls = [];
     this.morse = null;
-    this.morseResult = undefined;
+    this.morseQueue = [];
+    this.morseResults = [];
     this.record = null;
     this.speech = null;
     this.speaking = false;
@@ -153,6 +195,8 @@ export class BoothScene extends Phaser.Scene {
     this.needleRand = rng(78);
     this.tube = null;
     this.tubePanel = null;
+    this.pendingTubes = [];
+    this.tubeLog = [];
     audio.setFault(0);
   }
 
@@ -346,18 +390,24 @@ export class BoothScene extends Phaser.Scene {
     this.onAirLight.intensity = 1.6;
     markPhase('live');
     exposeDebug('rundown', ids);
+    exposeDebug('airedTonight', this.airedTonight);
     this.talk(-1, 'SIGN-ON', run.night.signOn).done.then(() => this.endItem());
   }
 
   /** Speak a script on air, lighting the teleprompter as it goes. */
   private talk(i: number, header: string, script: string, opts: { pitch?: number; rate?: number; color?: string; reveal?: boolean } = {}): Speech {
-    this.idx = i;
-    this.playing = true;
+    // A call over a record leaves the record's item alone; the speech keeps its own clock.
+    const overRecord = !!this.board?.during;
+    if (!overRecord) {
+      this.idx = i;
+      this.playing = true;
+      this.itemStart = this.time.now;
+    }
     this.speaking = true;
     this.spokenChars = 0;
     this.wordEvents = false;
     this.scriptLen = script.length;
-    this.itemStart = this.time.now;
+    this.speechStart = this.time.now;
     this.hud?.setTeleprompter(header, script, opts.color, opts.reveal);
     audio.duck(true);
     const sp = speak(script, {
@@ -369,7 +419,8 @@ export class BoothScene extends Phaser.Scene {
       },
     });
     this.speech = sp;
-    this.itemDuration = sp.estimate;
+    this.speechEstimate = sp.estimate;
+    if (!overRecord) this.itemDuration = sp.estimate;
     const done = sp.done.then(() => {
       if (this.speech !== sp) return;
       this.speaking = false;
@@ -382,21 +433,25 @@ export class BoothScene extends Phaser.Scene {
   private beginItem(i: number): void {
     this.waitingSince = null;
     this.cued = false;
+    // Events due before this item. Before sign-off only a late switchboard still rings.
+    const due = eventsDue(run.night, this.fired, i, 0, 'between');
+    this.fireEvents(i < SHOW_SLOTS ? due : due.filter((e) => e.kind === 'switchboard'));
+    const board = this.boardQueue.shift();
+    if (board) {
+      this.openBoard(board, i, false);
+      return;
+    }
     if (i >= SHOW_SLOTS) {
       this.signalSlot = null;
       this.hud?.setOrder(SHOW_SLOTS, SHOW_SLOTS);
       this.talk(SHOW_SLOTS, 'SIGN-OFF', run.night.signOff).done.then(() => this.endItem());
       return;
     }
-    if (i === run.night.switchboard.slot && !this.boardUsed) {
-      this.openBoard(i);
-      return;
-    }
-    if (i === run.night.morse?.slot && !this.morse && !this.morseResult) this.startMorse();
     this.idx = i;
     this.signalSlot = i;
     this.hud?.setOrder(i, i);
     const card = this.cards[i];
+    this.airedTonight.push(card.id);
     if (card.kind === 'record') this.startNeedle(i, card);
     else this.talk(i, `${kindHeader(card)} · ${card.title}`, (card as TalkCard).script).done.then(() => this.endItem());
   }
@@ -442,7 +497,8 @@ export class BoothScene extends Phaser.Scene {
     const credit = entry ? `${entry.performer}${entry.standIn ? '' : `, ${entry.year}`}` : '';
     const show = (standIn: boolean) => {
       const text = `${credit}${standIn ? ' (stand-in pressing)' : ''}. ${card.blurb}`;
-      this.hud?.setTeleprompter(`REC · ${card.title}`, text, UI.dim);
+      this.recordPrompt = { header: `REC · ${card.title}`, text };
+      this.hud?.setTeleprompter(this.recordPrompt.header, text, UI.dim);
       this.hud?.setSpoken(text.length);
     };
     show(!!entry?.standIn);
@@ -458,12 +514,18 @@ export class BoothScene extends Phaser.Scene {
       // A record that won't play ends at once; the show goes on.
     }
     this.record = null;
+    this.recordPrompt = null;
     this.endItem();
   }
 
   private endItem(): void {
     this.playing = false;
     if (this.phase !== 'live') return;
+    if (this.board) {
+      // The record ran out under a call; move on when the board closes.
+      this.endPending = true;
+      return;
+    }
     if (this.idx >= SHOW_SLOTS) {
       this.endShow();
       return;
@@ -511,11 +573,42 @@ export class BoothScene extends Phaser.Scene {
 
   // ─────────────────────────── Switchboard ───────────────────────────
 
-  private openBoard(slot: number): void {
-    const lines = run.night.switchboard.lines;
-    this.boardUsed = true;
-    this.idx = slot - 1; // still between items
-    this.board = { slot, states: lines.map(() => 'ringing'), selected: null, onAir: null, left: RING_SECONDS, opened: this.time.now, dumpedAt: undefined, autoT: 0.5 };
+  /** Start what's due: boards queue up, tubes wait for a playing item, Morse keys now (or after the one keying). */
+  private fireEvents(events: NightEvent[]): void {
+    for (const e of events) {
+      this.fired.add(e.id);
+      if (e.kind === 'switchboard') this.boardQueue.push(e);
+      else if (e.kind === 'tube') this.pendingTubes.push(e);
+      else if (e.kind === 'morse') {
+        if (this.morse) this.morseQueue.push(e);
+        else this.startMorse(e);
+      }
+    }
+  }
+
+  /** Events due partway through the item on air. A board that comes due rings over the record. */
+  private itemEvents(): void {
+    if (this.board || !this.playing || this.idx < 0 || this.idx >= SHOW_SLOTS) return;
+    const frac = (this.time.now - this.itemStart) / 1000 / Math.max(0.001, this.itemDuration);
+    this.fireEvents(eventsDue(run.night, this.fired, this.idx, frac, this.cards[this.idx].kind === 'record' ? 'record' : 'talk'));
+    const board = this.boardQueue.shift();
+    if (board) this.openBoard(board, this.idx + 1, true);
+  }
+
+  /**
+   * Ring a board. `slot` is the item that begins when it closes; `during` means it rings
+   * over a record that keeps playing (ducked under any call).
+   */
+  private openBoard(event: SwitchboardEvent, slot: number, during: boolean): void {
+    const lines = linesOpenNow(event, run.town, this.airedTonight);
+    if (!lines.length) {
+      // Nobody's calling after all.
+      if (!during) this.beginItem(slot);
+      return;
+    }
+    if (!during) this.idx = slot - 1; // still between items
+    this.board = { event, lines, slot, signal: event.at.slot, during, states: lines.map(() => 'ringing'), selected: null, onAir: null, left: RING_SECONDS, opened: this.time.now, dumpedAt: undefined, autoT: 0.5 };
+    exposeDebug('board', { id: event.id, lines: lines.map((l) => l.id), during });
     this.boardPanel = new SwitchboardPanel(this, lines, {
       select: (i) => this.selectLine(i),
       onAir: () => this.putOnAir(),
@@ -523,7 +616,7 @@ export class BoothScene extends Phaser.Scene {
       back: () => this.closeBoard(),
     }, this.ui);
     this.stopRing = audio.ring();
-    this.hud?.setTeleprompter('', '');
+    if (!during) this.hud?.setTeleprompter('', '');
     markPhase('switchboard');
   }
 
@@ -545,14 +638,14 @@ export class BoothScene extends Phaser.Scene {
     const b = this.board;
     if (!b || b.onAir !== null || b.selected === null) return;
     const i = b.selected;
-    const line = run.night.switchboard.lines[i];
+    const line = b.lines[i];
     b.onAir = i;
     b.states[i] = 'onair';
     b.dumpedAt = undefined;
     this.stopRing?.();
     this.stopRing = null;
     audio.sfx('pickup');
-    this.signalSlot = b.slot;
+    if (!b.during) this.signalSlot = b.signal;
     markPhase('call');
     const header = `LINE ${['ONE', 'TWO', 'THREE'][i]} · ${line.name.toUpperCase()}`;
     this.talk(b.slot - 1, header, line.script, { pitch: line.voice?.pitch ?? 1.2, rate: line.voice?.rate ?? 1.05, color: '#c9e7ff', reveal: true })
@@ -571,12 +664,12 @@ export class BoothScene extends Phaser.Scene {
   private callEnded(i: number): void {
     const b = this.board;
     if (!b || b.onAir !== i) return;
-    const line = run.night.switchboard.lines[i];
+    const line = b.lines[i];
     this.calls.push(b.dumpedAt === undefined ? { line: line.id } : { line: line.id, dumpedAt: b.dumpedAt });
     b.states[i] = 'done';
     b.onAir = null;
     b.selected = null;
-    this.playing = false;
+    if (!b.during) this.playing = false;
     this.speaking = false;
     audio.duck(false);
     if (b.dumpedAt === undefined) audio.sfx('hangup');
@@ -597,7 +690,23 @@ export class BoothScene extends Phaser.Scene {
     this.tweens.add({ targets: panel?.root, alpha: 0, delay: 300, duration: 300, onComplete: () => panel?.destroy() });
     this.boardPanel = null;
     this.board = null;
-    this.beginItem(b.slot);
+    if (!b.during) {
+      this.beginItem(b.slot);
+      return;
+    }
+    // Back to the record, or on to the next item if it ran out under the call.
+    if (this.endPending) {
+      this.endPending = false;
+      this.endItem();
+    } else {
+      this.time.delayedCall(1200, () => {
+        const p = this.recordPrompt;
+        if (p && !this.board && !this.speaking) {
+          this.hud?.setTeleprompter(p.header, p.text, UI.dim);
+          this.hud?.setSpoken(p.text.length);
+        }
+      });
+    }
   }
 
   private boardTick(dt: number): void {
@@ -611,7 +720,7 @@ export class BoothScene extends Phaser.Scene {
     }
     this.boardPanel?.update({ states: b.states, selected: b.selected, onAir: b.onAir, secondsLeft: b.left });
     if (b.onAir !== null) {
-      const line = run.night.switchboard.lines[b.onAir];
+      const line = b.lines[b.onAir];
       const turn = turnIndex(line);
       if (turn >= 0 && this.spokenNow() >= turn) markPhase('call-turn');
       if (DEBUG.auto && turn >= 0 && this.spokenNow() >= turn + 4) this.dumpCall();
@@ -632,18 +741,19 @@ export class BoothScene extends Phaser.Scene {
   /** Characters of the current script spoken so far. */
   private spokenNow(): number {
     if (this.wordEvents) return this.spokenChars;
-    const frac = (this.time.now - this.itemStart) / 1000 / Math.max(0.5, this.itemDuration);
+    const frac = (this.time.now - this.speechStart) / 1000 / Math.max(0.5, this.speechEstimate);
     return Math.min(1, frac) * this.scriptLen;
   }
 
   // ───────────────────────────── Tube ─────────────────────────────
 
-  /** Blow the night's tube once its item is far enough along. */
+  /** Blow the next due tube while an item plays, the board is closed and the last tube is fixed. */
   private tubeCheck(): void {
-    const def = run.night.tube;
-    if (!def || this.tube || this.board || this.idx !== def.slot || !this.playing) return;
-    if ((this.time.now - this.itemStart) / 1000 < def.at * this.itemDuration) return;
+    const def = this.pendingTubes[0];
+    if (!def || this.board || !this.playing || (this.tube && !this.tube.fixed)) return;
+    this.pendingTubes.shift();
     this.tube = new TubeFault(def.socket, rng(1260 + def.socket));
+    this.tubeLog.push({ id: def.id, fault: this.tube });
     this.tubePanel = new TubePanel(this, this.tube, (i) => this.pickTube(i), this.ui);
     audio.sfx('pop');
     const t = BOOTH.tubes[def.socket];
@@ -678,12 +788,11 @@ export class BoothScene extends Phaser.Scene {
 
   // ───────────────────────────── Morse ─────────────────────────────
 
-  private startMorse(): void {
-    const def = run.night.morse!;
+  private startMorse(def: MorseEvent): void {
     const copy = new MorseCopy(def.word);
     const chart = chartFor(copy.word, rng(def.word.length * 31));
     const panel = new MorsePanel(this, copy.word.length, chart, this.ui);
-    this.morse = { copy, chart, t: 0, left: DEBUG.fast ? 14 : def.seconds, panel, autoT: 1.5 };
+    this.morse = { event: def, copy, chart, t: 0, left: DEBUG.fast ? 14 : def.seconds, panel, autoT: 1.5 };
     markPhase('morse');
   }
 
@@ -716,10 +825,17 @@ export class BoothScene extends Phaser.Scene {
     const m = this.morse;
     if (!m) return;
     this.morse = null;
-    this.morseResult = decoded ? 'decoded' : 'missed';
+    this.morseResults.push({ id: m.event.id, result: decoded ? 'decoded' : 'missed' });
     audio.morseKey(false);
     m.panel.finish(decoded, m.copy.word);
     markPhase(decoded ? 'morse-copied' : 'morse-faded');
+    // The next signal waits for this one's panel to clear.
+    if (this.morseQueue.length) {
+      this.time.delayedCall(2000, () => {
+        const next = this.morseQueue.shift();
+        if (next && this.phase === 'live' && !this.morse) this.startMorse(next);
+      });
+    }
   }
 
   // ───────────────────────────── Storm ─────────────────────────────
@@ -771,6 +887,7 @@ export class BoothScene extends Phaser.Scene {
     if (this.phase !== 'live') return;
     if (this.storm) this.setStorm(false);
     // Sign-off ends whatever was still coming through.
+    this.morseQueue = [];
     if (this.morse) this.finishMorse(false);
     this.phase = 'other';
     this.hud?.setOnAir(false, 'OFF AIR');
@@ -787,10 +904,10 @@ export class BoothScene extends Phaser.Scene {
       deadAirSeconds: this.deadAir,
       calls: this.calls,
       needles: this.drops,
-      tubeSeconds: this.tube?.down,
-      morse: this.morseResult,
+      tubes: this.tubeLog.map((t) => ({ id: t.id, seconds: t.fault.down })),
+      morse: this.morseResults,
     });
-    run.result = result;
+    finishNight(result);
     exposeDebug('result', result);
     exposeDebug('signal', signal);
     markPhase('signoff');
@@ -842,6 +959,7 @@ export class BoothScene extends Phaser.Scene {
       if (this.keys.right.isDown || this.keys.d.isDown) input += 1;
       if (this.hud?.pointerTune) input = this.hud.pointerTune;
       if (DEBUG.auto) input = Math.max(-1, Math.min(1, -this.tuning.error * 12));
+      this.itemEvents();
       this.tubeCheck();
       const strength = this.tubeTick(dt);
       audio.setFault(1 - strength);

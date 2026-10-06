@@ -57,15 +57,30 @@ call; see "What to do next".
   Then Night 2 and the run (one commit after that).
 - Verified at handoff: 98 tests pass, `npm run build` clean, `npm run shots` (22 shots:
   Night 1 headless start to finish, Night 2 prep through letter) green with no console errors.
-- Runs: `src/run.ts` holds the run (night index, town, result); `startNight`, `nextNight`,
-  `resetRun`, and `townBefore(n)` for `?night=N`. `src/sim/nights.ts` has `gateOpen`,
-  `openNight` (drops gated cards and callers for the town's flags) and `letterText`. Each
-  `NightDef` carries its own letter and `rundowns.auto` / `rundowns.demo`.
+  Packet B (events, people, gates, save; 2026-10-06): 132 tests, 23 shots (adds
+  `15-continue`), Nights 1 and 2 resolve exactly as before.
+- Runs: `src/run.ts` holds the run (night index, town, result); `startNight`, `finishNight`
+  (keeps the result and saves), `nextNight` (saves), `resetRun`, `townBefore(n)` for
+  `?night=N`, and the save: `saveRun` / `loadRun` / `savedRun` / `clearSave` on
+  `localStorage['deadair.save']` (shape in `src/sim/save.ts`, `version: 1`; junk and
+  missing fields fall back to the starting town). The title offers "continue: night N".
+  `src/sim/nights.ts` has `gateOpen(gate, flags, { town, airedTonight })` (flags, `when`
+  stat thresholds, `tonight` aired/not aired; a clause with no context is open),
+  `openNight(night, town)`, `linesOpenNow(board, town, airedTonight)` and `letterText`.
+  Each `NightDef` carries its own letter and `rundowns.auto` / `rundowns.demo`.
+- Events: a night's booth tasks are `events: NightEvent[]` (switchboard, tube, morse,
+  storm; any number of each, ids like `n1_board`). `src/sim/events.ts` has `eventsOf`,
+  `eventsDue` (when each fires: between items, or a fraction into one; a board due during
+  a record rings over it, during talk it waits) and `airedWhenBoardOpens`. `BoothScene`
+  keeps a fired set, a board queue, pending tubes and a Morse queue, and `airedTonight`
+  (also on the debug hook). The performance reports per event (`tubes`, `morse` by id).
+- People: `TownState.people` counts each person's calls (aired / cut / dumped / ignored);
+  the resolver sets `<person>_<count>` flags and `_2` once a count reaches two.
 
 ### How it fits together
 
 - `src/sim/` — pure rules, no Phaser. `resolver.ts` turns a rundown + live performance
-  (`ShowPerformance`: per-slot signal, dead air, calls, needle drops, tube seconds, Morse)
+  (`ShowPerformance`: per-slot signal, dead air, calls, needle drops, tube seconds and Morse per event)
   into the next town state and dawn lines. Rules: audience shares per segment, reach
   checks, breather/panic, ad fatigue, dedications, lies unravel at dawn, plus each booth
   task's outcome. `tuning.ts` is the transmitter drift model.
@@ -73,8 +88,8 @@ call; see "What to do next".
     slot, storm report), `needle.ts` (arm sweep, groove band, late skip), `tube.ts`
     (`TubeFault` state machine), `calls.ts` (call results, the dump delay), `morse.ts`
     (code table, keying timeline/tape, `MorseCopy`, chart). Tests in `tests/<name>.test.ts`.
-- `src/data/night1.ts` — Night 1's 13 cards, the switchboard (three lines), the storm,
-  tube and Morse schedule, the Other Station config, and the `?auto` / `?scene=dawn`
+- `src/data/night1.ts` — Night 1's 13 cards, its events (`n1_board` with three lines,
+  `n1_tube`, `n1_morse`, `n1_storm`), the Other Station config, and the `?auto` / `?scene=dawn`
   rundowns (tested for validity). `records.json` + `records.ts` — the record catalog: 11
   real 78s and 5 synthesized stand-ins.
 - `src/audio/` — `engine.ts` (one Web Audio graph: radio chain, static/whistle/hum by tuning
@@ -136,7 +151,7 @@ call; see "What to do next".
    Morse hard on `?fast`). Night 1's shape: needle and tube at dusk; switchboard (Mrs.
    Okafor, a nameless slanderer to dump, Lottie) and a storm late; Morse ("HELP") in the
    small hours. Night 2 (`src/data/night2.ts`): switchboard at dusk (Grace Okafor, Sparky
-   inviting the town up a live pylon, Old Bill's knee), tube and Morse ("SPOOL") late, the
+   inviting the town up a live pylon, Old Bill's knee), tube and Morse ("SPOOL", from Teddy) late, the
    squall in the small hours on top of the squall warning. Night 1's flags gate Night 2
    cards and callers (Morse copied → the Wozniak tip, boat lost → memorial, slander aired
    → Sister Agnes replies, Teddy found or not → which Grace calls).

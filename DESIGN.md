@@ -79,7 +79,7 @@ The show plays in real time.
 - **Records** play (real 78s, or synthesized stand-ins with a 78 sound).
 - **Talk** is read by the browser's voice with radio static under it, with a teleprompter.
 - **Ride out the storm.** Most of the night the transmitter holds 1260 on its own. When a
-  squall comes off the lake (a night's `storm` slots), lightning knocks the carrier off and
+  squall comes off the lake (a night's `storm` events), lightning knocks the carrier off and
   the wind pushes it around; hold it on frequency. Static rises as you drift. Your signal
   multiplies your reach, and the ledger reports whether the Lamp held through the storm.
 - **Cue the next item** before the air goes silent. Every second of dead air costs
@@ -88,11 +88,11 @@ The show plays in real time.
   drops it on the lead-in groove. Too early skates across the record on air (Listeners,
   Credibility, and the ledger names the record); too late skips the intro (a little
   Listeners). Every record clean gets a kind word at dawn.
-- **Swap a blown tube.** Once a night (a night's `tube`), a transmitter tube blows mid-item
+- **Swap a blown tube.** When a night's `tube` event comes due, a transmitter tube blows mid-item
   and the program drops to a whisper. Read which socket went dark, pick the matching spare
   from three; a dud costs a second of fumbling, the right one warms up and the Lamp comes
   back. Lost seconds cost signal; the ledger praises a quick swap or reports a slow one.
-- **The switchboard.** Once a night (a night's `switchboard`), up to three lines ring at
+- **The switchboard.** When a night's `switchboard` event comes due, up to three lines ring at
   once, each with a few words on the board. Listen in off air to hear a line before
   deciding; put as many on as you like before the lines give up (the clock pauses while
   someone's on). Each line has its own outcome for airing, never being taken, or being cut
@@ -101,27 +101,47 @@ The show plays in real time.
   out. The station runs a few seconds behind the phone (`DUMP_DELAY_CHARS`), so dumping
   just after they turn still keeps it off the air. Dump too late and it went out; dump an
   honest caller and you cut them off.
-- **Morse under the static.** A night's `morse` keys a word over and over from a slot's
-  start, faint, for a set time. The panel shows a keying lamp, a tape of the current pass,
+- **Morse under the static.** A night's `morse` event keys a word over and over, faint,
+  for a set time. It can carry a `sender` (Night 2 on, Teddy at the relay hut). The panel shows a keying lamp, a tape of the current pass,
   and a chart of the word's letters among decoys; the player types the letters (a wrong
   one costs three seconds). Copied or faded, each has its own outcome at dawn.
 
-Each night schedules its tasks (`switchboard`, `storm`, `tube`, `morse` in the night data)
-so the show changes texture segment to segment instead of repeating one task.
+Each night schedules its tasks as a list of **events** (`events` in the night data: any
+number of `switchboard`, `tube`, `morse` and `storm`), so the show changes texture
+segment to segment instead of repeating one task. An event fires once, at `at: { slot,
+frac }`: with no `frac` it fires between items, just before item `slot` begins; with a
+`frac` it fires once that much of the item has played. A switchboard that comes due during
+a record rings over it (the record plays on, ducked under any call); one that comes due
+during talk waits until the talk ends. Anything whose item ended before its moment fires
+before the next item. Storms are wind over whole slots. `src/sim/events.ts` has the rules
+(`eventsDue`); the scene asks it and keeps the set of events already fired.
 
 ### Nights in a run
 
-The town (stats, faction trust, story flags) carries from each dawn into the next night.
-A night's cards and switchboard lines can carry a **gate** on flags (`requires` /
-`unless`); before prep the night is opened against the town's flags, so the crate and
-the board hold only what's in play. This is how one night's choices show up in the next:
+The town (stats, faction trust, story flags, and what the station has done to each
+caller) carries from each dawn into the next night, and the run is saved at each dawn and
+when the next night begins (`localStorage`, versioned). The title offers "continue:
+night N".
+
+A night's cards and switchboard lines can carry a **gate**: flags (`requires` /
+`unless`), stat thresholds (`when`: `morale`, `safety`, `credibility`, `listeners`,
+`chits`, `trust.<faction>`, min and max inclusive), and for callers only, what has aired
+so far tonight (`tonight: { aired, notAired }`). Before prep the night is opened against
+the town, so the crate and the boards hold only what's in play; when a board rings, its
+lines are checked again against what has aired by then.
+
+**People remember.** Every caller is a person (`src/data/people.ts`). At dawn the
+resolver counts each of their calls as aired, cut, dumped or ignored (a late dump counts
+as aired and dumped) and sets flags like `grace_cut`, and `grace_cut_2` the second time,
+for later content to gate on. This is how one night's choices show up in the next:
 copy Night 1's Morse and the Wozniak brothers come back with a tip; lose a boat and the
 Chapel holds a memorial; let a slander air and Sister Agnes asks to reply; find Teddy and
 Grace Okafor calls to thank the Linemen, or don't and she calls to tell them off.
 
 Each night also moves its booth tasks around. Night 1: needle and tube at dusk,
 switchboard and storm late, Morse in the small hours. Night 2: switchboard at dusk, tube
-and Morse late, the storm in the small hours, right on top of the squall warning.
+and Morse (from Teddy) late, the storm in the small hours, right on top of the squall
+warning.
 
 ### 3. Sign-off, the Other Station, and dawn
 
