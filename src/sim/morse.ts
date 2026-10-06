@@ -106,7 +106,8 @@ export class MorseCopy {
  */
 export function chartFor(word: string, rand: () => number, size = MORSE_TIMING.chartSize): string[] {
   const letters = new Set(word.toUpperCase());
-  const pool = Object.keys(MORSE).filter((l) => !letters.has(l) && l !== 'A' && l !== 'D');
+  // A and D tune the dial and X dumps a call (a board can ring while a signal keys): no decoys there.
+  const pool = Object.keys(MORSE).filter((l) => !letters.has(l) && l !== 'A' && l !== 'D' && l !== 'X');
   while (letters.size < size && pool.length) letters.add(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
   return [...letters].sort();
 }

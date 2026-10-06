@@ -18,7 +18,7 @@ import { NEEDLE, armPosition, lateSkip, needleResult, sweepFor } from '../sim/ne
 import { NeedlePanel } from '../ui/NeedlePanel';
 import { TubeFault } from '../sim/tube';
 import { TubePanel } from '../ui/TubePanel';
-import { turnIndex } from '../sim/calls';
+import { DUMP_DELAY_SECONDS, RING_SECONDS, patienceOf, turnIndex } from '../sim/calls';
 import { MORSE_TIMING, MorseCopy, chartFor, keyState } from '../sim/morse';
 import { MorsePanel } from '../ui/MorsePanel';
 import { SwitchboardPanel, type LineState } from '../ui/Switchboard';
@@ -43,12 +43,50 @@ import { LiveHud, kindHeader } from '../ui/LiveHud';
 const S = ART_SCALE;
 /** Records play up to this long, then fade (a 78 side runs about three minutes). */
 const RECORD_SECONDS = DEBUG.fast ? 5 : 75;
-const RING_SECONDS = DEBUG.fast ? 2.5 : 18;
+/** How long a line rings when it has no patience of its own. */
+const RING_DEFAULT = DEBUG.fast ? 2.5 : RING_SECONDS;
+/** Seconds of handset quiet between a caller's preview and what they confide. */
+const CONFIDE_GAP = 0.6;
+/** ?auto listens to a line at least this long before putting it on. */
+const AUTO_LISTEN = 1;
 const CUE_WINDOW = 8;
 const DEAD_AIR_GRACE = 1.2;
 
 
 type Phase = 'prep' | 'live' | 'other' | 'done';
+
+/** A switchboard ringing now. */
+interface ActiveBoard {
+  event: SwitchboardEvent;
+  /** The lines ringing on this board (tonight's gates applied when it opened). */
+  lines: CallLine[];
+  /** The item that begins when the board closes (slot - 1 is the one in progress or just ended). */
+  slot: number;
+  /** The slot whose signal a call on this board goes out on. */
+  signal: number;
+  /** Ringing over a record that keeps playing under the call. */
+  during: boolean;
+  states: LineState[];
+  selected: number | null;
+  onAir: number | null;
+  /** Seconds each line keeps ringing before it gives up. A line you're listening to holds. */
+  left: number[];
+  /** Lines that have begun to confide on the handset. */
+  confided: boolean[];
+  /** When the selected line was picked up off air. */
+  listenedAt: number;
+  /** The DJ is saying a call's `after` line on air; the board waits for it. */
+  after: boolean;
+  opened: number;
+  dumpedAt: number | undefined;
+  autoT: number;
+}
+
+/** Something playing that can be stopped, and when it's over. */
+interface Playback {
+  done: Promise<void>;
+  cancel(): void;
+}
 
 export class BoothScene extends Phaser.Scene {
   private phase: Phase = 'prep';
@@ -96,25 +134,7 @@ export class BoothScene extends Phaser.Scene {
   private airedTonight: string[] = [];
   /** A record ended while a call was on over it; move on once the board closes. */
   private endPending = false;
-  private board: {
-    event: SwitchboardEvent;
-    /** The lines ringing on this board (tonight's gates applied when it opened). */
-    lines: CallLine[];
-    /** The item that begins when the board closes (slot - 1 is the one in progress or just ended). */
-    slot: number;
-    /** The slot whose signal a call on this board goes out on. */
-    signal: number;
-    /** Ringing over a record that keeps playing under the call. */
-    during: boolean;
-    states: LineState[];
-    selected: number | null;
-    onAir: number | null;
-    /** Seconds before the lines still ringing give up (paused while someone's on air). */
-    left: number;
-    opened: number;
-    dumpedAt: number | undefined;
-    autoT: number;
-  } | null = null;
+  private board: ActiveBoard | null = null;
   private boardPanel: SwitchboardPanel | null = null;
   private calls: CallRecord[] = [];
   private morse: { event: MorseEvent; copy: MorseCopy; chart: string[]; t: number; left: number; panel: MorsePanel; autoT: number } | null = null;
@@ -123,8 +143,12 @@ export class BoothScene extends Phaser.Scene {
   private stopRing: (() => void) | null = null;
   private record: RecordHandle | null = null;
   private speech: Speech | null = null;
-  /** A caller heard off air on the handset while their line is selected. */
-  private listen: Speech | null = null;
+  /** A caller heard off air on the handset while their line is selected: the preview, then any confidence. */
+  private listen: Playback | null = null;
+  /** The copy of the call on air, DUMP_DELAY_SECONDS behind the handset. */
+  private onAirCopy: Playback | null = null;
+  /** Confidences heard off air tonight, as `t_<flag>` (tonight-gates read them). */
+  private confidedTonight: string[] = [];
   private speaking = false;
   private spokenChars = 0;
   private wordEvents = false;
@@ -182,6 +206,10 @@ export class BoothScene extends Phaser.Scene {
     this.endPending = false;
     this.boardPanel = null;
     this.calls = [];
+    this.listen = null;
+    this.onAirCopy = null;
+    this.confidedTonight = [];
+    exposeDebug('confidedTonight', this.confidedTonight);
     this.morse = null;
     this.morseQueue = [];
     this.morseResults = [];
@@ -398,8 +426,11 @@ export class BoothScene extends Phaser.Scene {
     this.talk(-1, 'SIGN-ON', run.night.signOn).done.then(() => this.endItem());
   }
 
-  /** Speak a script on air, lighting the teleprompter as it goes. */
-  private talk(i: number, header: string, script: string, opts: { person?: PersonId; channel?: VoiceChannel; color?: string; reveal?: boolean } = {}): Speech {
+  /**
+   * Speak a script on air, lighting the teleprompter as it goes. `hold` keeps the record
+   * ducked when it ends (a caller's on-air copy is still playing behind the handset).
+   */
+  private talk(i: number, header: string, script: string, opts: { person?: PersonId; channel?: VoiceChannel; color?: string; reveal?: boolean; hold?: boolean } = {}): Speech {
     // A call over a record leaves the record's item alone; the speech keeps its own clock.
     const overRecord = !!this.board?.during;
     if (!overRecord) {
@@ -428,7 +459,8 @@ export class BoothScene extends Phaser.Scene {
     const done = sp.done.then(() => {
       if (this.speech !== sp) return;
       this.speaking = false;
-      audio.duck(false);
+      this.spokenChars = script.length;
+      if (!opts.hold) audio.duck(false);
       this.hud?.setSpoken(script.length);
     });
     return { ...sp, done };
@@ -604,14 +636,19 @@ export class BoothScene extends Phaser.Scene {
    * over a record that keeps playing (ducked under any call).
    */
   private openBoard(event: SwitchboardEvent, slot: number, during: boolean): void {
-    const lines = linesOpenNow(event, run.town, this.airedTonight);
+    const lines = linesOpenNow(event, run.town, this.airedTonight, this.confidedTonight);
     if (!lines.length) {
       // Nobody's calling after all.
       if (!during) this.beginItem(slot);
       return;
     }
     if (!during) this.idx = slot - 1; // still between items
-    this.board = { event, lines, slot, signal: event.at.slot, during, states: lines.map(() => 'ringing'), selected: null, onAir: null, left: RING_SECONDS, opened: this.time.now, dumpedAt: undefined, autoT: 0.5 };
+    this.board = {
+      event, lines, slot, signal: event.at.slot, during,
+      states: lines.map(() => 'ringing'), selected: null, onAir: null,
+      left: lines.map((l) => patienceOf(l, RING_DEFAULT)), confided: lines.map(() => false), listenedAt: 0, after: false,
+      opened: this.time.now, dumpedAt: undefined, autoT: 0.5,
+    };
     exposeDebug('board', { id: event.id, lines: lines.map((l) => l.id), during });
     this.boardPanel = new SwitchboardPanel(this, lines, {
       select: (i) => this.selectLine(i),
@@ -622,6 +659,7 @@ export class BoothScene extends Phaser.Scene {
     this.stopRing = audio.ring();
     if (!during) this.hud?.setTeleprompter('', '');
     markPhase('switchboard');
+    markPhase(`switchboard:${event.id}`);
   }
 
   /** First press listens in off air; pressing the same line again puts it on. */
@@ -635,15 +673,77 @@ export class BoothScene extends Phaser.Scene {
     if (b.selected !== null && b.states[b.selected] === 'listening') b.states[b.selected] = 'ringing';
     b.states[i] = 'listening';
     b.selected = i;
+    b.listenedAt = this.time.now;
     audio.sfx('click');
-    const line = b.lines[i];
     this.listen?.cancel();
-    this.listen = speak(line.preview, { person: line.person, channel: 'handset' });
+    this.listen = this.listenIn(b, i);
+  }
+
+  /**
+   * The handset, off air: the caller's preview, then, if they have one and you're still
+   * listening, what they won't say on air. Hearing it begin marks `t_<flag>` for tonight.
+   */
+  private listenIn(b: ActiveBoard, i: number): Playback {
+    const line = b.lines[i];
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let current = speak(line.preview, { person: line.person, channel: 'handset' });
+    const done = current.done.then(() => {
+      const confide = line.confide;
+      if (cancelled || !confide) return;
+      return new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          if (cancelled) return resolve();
+          b.confided[i] = true;
+          const flag = `t_${confide.flag}`;
+          if (!this.confidedTonight.includes(flag)) this.confidedTonight.push(flag);
+          exposeDebug('confidedTonight', this.confidedTonight);
+          markPhase('confide');
+          current = speak(confide.text, { person: line.person, channel: 'handset' });
+          void current.done.then(resolve);
+        }, CONFIDE_GAP * 1000);
+      });
+    });
+    return {
+      done,
+      cancel: () => {
+        cancelled = true;
+        clearTimeout(timer);
+        current.cancel();
+      },
+    };
+  }
+
+  /**
+   * The town's copy of a call: the same words through the radio chain, DUMP_DELAY_SECONDS
+   * behind the handset. The voice index gives both copies the same buffer. The browser
+   * voice can't say two things at once, so when the handset copy is speechSynthesis there
+   * is no second copy: the one voice stands for both (and the delay is only in the rules).
+   */
+  private delayedCopy(line: CallLine, handset: Speech): Playback {
+    let cancelled = false;
+    let copy: Speech | null = null;
+    let resolve!: () => void;
+    const done = new Promise<void>((r) => (resolve = r));
+    const timer = setTimeout(() => {
+      if (cancelled || handset.browserVoice) return resolve();
+      copy = speak(line.script, { person: line.person, channel: 'phone' });
+      void copy.done.then(resolve);
+    }, DUMP_DELAY_SECONDS * 1000);
+    return {
+      done,
+      cancel: () => {
+        cancelled = true;
+        clearTimeout(timer);
+        copy?.cancel();
+        resolve();
+      },
+    };
   }
 
   private putOnAir(): void {
     const b = this.board;
-    if (!b || b.onAir !== null || b.selected === null) return;
+    if (!b || b.onAir !== null || b.after || b.selected === null) return;
     const i = b.selected;
     const line = b.lines[i];
     this.listen?.cancel();
@@ -657,8 +757,12 @@ export class BoothScene extends Phaser.Scene {
     if (!b.during) this.signalSlot = b.signal;
     markPhase('call');
     const header = `LINE ${['ONE', 'TWO', 'THREE'][i]} · ${line.name.toUpperCase()}`;
-    this.talk(b.slot - 1, header, line.script, { person: line.person, channel: 'phone', color: '#c9e7ff', reveal: true })
-      .done.then(() => this.callEnded(i));
+    // You hear them now, on the handset; the teleprompter and the dump follow this copy.
+    const call = this.talk(b.slot - 1, header, line.script, { person: line.person, channel: 'handset', color: '#c9e7ff', reveal: true, hold: true });
+    // The town hears them a few seconds later. The call is over when the town has heard it.
+    const air = this.delayedCopy(line, this.speech!);
+    this.onAirCopy = air;
+    void call.done.then(() => air.done).then(() => this.callEnded(i));
   }
 
   private dumpCall(): void {
@@ -667,36 +771,55 @@ export class BoothScene extends Phaser.Scene {
     b.dumpedAt = this.spokenNow();
     audio.sfx('dump');
     markPhase('dump');
+    // Both copies stop at once: what was still in the delay never goes out.
     this.speech?.cancel();
+    this.onAirCopy?.cancel();
   }
 
   private callEnded(i: number): void {
     const b = this.board;
     if (!b || b.onAir !== i) return;
     const line = b.lines[i];
+    this.onAirCopy = null;
     this.calls.push(b.dumpedAt === undefined ? { line: line.id } : { line: line.id, dumpedAt: b.dumpedAt });
     b.states[i] = 'done';
     b.onAir = null;
     b.selected = null;
-    if (!b.during) this.playing = false;
     this.speaking = false;
-    audio.duck(false);
     if (b.dumpedAt === undefined) audio.sfx('hangup');
     if (b.dumpedAt !== undefined) this.hud?.setTeleprompter('DUMPED', `${line.script.slice(0, Math.round(b.dumpedAt))} --`, UI.dim);
-    if (b.states.some((s) => s === 'ringing') && b.left > 0) this.stopRing = audio.ring();
-    else this.closeBoard();
+    if (b.dumpedAt === undefined && line.after) {
+      // The DJ picks the mic back up; the record stays ducked under them (talk un-ducks after).
+      b.after = true;
+      this.talk(b.slot - 1, 'YOU', line.after).done.then(() => {
+        if (this.board !== b) return;
+        b.after = false;
+        this.boardResumes(b);
+      });
+      return;
+    }
+    audio.duck(false);
+    this.boardResumes(b);
+  }
+
+  /** After a call: back to the lines still waiting, or back to the show. */
+  private boardResumes(b: ActiveBoard): void {
+    if (!b.during) this.playing = false;
+    if (b.states.some((s) => s === 'ringing' || s === 'listening')) {
+      if (b.states.includes('ringing') && !this.stopRing) this.stopRing = audio.ring();
+    } else this.closeBoard();
   }
 
   /** Back to the show; anyone still ringing hangs up. */
   private closeBoard(): void {
     const b = this.board;
-    if (!b || b.onAir !== null) return;
+    if (!b || b.onAir !== null || b.after) return;
     this.listen?.cancel();
     this.listen = null;
     this.stopRing?.();
     this.stopRing = null;
     b.states = b.states.map((s) => (s === 'ringing' || s === 'listening' ? 'gone' : s));
-    this.boardPanel?.update({ states: b.states, selected: null, onAir: null, secondsLeft: 0 });
+    this.boardPanel?.update({ states: b.states, selected: null, onAir: null, left: b.left, confided: false, after: false });
     const panel = this.boardPanel;
     this.tweens.add({ targets: panel?.root, alpha: 0, delay: 300, duration: 300, onComplete: () => panel?.destroy() });
     this.boardPanel = null;
@@ -722,14 +845,23 @@ export class BoothScene extends Phaser.Scene {
 
   private boardTick(dt: number): void {
     const b = this.board!;
-    if (b.onAir === null) {
-      b.left -= dt;
-      if (b.left <= 0) {
-        this.closeBoard();
-        return;
-      }
+    // Each line rings on its own clock, on air or not; the one on the handset holds.
+    b.states.forEach((s, i) => {
+      if (s !== 'ringing') return;
+      b.left[i] -= dt;
+      if (b.left[i] <= 0) b.states[i] = 'gone';
+    });
+    const waiting = b.states.some((s) => s === 'ringing' || s === 'listening');
+    if (!waiting && b.onAir === null && !b.after) {
+      this.closeBoard();
+      return;
     }
-    this.boardPanel?.update({ states: b.states, selected: b.selected, onAir: b.onAir, secondsLeft: b.left });
+    if (!b.states.includes('ringing') && this.stopRing) {
+      this.stopRing();
+      this.stopRing = null;
+    }
+    const confided = b.selected !== null && b.confided[b.selected];
+    this.boardPanel?.update({ states: b.states, selected: b.selected, onAir: b.onAir, left: b.left, confided, after: b.after });
     if (b.onAir !== null) {
       const line = b.lines[b.onAir];
       const turn = turnIndex(line);
@@ -738,15 +870,19 @@ export class BoothScene extends Phaser.Scene {
     } else if (DEBUG.auto) this.autoBoard(dt);
   }
 
-  /** ?auto: take line one, then line two (and dump him when he turns), then back to the show. */
+  /**
+   * ?auto: take line one, then line two (and dump him when he turns), then back to the
+   * show. Each is listened to first: a second, and until they confide if they will.
+   */
   private autoBoard(dt: number): void {
     const b = this.board!;
     b.autoT -= dt;
-    if (b.autoT > 0) return;
+    if (b.autoT > 0 || b.after) return;
     b.autoT = DEBUG.fast ? 0.4 : 1.2;
     const want = [0, 1].find((i) => b.states[i] === 'ringing' || b.states[i] === 'listening');
     if (want === undefined) this.closeBoard();
-    else this.selectLine(want);
+    else if (b.selected !== want) this.selectLine(want);
+    else if ((this.time.now - b.listenedAt) / 1000 >= AUTO_LISTEN && (!b.lines[want].confide || b.confided[want])) this.putOnAir();
   }
 
   /** Characters of the current script spoken so far. */
@@ -917,6 +1053,7 @@ export class BoothScene extends Phaser.Scene {
       needles: this.drops,
       tubes: this.tubeLog.map((t) => ({ id: t.id, seconds: t.fault.down })),
       morse: this.morseResults,
+      confided: this.confidedTonight,
     });
     finishNight(result);
     exposeDebug('result', result);

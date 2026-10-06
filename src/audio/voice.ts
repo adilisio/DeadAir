@@ -31,6 +31,11 @@ export interface Speech {
   cancel(): void;
   /** Estimated seconds to read, used for the teleprompter when word events aren't available. */
   estimate: number;
+  /**
+   * True when this line plays (or fell back to) the browser's speechSynthesis, which can
+   * only say one thing at a time and can't be routed through the radio chain.
+   */
+  readonly browserVoice: boolean;
 }
 
 /** The Other Station's playback rate (engine.ts), which stretches its lines. */
@@ -190,6 +195,9 @@ export function speak(text: string, opts: SpeakOptions = {}): Speech {
   return {
     done,
     estimate,
+    get browserVoice() {
+      return fallback !== null;
+    },
     cancel: () => {
       cancelled = true;
       clearInterval(timer);
@@ -207,7 +215,7 @@ function timed(estimate: number): Speech {
     resolve = r;
     timer = setTimeout(r, estimate * 1000);
   });
-  return { done, estimate, cancel: () => (clearTimeout(timer), resolve()) };
+  return { done, estimate, browserVoice: false, cancel: () => (clearTimeout(timer), resolve()) };
 }
 
 /** The browser's voice, sentence by sentence (Chrome cuts off long utterances). */
@@ -240,6 +248,7 @@ function speakSynth(text: string, opts: SpeakOptions, pitch: number, rate: numbe
   return {
     done,
     estimate,
+    browserVoice: true,
     cancel: () => {
       cancelled = true;
       synth.cancel();

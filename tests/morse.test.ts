@@ -62,6 +62,7 @@ describe('Morse', () => {
       const chart = chartFor('HELP', rng(seed));
       expect(chart).not.toContain('A');
       expect(chart).not.toContain('D');
+      expect(chart).not.toContain('X');
     }
     // Unless the word needs them.
     expect(chartFor('DAWN', rng(1))).toEqual(expect.arrayContaining(['A', 'D']));

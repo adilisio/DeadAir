@@ -6,7 +6,7 @@
 import type { FactionId } from '../sim/types';
 
 export type PersonId =
-  | 'dj' | 'grace' | 'anon' | 'lottie' | 'sparky' | 'bill' | 'agnes' | 'pruitt' | 'doc' | 'amos' | 'teddy';
+  | 'dj' | 'grace' | 'anon' | 'lottie' | 'sparky' | 'bill' | 'agnes' | 'pruitt' | 'doc' | 'amos' | 'teddy' | 'walt';
 
 export interface Person {
   id: PersonId;
@@ -36,6 +36,7 @@ export const PEOPLE: Record<PersonId, Person> = {
   doc: { id: 'doc', name: 'Doc Hessler', who: 'Sells the tonic. Pays for airtime. Lies.', voice: { kokoro: 'am_eric', rate: 1.05, pitch: 1.0 } },
   amos: { id: 'amos', name: 'Brother Amos', faction: 'chapel', who: 'Keeps the Chapel bees.', voice: { kokoro: 'am_liam', rate: 0.9, pitch: 0.95 } },
   teddy: { id: 'teddy', name: 'Teddy Okafor', who: 'Fourteen. Wants to be a Lineman. Learned Morse from them.', voice: { kokoro: 'am_puck', rate: 1.0, pitch: 1.4 } },
+  walt: { id: 'walt', name: 'Walt Kowalczyk', faction: 'linemen', who: "Lottie's Walt. Netter-born, Lineman by trade, night crew. Says as little as he can.", voice: { kokoro: 'am_adam', rate: 0.95, pitch: 0.9 } },
 };
 
 export function person(id: PersonId): Person {

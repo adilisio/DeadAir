@@ -34,9 +34,12 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
    - If a tube blows, the music dies: **Q / W / E** seats the spare that matches the dead
      socket. A wrong one is a dud and costs a second.
    - When the switchboard lights up: **1 / 2 / 3** listens in on a line off air; press it
-     again (or **ENTER**) to put them on. **X** dumps a caller who says something that
-     mustn't go out. The station runs a few seconds behind the phone, so a quick dump
-     keeps it off the air. **SPACE** goes back to the show.
+     again (or **ENTER**) to put them on. Each line waits only so long (its seconds are on
+     its row); a fast red lamp is urgent. Keep listening and a caller may tell you something
+     they won't say on the air. On air you hear them first, and the town hears them three
+     seconds later (the delay): **X** dumps a caller who says something that mustn't go
+     out, and a quick dump keeps it off the air. What you dump may come back.
+     **SPACE** goes back to the show.
    - In the small hours something taps under the static. Read the dots and dashes off the
      tape against the chart and **type the letters** before it fades. Wrong guesses cost time.
 3. **Sign-off.** Then leave the set on for a minute.

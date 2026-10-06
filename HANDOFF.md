@@ -58,7 +58,8 @@ call; see "What to do next".
 - Verified at handoff: 98 tests pass, `npm run build` clean, `npm run shots` (22 shots:
   Night 1 headless start to finish, Night 2 prep through letter) green with no console errors.
   Packet B (events, people, gates, save; 2026-10-06): 132 tests, 23 shots (adds
-  `15-continue`), Nights 1 and 2 resolve exactly as before.
+  `15-continue`), Nights 1 and 2 resolve exactly as before. Packet C (switchboard v2):
+  177 tests, 25 shots (adds `05-booth-switchboard-confide`, `11a-night2-board-late`).
 - Runs: `src/run.ts` holds the run (night index, town, result); `startNight`, `finishNight`
   (keeps the result and saves), `nextNight` (saves), `resetRun`, `townBefore(n)` for
   `?night=N`, and the save: `saveRun` / `loadRun` / `savedRun` / `clearSave` on
@@ -86,7 +87,8 @@ call; see "What to do next".
   task's outcome. `tuning.ts` is the transmitter drift model.
   - Booth tasks, one file each with its pure logic and constants: `storm.ts` (wind per
     slot, storm report), `needle.ts` (arm sweep, groove band, late skip), `tube.ts`
-    (`TubeFault` state machine), `calls.ts` (call results, the dump delay), `morse.ts`
+    (`TubeFault` state machine), `calls.ts` (call results, the dump delay in chars and
+    seconds, ring patience, `dumpedSentence`, `requestResult`), `morse.ts`
     (code table, keying timeline/tape, `MorseCopy`, chart). Tests in `tests/<name>.test.ts`.
 - `src/data/night1.ts` — Night 1's 13 cards, its events (`n1_board` with three lines,
   `n1_tube`, `n1_morse`, `n1_storm`), the Other Station config, and the `?auto` / `?scene=dawn`
@@ -162,7 +164,9 @@ call; see "What to do next".
    Morse hard on `?fast`). Night 1's shape: needle and tube at dusk; switchboard (Mrs.
    Okafor, a nameless slanderer to dump, Lottie) and a storm late; Morse ("HELP") in the
    small hours. Night 2 (`src/data/night2.ts`): switchboard at dusk (Grace Okafor, Sparky
-   inviting the town up a live pylon, Old Bill's knee), tube and Morse ("SPOOL", from Teddy) late, the
+   inviting the town up a live pylon, Old Bill's knee), tube and Morse ("SPOOL", from Teddy) late,
+   a second board over the late record (Lottie's birthday request for Walt; Pruitt, bitten or
+   grateful; Walt if Lottie aired on Night 1), the
    squall in the small hours on top of the squall warning. Night 1's flags gate Night 2
    cards and callers (Morse copied → the Wozniak tip, boat lost → memorial, slander aired
    → Sister Agnes replies, Teddy found or not → which Grace calls).

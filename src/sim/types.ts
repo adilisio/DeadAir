@@ -66,8 +66,12 @@ export interface Gate {
   unless?: string[];
   /** Simple stat thresholds, all must hold. Stat names: morale | safety | credibility | listeners | chits | trust.netters | trust.chapel | trust.linemen */
   when?: { stat: StatName; min?: number; max?: number }[];
-  /** Only for switchboard lines: evaluated against the card ids aired so far tonight when the board opens. */
-  tonight?: { aired?: string[]; notAired?: string[] };
+  /**
+   * Only for switchboard lines: evaluated against the card ids aired so far tonight when the
+   * board opens, and `flags`, the confidences heard off air tonight (`t_<confide flag>`; all
+   * must have been heard).
+   */
+  tonight?: { aired?: string[]; notAired?: string[]; flags?: string[] };
 }
 
 interface CardBase {
@@ -141,6 +145,19 @@ export interface CallLine {
   cut?: Outcome;
   /** Where this caller turns: `at` is the first words that mustn't go out. */
   turn?: { at: string; caught: Outcome };
+  /** A red lamp on the board row (not in the preview). */
+  urgent?: boolean;
+  /** Seconds this line rings before giving up (default RING_SECONDS in calls.ts). Paused while you listen to it. */
+  patience?: number;
+  /**
+   * Said off air after the preview, only if you keep listening: something they won't say on
+   * air. Hearing it marks `t_<flag>` for tonight's gates, and the town remembers `flag`.
+   */
+  confide?: { text: string; flag: string };
+  /** The caller asks for a record. If the call airs: `played` when it airs later tonight, else `missed`. */
+  request?: { recordId: string; played: Outcome; missed: Outcome };
+  /** What the DJ says on air right after the call, when it ends without a dump. */
+  after?: string;
 }
 
 /** A call that went on air. `dumpedAt` is how many characters had been said when it was dumped. */
@@ -220,6 +237,8 @@ export interface NightDef {
     stamp: string;
     intro: string;
     outro: string;
+    /** It also reads back, finished, every sentence you dumped tonight (before the card). */
+    readsDumped?: boolean;
   };
   /** The listener's letter on the ledger's last page. `{quote}` is what the Other Station said. */
   letter: { body: string; from: string };
@@ -263,13 +282,20 @@ export interface ShowPerformance {
   tubes?: { id: string; seconds: number }[];
   /** Per Morse event that keyed: whether it was copied. Events not listed never keyed. */
   morse?: { id: string; result: 'decoded' | 'missed' }[];
+  /** Confidences heard off air tonight, as `t_<flag>` (the scene's confidedTonight). */
+  confided?: string[];
 }
 
 export interface NightResult {
   before: TownState;
   after: TownState;
   lines: DawnLine[];
-  otherStation: { cardId: string | null; script: string };
+  otherStation: {
+    cardId: string | null;
+    script: string;
+    /** The sentence of every dumped call, in call order (read back when the night `readsDumped`). */
+    dumped: { person: PersonId; text: string }[];
+  };
 }
 
 /** Display names (placeholders, see DESIGN.md). */
