@@ -1,6 +1,6 @@
 // The people of Port Vesper who speak on the Lamp: the DJ, the callers, and the
 // voices the Other Station borrows. One voice per person, chosen once, so the town
-// becomes recognizable by ear. Voice ids are Kokoro voices (tools/voices.mjs renders
+// becomes recognizable by ear. Voice ids are Kokoro voices (tools/voices.ts renders
 // every line offline); pitch/rate are also the speechSynthesis fallback's settings.
 
 import type { FactionId } from '../sim/types';
@@ -15,7 +15,7 @@ export interface Person {
   /** One line of who they are, for authors and the ledger. */
   who: string;
   voice: {
-    /** Kokoro voice id (see tools/voices.mjs). */
+    /** Kokoro voice id (see tools/voices.ts). */
     kokoro: string;
     /** Speaking rate multiplier (1 = normal). */
     rate: number;

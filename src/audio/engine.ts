@@ -1,15 +1,25 @@
 // The live sound of the station: one Web Audio graph.
 //
-//   program sources ─▶ program gain ─▶ radio chain (band-limit, tube drive, comp) ─▶ master
+//   program sources ─▶ program ─▶ duck ─┐
+//   voices (air / phone / other) ─▶ voice bus ─┴▶ signal (tuning, tube fault) ─▶ radio chain
+//                                       (band-limit, tube drive, comp) ─▶ master
 //   static noise + heterodyne whistle + mains hum (driven by tuning error) ──────────▶ master
-//   room sfx (switches, phone, needle drop): dry ──────────────────────────────────────▶ master
+//   room sfx (switches, phone, needle drop) and the handset voice: dry ────────────────▶ master
 //
-// Browser TTS can't be routed into this graph; see voice.ts.
+// Voices are pre-rendered files (voice.ts). Browser TTS, the fallback, can't be routed here.
 
 import { DEBUG } from '../config';
 import { resolveRecord, standInFor } from '../data/records';
 import { generateScore, rng } from './pressings';
 import { renderScore } from './render';
+
+/** How a voice reaches the listener. See playVoice. */
+export type VoiceChannel = 'air' | 'phone' | 'handset' | 'other';
+
+export interface VoiceHandle {
+  stop(): void;
+  ended: Promise<void>;
+}
 
 export interface RecordHandle {
   duration: number;
@@ -36,6 +46,10 @@ class AudioEngine {
   private noise!: AudioBuffer;
   private cache = new Map<string, Promise<{ buffer: AudioBuffer; real: boolean }>>();
   private duckGain!: GainNode;
+  /** Where records and voices meet: carries the tuning loss and the tube fault. */
+  private signal!: GainNode;
+  /** Voices join the chain here, after the duck (records duck under the DJ; voices don't). */
+  private voiceBus!: GainNode;
   private analyser!: AnalyserNode;
   private levelBuf = new Float32Array(new ArrayBuffer(1024 * 4));
 
@@ -67,7 +81,10 @@ class AudioEngine {
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -20;
     comp.ratio.value = 4;
-    this.program.connect(this.duckGain).connect(hp).connect(this.programTone).connect(drive).connect(comp).connect(this.master);
+    this.signal = ctx.createGain();
+    this.voiceBus = ctx.createGain();
+    this.voiceBus.connect(this.signal);
+    this.program.connect(this.duckGain).connect(this.signal).connect(hp).connect(this.programTone).connect(drive).connect(comp).connect(this.master);
     this.analyser = ctx.createAnalyser();
     this.analyser.fftSize = 1024;
     comp.connect(this.analyser);
@@ -171,7 +188,7 @@ class AudioEngine {
     const f = this.fault;
     const t = this.ctx.currentTime;
     this.staticGain.gain.setTargetAtTime(0.02 + 0.26 * Math.pow(e, 1.3) + 0.08 * f, t, 0.05);
-    this.program.gain.setTargetAtTime((1 - 0.75 * Math.pow(e, 1.1)) * (1 - 0.9 * f), t, 0.05);
+    this.signal.gain.setTargetAtTime((1 - 0.75 * Math.pow(e, 1.1)) * (1 - 0.9 * f), t, 0.05);
     this.programTone.frequency.setTargetAtTime((4000 - 2800 * e) * (1 - 0.7 * f), t, 0.05);
     this.whistle.frequency.setTargetAtTime(200 + 2400 * e, t, 0.05);
     this.whistleGain.gain.setTargetAtTime(e > 0.15 ? 0.022 * e : 0, t, 0.05);
@@ -269,6 +286,95 @@ class AudioEngine {
         src.stop(t + fade + 0.02);
       },
       ended,
+    };
+  }
+
+  /**
+   * Plays a voice buffer.
+   * - air: the DJ on the radio chain (band-limit, drive, compressor, tuning, tube fault).
+   * - phone: a caller on air: telephone band (300-3400 Hz) and a harder clip, then the chain.
+   * - handset: a caller heard off air on the handset: the phone sound straight to the room.
+   * - other: the Other Station: slowed, narrower, with a short doubled echo, then the chain.
+   * Voice files are loudness-normalized like the records (-18 LUFS). Channel gains aim to
+   * put a voice about level with a record's singer after the chain's drive and compressor:
+   * air 0.85 (a voice alone is denser than a full band), phone 0.7 (its clipper already
+   * pushes the level up), handset 0.6 (dry, no compressor), other 0.95 (it loses band).
+   * Set by reasoning, not by ear: adjust after a listen.
+   */
+  playVoice(buffer: AudioBuffer, channel: VoiceChannel): VoiceHandle {
+    const ctx = this.ctx!;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const out = ctx.createGain();
+    const phone = (): AudioNode => {
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 300;
+      hp.Q.value = 0.9;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 3400;
+      lp.Q.value = 0.9;
+      const clip = ctx.createWaveShaper();
+      clip.curve = tubeCurve(4.5);
+      clip.oversample = '2x';
+      src.connect(hp).connect(lp).connect(clip);
+      return clip;
+    };
+    switch (channel) {
+      case 'air':
+        out.gain.value = 0.85;
+        src.connect(out).connect(this.voiceBus);
+        break;
+      case 'phone':
+        out.gain.value = 0.7;
+        phone().connect(out).connect(this.voiceBus);
+        break;
+      case 'handset':
+        // Off air, on the handset: no radio chain, no static.
+        out.gain.value = 0.6;
+        phone().connect(out).connect(this.master);
+        break;
+      case 'other': {
+        src.playbackRate.value = 0.92;
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 2600;
+        const echo = ctx.createDelay(0.2);
+        echo.delayTime.value = 0.035;
+        const echoGain = ctx.createGain();
+        echoGain.gain.value = 0.4; // about -8 dB
+        src.connect(lp);
+        lp.connect(out);
+        lp.connect(echo).connect(echoGain).connect(out);
+        out.gain.value = 0.95;
+        out.connect(this.voiceBus);
+        break;
+      }
+    }
+    let resolveEnded!: () => void;
+    const ended = new Promise<void>((r) => (resolveEnded = r));
+    src.onended = () => {
+      out.disconnect();
+      resolveEnded();
+    };
+    src.start(ctx.currentTime + 0.02);
+    let stopped = false;
+    return {
+      ended,
+      stop: () => {
+        if (stopped) return;
+        stopped = true;
+        const t = ctx.currentTime;
+        out.gain.cancelScheduledValues(t);
+        out.gain.setValueAtTime(out.gain.value, t);
+        out.gain.linearRampToValueAtTime(0, t + 0.03);
+        try {
+          src.stop(t + 0.04);
+        } catch {
+          resolveEnded();
+        }
+      },
     };
   }
 

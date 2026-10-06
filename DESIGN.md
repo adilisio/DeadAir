@@ -191,10 +191,10 @@ Pure TypeScript in `src/sim/`, fully unit-tested. In short:
   provenance and fetched by `npm run records`. Each faction has its music: sea songs for
   the Netters, hymns for the Chapel, the "new music" (1920s jazz and blues singers) for the
   Linemen. If a file is missing, a synthesized stand-in pressing plays in its place.
-- **Voices:** `speechSynthesis` for v1. Note: browser TTS can't be routed through Web
-  Audio, so its radio effect is static and crackle *under* the voice, not a filter on it.
-  Upgrade path: an in-browser neural TTS that renders to audio buffers (filterable), and
-  the owner's own recorded lines as audio files.
+- **Voices:** every line is rendered offline with Kokoro TTS, one voice per person, and
+  played through the radio chain (callers through a phone filter first; the Other Station
+  is the DJ's own voice, slowed and doubled). The owner's recorded lines drop in as files.
+  The browser's `speechSynthesis` is only a fallback for lines not rendered yet.
 
 ## Milestones
 

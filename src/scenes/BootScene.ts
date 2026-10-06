@@ -7,6 +7,7 @@ import { paintExterior } from '../art/exterior';
 import { P } from '../art/palette';
 import { NIGHTS } from '../data/nights';
 import { clearSave, loadRun, startNight, townBefore } from '../run';
+import { loadVoiceIndex } from '../audio/voice';
 
 /** Paints every texture once, waits for the font, then starts the game. */
 export class BootScene extends Phaser.Scene {
@@ -16,7 +17,7 @@ export class BootScene extends Phaser.Scene {
 
   async create(): Promise<void> {
     markPhase('boot');
-    await Promise.race([document.fonts.load('16px VT323'), new Promise((r) => setTimeout(r, 3000))]);
+    await Promise.race([Promise.all([document.fonts.load('16px VT323'), loadVoiceIndex()]), new Promise((r) => setTimeout(r, 3000))]);
 
     this.paint('booth', BOOTH.w, BOOTH.h, (p) => paintBooth(p), 7);
     this.paint('exterior-night', 320, 180, (p) => paintExterior(p, 'night'), 3);
