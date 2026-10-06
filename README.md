@@ -27,6 +27,7 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
 2. **Live.** Your show plays: records, news, warnings, ads, all read on air.
    - When a storm hits, **hold A / D** (or the arrow keys, or press on the TRANSMITTER
      gauge) to keep the signal on 1260. Static means fewer people heard you.
+   - In a storm with **two carriers**, drifting toward 1250 lets the other one through.
    - **SPACE** cues the next talk item when the cue opens near the end of the current one.
      If nothing's cued when an item ends, that's dead air.
    - Records start themselves: the tonearm swings in, and **SPACE** drops the needle.
@@ -52,6 +53,7 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
 | `?mute` | Silent |
 | `?fast` | Short records and talk: a whole night in about a minute |
 | `?auto` | The game plays itself (for testing) |
+| `?drift` | With `?auto`: hold the dial toward 1250 in storms instead of on 1260 |
 | `?scene=booth` / `?scene=dawn` | Skip straight to a scene |
 | `?night=2` | Start at Night 2, as if Night 1 went well |
 

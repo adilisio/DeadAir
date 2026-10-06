@@ -4,6 +4,7 @@
 import Phaser from 'phaser';
 import { UI } from '../art/palette';
 import type { Card } from '../sim/types';
+import { OTHER_OFFSET } from '../sim/intrusion';
 import { KIND_TAG } from './RundownBuilder';
 import { bar, label, panel } from './widgets';
 
@@ -13,6 +14,10 @@ const TP = { x: 12, y: 290, w: 446, h: 64 };
 const CUE = { x: 464, y: 290, w: 164, h: 64 };
 const TUNE = { x: 232, y: 236, w: 220, h: 50 };
 const CHIPS = { x: 14, y: 52, w: 42, h: 15 };
+const EERIE = 0x8aff9a;
+
+/** What else is on the dial: a second carrier, or the Other Station holding the frequency. */
+export type DialIntrusion = 'carrier' | 'override' | null;
 
 export class LiveHud {
   readonly root: Phaser.GameObjects.Container;
@@ -23,6 +28,8 @@ export class LiveHud {
   private tpDim: Phaser.GameObjects.Text;
   private tpLit: Phaser.GameObjects.Text;
   private tpFull = '';
+  /** While the Other Station has the teleprompter: what the station's own item would show. */
+  private behind: { header: string; text: string; color: string; reveal: boolean; spoken: number } | null = null;
   private tuneGfx: Phaser.GameObjects.Graphics;
   private tuneTitle: Phaser.GameObjects.Text;
   private tuneGroup: Phaser.GameObjects.Container;
@@ -72,7 +79,8 @@ export class LiveHud {
     tune.push(this.tuneTitle, label(scene, TUNE.x + TUNE.w - 8, TUNE.y + 2, 'hold A / D', { size: 14, color: UI.dim }).setOrigin(1, 0));
     this.tuneGfx = scene.add.graphics();
     tune.push(this.tuneGfx);
-    for (const [k, f] of [[0, '1250'], [0.5, '1260'], [1, '1270']] as const) {
+    // 1250 sits where the second carrier does.
+    for (const [k, f] of [[(1 + OTHER_OFFSET) / 2, '1250'], [0.5, '1260'], [(1 - OTHER_OFFSET) / 2, '1270']] as const) {
       tune.push(label(scene, TUNE.x + 12 + k * (TUNE.w - 24), TUNE.y + 31, f, { size: 12, color: UI.dim }).setOrigin(0.5, 0));
     }
     const zone = scene.add.zone(TUNE.x + TUNE.w / 2, TUNE.y + TUNE.h / 2, TUNE.w, TUNE.h).setInteractive({ useHandCursor: true });
@@ -85,9 +93,11 @@ export class LiveHud {
     this.root = uiLayer(scene.add.container(0, 0, parts).setDepth(100));
   }
 
-  /** Show or hide the transmitter gauge; `storm` changes its title. */
-  setTransmitter(show: boolean, storm: boolean): void {
-    this.tuneTitle.setText(storm ? 'STORM - TRANSMITTER' : 'TRANSMITTER').setColor(storm ? UI.bad : UI.amber);
+  /** Show or hide the transmitter gauge; a storm, a second carrier or an override changes its title. */
+  setTransmitter(show: boolean, storm: boolean, other: DialIntrusion = null): void {
+    if (other === 'override') this.tuneTitle.setText('HOLD THE DIAL').setColor(UI.bad);
+    else if (other === 'carrier') this.tuneTitle.setText('TWO CARRIERS').setColor(UI.eerie);
+    else this.tuneTitle.setText(storm ? 'STORM - TRANSMITTER' : 'TRANSMITTER').setColor(storm ? UI.bad : UI.amber);
     if (show === this.tuneShown) return;
     this.tuneShown = show;
     this.pointerTune = 0;
@@ -128,6 +138,14 @@ export class LiveHud {
    * `reveal` hides the unspoken part (callers: you only know what they've said).
    */
   setTeleprompter(header: string, text: string, color: string = UI.text, reveal = false): void {
+    if (this.behind) {
+      this.behind = { header, text, color, reveal, spoken: 0 };
+      return;
+    }
+    this.showPrompt(header, text, color, reveal);
+  }
+
+  private showPrompt(header: string, text: string, color: string, reveal: boolean): void {
     this.tpHeader.setText(header);
     this.tpFull = text;
     for (const size of [14, 13, 12, 11]) {
@@ -140,13 +158,48 @@ export class LiveHud {
   }
 
   setSpoken(chars: number): void {
+    if (this.behind) {
+      this.behind.spoken = chars;
+      return;
+    }
+    this.light(chars);
+  }
+
+  /** The Other Station takes the teleprompter; the station's own item carries on behind it. */
+  showOverride(header: string, text: string): void {
+    if (!this.behind) {
+      this.behind = { header: this.tpHeader.text, text: this.tpFull, color: this.tpLit.style.color as string, reveal: this.tpDim.text === '', spoken: this.tpLit.text.length };
+    }
+    this.showPrompt(header, text, UI.eerie, true);
+    this.tpHeader.setColor(UI.eerie);
+  }
+
+  overrideSpoken(chars: number): void {
+    if (this.behind) this.light(chars);
+  }
+
+  /** Give the teleprompter back to whatever the station has on now. */
+  endOverride(): void {
+    const b = this.behind;
+    if (!b) return;
+    this.behind = null;
+    this.tpHeader.setColor(UI.amber);
+    this.showPrompt(b.header, b.text, b.color, b.reveal);
+    this.light(b.spoken);
+  }
+
+  private light(chars: number): void {
     if (!this.tpFull) return;
     let end = Math.min(this.tpFull.length, Math.max(0, Math.round(chars)));
     while (end < this.tpFull.length && /\S/.test(this.tpFull[end])) end++;
     this.tpLit.setText(this.tpFull.slice(0, end));
   }
 
-  drawTuning(error: number, quality: number, live: boolean): void {
+  /**
+   * The gauge. `other`: a second carrier sits on the dial (a dim needle at 1250), or the
+   * Other Station has the frequency (the needle pins to 1250; the player's dial shows faintly).
+   */
+  drawTuning(error: number, quality: number, live: boolean, other: DialIntrusion = null): void {
     const g = this.tuneGfx;
     g.clear();
     const x0 = TUNE.x + 12, w = TUNE.w - 24, y = TUNE.y + 18;
@@ -158,9 +211,15 @@ export class LiveHud {
       g.fillStyle(0xffb347, k % 5 === 0 ? 0.9 : 0.4);
       g.fillRect(x0 + (k / 20) * w, y + (k % 5 === 0 ? 0 : 7), 1, k % 5 === 0 ? 12 : 5);
     }
-    const nx = x0 + w / 2 + error * (w / 2);
-    g.fillStyle(live ? 0xff5040 : 0x777777, 1);
-    g.fillRect(Math.round(nx) - 1, y - 3, 2, 18);
+    const at = (e: number) => Math.round(x0 + w / 2 + e * (w / 2));
+    if (other) {
+      g.fillStyle(EERIE, 0.18);
+      g.fillRect(at(OTHER_OFFSET) - 5, y, 10, 12);
+      g.fillStyle(EERIE, other === 'override' ? 0.9 : 0.45);
+      g.fillRect(at(OTHER_OFFSET + (other === 'override' ? (Math.random() - 0.5) * 0.02 : 0)) - 1, y - 3, 2, 18);
+    }
+    g.fillStyle(live ? 0xff5040 : 0x777777, other === 'override' ? 0.35 : 1);
+    g.fillRect(at(error) - 1, y - 3, 2, 18);
     const qColor = quality > 0.8 ? 0x9be37a : quality > 0.5 ? 0xffb347 : 0xff7a6b;
     bar(g, x0, TUNE.y + 44, w, 3, quality, qColor);
   }

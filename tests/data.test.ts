@@ -168,6 +168,27 @@ describe.each(NIGHTS.map((n) => [n.number, n] as const))('night %i content', (_n
     expect(night.letter.body).toContain('{quote}');
     expect(night.letter.from.length).toBeGreaterThan(0);
   });
+
+  it('keeps the Other Station\'s intrusions inside the show, with their own ids, on real cards', () => {
+    const intrusions = night.otherStation.intrusions ?? [];
+    const ids = [...night.events.map((e) => e.id), ...intrusions.map((i) => i.id)];
+    expect(new Set(ids).size).toBe(ids.length);
+    const talk = new Set(night.cards.filter((c) => c.kind !== 'record').map((c) => c.id));
+    const inShow = (s: number) => Number.isInteger(s) && s >= 0 && s < SHOW_SLOTS;
+    for (const i of intrusions) {
+      if (i.kind === 'carrier') {
+        expect(i.slots.length, i.id).toBeGreaterThan(0);
+        for (const s of i.slots) expect(inShow(s), `${i.id} ${s}`).toBe(true);
+        continue;
+      }
+      expect(inShow(i.at.slot), i.id).toBe(true);
+      const frac = i.at.frac ?? 0;
+      expect(frac >= 0 && frac < 1, i.id).toBe(true);
+      expect(i.seconds, i.id).toBeGreaterThan(0);
+      if (i.card) expect(talk.has(i.card), `${i.id} ${i.card}`).toBe(true);
+      if (i.kind === 'climax') expect(talk.has(i.counter), `${i.id} ${i.counter}`).toBe(true);
+    }
+  });
 });
 
 describe('every opening', () => {

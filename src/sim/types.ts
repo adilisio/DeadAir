@@ -206,6 +206,16 @@ export interface StormEvent {
 /** Something that happens to the show. A night can have any number of each. */
 export type NightEvent = SwitchboardEvent | TubeEvent | MorseEvent | StormEvent;
 
+/**
+ * The Other Station during the show. A `carrier` sits on the dial during its slots; an
+ * `override` takes the frequency for `seconds` from `at`; a `climax` is Night 6's (for now
+ * it runs like an override). Ids share the night's event id space. See src/sim/intrusion.ts.
+ */
+export type Intrusion =
+  | { kind: 'carrier'; id: string; slots: number[] } // a second carrier on the dial during these slots
+  | { kind: 'override'; id: string; at: EventTrigger; seconds: number; card?: string } // it takes the frequency for a while
+  | { kind: 'climax'; id: string; at: EventTrigger; seconds: number; card: string; counter: string }; // Night 6 (data shape only; behaves like override for now)
+
 export interface NightDef {
   id: string;
   number: number;
@@ -220,6 +230,8 @@ export interface NightDef {
     stamp: string;
     intro: string;
     outro: string;
+    /** During the show, not after it. */
+    intrusions?: Intrusion[];
   };
   /** The listener's letter on the ledger's last page. `{quote}` is what the Other Station said. */
   letter: { body: string; from: string };
@@ -263,6 +275,10 @@ export interface ShowPerformance {
   tubes?: { id: string; seconds: number }[];
   /** Per Morse event that keyed: whether it was copied. Events not listed never keyed. */
   morse?: { id: string; result: 'decoded' | 'missed' }[];
+  /** Per slot: average bleed of the second carrier through yours, 0..1 (0 where there was none). */
+  bleed?: number[];
+  /** Per override that ran: the card it read (null: drone only), its seconds after the hold, and the fraction held. */
+  overrides?: { id: string; card: string | null; seconds: number; held: number }[];
 }
 
 export interface NightResult {
@@ -270,6 +286,8 @@ export interface NightResult {
   after: TownState;
   lines: DawnLine[];
   otherStation: { cardId: string | null; script: string };
+  /** Cards the town heard read on 1260 during the show though the station never aired them. */
+  otherAired: string[];
 }
 
 /** Display names (placeholders, see DESIGN.md). */

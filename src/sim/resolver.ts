@@ -12,6 +12,7 @@ import {
   type DawnLine,
   type Effects,
   type FactionId,
+  type Intrusion,
   type NightDef,
   type NightResult,
   type Outcome,
@@ -26,6 +27,7 @@ import { TUBE } from './tube';
 import { callResult, isReachCheck } from './calls';
 import { airedWhenBoardOpens, eventsOf } from './events';
 import { linesOpenNow } from './nights';
+import { HARD_HOLD, OTHER_HEARD, clockText, intrusionsOf } from './intrusion';
 import type { PersonId } from '../data/people';
 
 /** Who listens when. `total` scales town-wide effects; `share` scales each faction's. */
@@ -219,6 +221,45 @@ export function pickOtherStationCard(night: NightDef, rundown: string[]): string
   return anyTalk?.id ?? null;
 }
 
+/** Something the Other Station read on 1260 while the show was on. */
+export interface LiveRead {
+  id: string;
+  kind: Intrusion['kind'];
+  /** The card it read (one of tonight's talk cards), or null for the drone alone. */
+  card: string | null;
+  /** The slot whose audience heard it. */
+  slot: number;
+  /** How much of the town it reached, 0..1: a carrier's average bleed, an override's 1. */
+  signal: number;
+  /** Overrides: when it came, how long it was meant to run, how long it ran, how much of it the dial was held. */
+  override?: { frac: number; planned: number; seconds: number; held: number };
+}
+
+/**
+ * What the Other Station read during the show, in the night's order. A carrier counts
+ * when its average bleed reached OTHER_HEARD, and reads what the sign-off would; an
+ * override (or climax) that ran reads the card the scene says it read.
+ */
+export function otherStationLive(night: NightDef, perf: ShowPerformance): LiveRead[] {
+  const talk = new Set(night.cards.filter(isTalk).map((c) => c.id));
+  const out: LiveRead[] = [];
+  for (const i of intrusionsOf(night)) {
+    if (i.kind === 'carrier') {
+      if (!i.slots.length) continue;
+      const avg = i.slots.reduce((s, slot) => s + Math.max(0, Math.min(1, perf.bleed?.[slot] ?? 0)), 0) / i.slots.length;
+      if (avg >= OTHER_HEARD) out.push({ id: i.id, kind: i.kind, card: pickOtherStationCard(night, perf.rundown), slot: i.slots[0], signal: avg });
+      continue;
+    }
+    const ran = perf.overrides?.find((o) => o.id === i.id);
+    if (!ran) continue;
+    out.push({
+      id: i.id, kind: i.kind, card: ran.card && talk.has(ran.card) ? ran.card : null, slot: i.at.slot, signal: 1,
+      override: { frac: i.at.frac ?? 0, planned: i.seconds, seconds: ran.seconds, held: ran.held },
+    });
+  }
+  return out;
+}
+
 export function resolveNight(night: NightDef, start: TownState, perf: ShowPerformance): NightResult {
   const problem = validateRundown(night, perf.rundown);
   if (problem) throw new Error(problem);
@@ -274,10 +315,14 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     }
   });
 
+  // What the Other Station read during the show (applied below). The town heard those.
+  const live = otherStationLive(night, perf);
+  const otherAired = [...new Set(live.flatMap((r) => (r.card ? [r.card] : [])))];
+
   // Cards with a reach check that never aired.
   const aired = new Set(perf.rundown);
   for (const card of night.cards) {
-    if (!aired.has(card.id) && isTalk(card) && card.reach) {
+    if (!aired.has(card.id) && !otherAired.includes(card.id) && isTalk(card) && card.reach) {
       applyOutcome(state, card.reach.unaired ?? card.reach.fail, lines);
     }
   }
@@ -374,6 +419,37 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     }
   }
 
+  // The Other Station, live: what it read, the town took as yours (nobody paid for it).
+  // These lines lead the ledger: it's what the town is talking about.
+  const liveLines: DawnLine[] = [];
+  const readLive = new Set<string>();
+  for (const r of live) {
+    if (r.kind === 'carrier') addFlag(state, 'other_heard');
+    const card = r.card ? byId.get(r.card) : undefined;
+    if (card && isTalk(card)) {
+      if (r.override) {
+        const on = show[r.slot];
+        const what = on ? `${on.kind === 'record' ? 'playing' : 'reading'} "${on.title}"` : 'signing off';
+        liveLines.push({ text: `At ${clockText(r.slot, r.override.frac)} the Lamp read "${card.title}". You were ${what} at the time.`, tone: 'eerie' });
+      } else {
+        liveLines.push({ text: `Half of Dock Street heard you read "${card.title}" in the storm. You didn't read it.`, tone: 'eerie' });
+      }
+      if (!readLive.has(card.id)) {
+        readLive.add(card.id);
+        const segment = segmentOfSlot(r.slot);
+        const { chits: _unpaid, ...fx } = card.effects;
+        applyEffects(state, fx, audienceScale(segment, r.signal, factor));
+        if (card.reach && !aired.has(card.id)) applyOutcome(state, reaches(card.reach, segment, r.signal) ? card.reach.success : card.reach.fail, liveLines);
+        addFlag(state, `other_aired_${card.id}`);
+      }
+    }
+    if (r.override && r.override.held >= HARD_HOLD) {
+      const early = Math.round(r.override.planned - r.override.seconds);
+      if (early >= 1) liveLines.push({ text: `You leaned on the dial through it and it let go ${early} seconds early.`, tone: 'neutral' });
+    }
+  }
+  lines.unshift(...liveLines);
+
   clampState(state);
 
   const otherId = pickOtherStationCard(night, perf.rundown);
@@ -383,5 +459,5 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     .filter(Boolean)
     .join(' ');
 
-  return { before: cloneState(start), after: state, lines, otherStation: { cardId: otherId, script } };
+  return { before: cloneState(start), after: state, lines, otherStation: { cardId: otherId, script }, otherAired };
 }

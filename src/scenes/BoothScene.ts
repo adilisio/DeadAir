@@ -5,11 +5,12 @@ import { BOOTH } from '../art/booth';
 import { hex, P, UI } from '../art/palette';
 import { applyScreenLook, glow, splitCameras } from './fx';
 import { audio, type RecordHandle, type VoiceChannel } from '../audio/engine';
-import { prefetchVoices, speak, type Speech } from '../audio/voice';
+import { loopOther, prefetchVoices, speak, type Speech } from '../audio/voice';
 import type { PersonId } from '../data/people';
 import { rng } from '../audio/pressings';
 import { finishNight, run } from '../run';
-import { resolveNight, segmentOfSlot } from '../sim/resolver';
+import { pickOtherStationCard, resolveNight, segmentOfSlot } from '../sim/resolver';
+import { OTHER_OFFSET, bleed, carrierForSlot, intrusionsDue, overrideCard, overrideSeconds, type CarrierIntrusion, type TimedIntrusion } from '../sim/intrusion';
 import { eventsDue } from '../sim/events';
 import { linesOpenNow } from '../sim/nights';
 import { TUNING, Tuning } from '../sim/tuning';
@@ -46,6 +47,8 @@ const RECORD_SECONDS = DEBUG.fast ? 5 : 75;
 const RING_SECONDS = DEBUG.fast ? 2.5 : 18;
 const CUE_WINDOW = 8;
 const DEAD_AIR_GRACE = 1.2;
+/** Where ?auto&drift holds the dial in a storm: toward the second carrier. */
+const AUTO_DRIFT = -0.4;
 
 
 type Phase = 'prep' | 'live' | 'other' | 'done';
@@ -136,6 +139,28 @@ export class BoothScene extends Phaser.Scene {
   private recentQ = 1;
   private storm = false;
   private nextBolt = 0;
+  /** The Other Station during the show: a second carrier on the dial, or an override running. */
+  private carrier: CarrierIntrusion | null = null;
+  private carrierVoice: { stop(): void } | null = null;
+  private carrierDrone: (() => void) | null = null;
+  private bleedNow = 0;
+  private bleedSum: number[] = [];
+  private bleedTime: number[] = [];
+  private intrusionsFired = new Set<string>();
+  private override: {
+    def: TimedIntrusion;
+    card: string | null;
+    script: string;
+    /** Seconds it has run, and of those, seconds the dial was held hard against it. */
+    t: number;
+    heldT: number;
+    strength: number;
+    speech: Speech | null;
+    spoken: number;
+    words: boolean;
+    stopDrone: () => void;
+  } | null = null;
+  private overrideLog: { id: string; card: string | null; seconds: number; held: number }[] = [];
   private needlePanel: NeedlePanel | null = null;
   /** The tonearm swinging in over a record that's up next. */
   private needle: { slot: number; card: RecordCard; t: number; sweep: number } | null = null;
@@ -192,6 +217,15 @@ export class BoothScene extends Phaser.Scene {
     this.recentQ = 1;
     this.storm = false;
     this.nextBolt = 0;
+    this.carrier = null;
+    this.carrierVoice = null;
+    this.carrierDrone = null;
+    this.bleedNow = 0;
+    this.bleedSum = Array(SHOW_SLOTS).fill(0);
+    this.bleedTime = Array(SHOW_SLOTS).fill(0);
+    this.intrusionsFired = new Set();
+    this.override = null;
+    this.overrideLog = [];
     this.needlePanel = null;
     this.needle = null;
     this.drops = Array(SHOW_SLOTS).fill(null);
@@ -849,6 +883,124 @@ export class BoothScene extends Phaser.Scene {
     }
   }
 
+  // ─────────────────────── The Other Station, live ───────────────────────
+
+  /** A second carrier comes onto the dial (or goes). It reads what the sign-off would. */
+  private setCarrier(c: CarrierIntrusion | null): void {
+    this.carrierVoice?.stop();
+    this.carrierVoice = null;
+    this.carrierDrone?.();
+    this.carrierDrone = null;
+    this.carrier = c;
+    this.bleedNow = 0;
+    if (!c) {
+      audio.setCarrier(0, 1);
+      audio.setOtherGain(1);
+      if (!this.override) this.ghostLight.intensity = 0;
+      return;
+    }
+    audio.setOtherGain(0);
+    this.carrierDrone = audio.otherStationDrone();
+    if (!this.override) this.startCarrierVoice();
+    markPhase('carrier');
+  }
+
+  private startCarrierVoice(): void {
+    const id = pickOtherStationCard(run.night, this.cards.map((c) => c.id));
+    const card = id ? run.night.cards.find((c) => c.id === id) : undefined;
+    if (card && card.kind !== 'record') this.carrierVoice = loopOther(card.script, 4);
+  }
+
+  /** Overrides (and the climax) that come due: between items, or partway through the one on air. */
+  private intrusionCheck(): void {
+    const i = this.idx;
+    if (this.override || i < 0 || i >= SHOW_SLOTS) return;
+    const due = this.playing
+      ? intrusionsDue(run.night, this.intrusionsFired, i, (this.time.now - this.itemStart) / 1000 / Math.max(0.001, this.itemDuration), this.cards[i].kind === 'record' ? 'record' : 'talk')
+      : intrusionsDue(run.night, this.intrusionsFired, this.needle ? i : i + 1, 0, 'between');
+    if (due[0]) this.startOverride(due[0]);
+  }
+
+  /** It takes the frequency. Whatever the station has on keeps running under it. */
+  private startOverride(def: TimedIntrusion): void {
+    this.intrusionsFired.add(def.id);
+    const card = overrideCard(run.night, this.airedTonight, def.card);
+    const c = card ? run.night.cards.find((k) => k.id === card) : undefined;
+    const script = c && c.kind !== 'record' ? c.script : '';
+    this.carrierVoice?.stop();
+    this.carrierVoice = null;
+    audio.override(true);
+    audio.setOtherGain(1);
+    const o: NonNullable<BoothScene['override']> = {
+      def, card, script, t: 0, heldT: 0, strength: 1, speech: null, spoken: 0, words: false, stopDrone: audio.otherStationDrone(),
+    };
+    if (script) {
+      o.speech = speak(script, {
+        person: 'dj',
+        channel: 'other',
+        onWord: (ch) => {
+          o.spoken = ch;
+          o.words = true;
+        },
+      });
+    }
+    this.override = o;
+    this.tweens.killTweensOf([this.ghostLight, this.ghostTint]);
+    this.tweens.add({ targets: this.ghostLight, intensity: 1.1, duration: 1200 });
+    this.tweens.add({ targets: this.ghostTint, alpha: 0.09, duration: 1200 });
+    this.hud?.showOverride('1260 · ' + run.night.otherStation.stamp, script);
+    markPhase(def.kind === 'climax' ? 'climax' : 'override');
+  }
+
+  /** The second carrier's bleed and an override's clock, every frame. `input` is the player's hand on the dial. */
+  private otherTick(dt: number, input: number, strength: number): void {
+    if (this.carrier) {
+      this.bleedNow = bleed(this.tuning.error, strength);
+      audio.setCarrier(this.bleedNow, this.tuning.error - OTHER_OFFSET);
+      if (!this.override) {
+        audio.setOtherGain(this.bleedNow);
+        this.ghostLight.intensity = 0.9 * this.bleedNow;
+      }
+      if (this.idx >= 0 && this.idx < SHOW_SLOTS) {
+        this.bleedSum[this.idx] += this.bleedNow * dt;
+        this.bleedTime[this.idx] += dt;
+      }
+    }
+    const o = this.override;
+    if (!o) return;
+    o.t += dt;
+    if (Math.abs(input) >= 1) o.heldT += dt;
+    o.strength = strength;
+    const spoken = o.words || !o.speech ? o.spoken : Math.min(1, o.t / Math.max(0.5, o.speech.estimate)) * o.script.length;
+    this.hud?.overrideSpoken(spoken);
+    // ?fast runs it at a third of the time; the dawn still counts its full seconds.
+    const scale = DEBUG.fast ? 1 / 3 : 1;
+    if (o.t >= overrideSeconds(o.def.seconds, o.heldT / o.t, strength) * scale) this.endOverride();
+  }
+
+  /** It lets go of the frequency (its time ran out, or the show ended under it). */
+  private endOverride(): void {
+    const o = this.override;
+    if (!o) return;
+    this.override = null;
+    o.speech?.cancel();
+    o.stopDrone();
+    audio.override(false);
+    const held = o.t > 0 ? o.heldT / o.t : 0;
+    this.overrideLog.push({ id: o.def.id, card: o.card, seconds: overrideSeconds(o.def.seconds, held, o.strength), held });
+    this.tweens.killTweensOf([this.ghostLight, this.ghostTint]);
+    this.tweens.add({ targets: this.ghostLight, intensity: 0, duration: 1500 });
+    this.tweens.add({ targets: this.ghostTint, alpha: 0, duration: 1500 });
+    this.hud?.endOverride();
+    if (this.carrier) this.startCarrierVoice();
+    markPhase('override-end');
+  }
+
+  /** What the gauge shows besides your own carrier. */
+  private dialIntrusion(): 'carrier' | 'override' | null {
+    return this.override ? 'override' : this.carrier ? 'carrier' : null;
+  }
+
   // ───────────────────────────── Storm ─────────────────────────────
 
   private setStorm(on: boolean): void {
@@ -897,6 +1049,8 @@ export class BoothScene extends Phaser.Scene {
   private endShow(): void {
     if (this.phase !== 'live') return;
     if (this.storm) this.setStorm(false);
+    this.endOverride();
+    if (this.carrier) this.setCarrier(null);
     // Sign-off ends whatever was still coming through.
     this.morseQueue = [];
     if (this.morse) this.finishMorse(false);
@@ -917,6 +1071,8 @@ export class BoothScene extends Phaser.Scene {
       needles: this.drops,
       tubes: this.tubeLog.map((t) => ({ id: t.id, seconds: t.fault.down })),
       morse: this.morseResults,
+      bleed: this.bleedSum.map((s, i) => (this.bleedTime[i] > 0 ? s / this.bleedTime[i] : 0)),
+      overrides: this.overrideLog,
     });
     finishNight(result);
     exposeDebug('result', result);
@@ -969,13 +1125,20 @@ export class BoothScene extends Phaser.Scene {
       if (this.keys.left.isDown || this.keys.a.isDown) input -= 1;
       if (this.keys.right.isDown || this.keys.d.isDown) input += 1;
       if (this.hud?.pointerTune) input = this.hud.pointerTune;
-      if (DEBUG.auto) input = Math.max(-1, Math.min(1, -this.tuning.error * 12));
+      const carrier = this.idx >= 0 && this.idx < SHOW_SLOTS ? carrierForSlot(run.night, this.idx) : null;
+      if (carrier !== this.carrier) this.setCarrier(carrier);
+      // ?auto holds 1260 (?drift: toward 1250 in storms) and leans on the dial through an override.
+      if (DEBUG.auto) input = Math.max(-1, Math.min(1, ((DEBUG.drift && this.storm ? AUTO_DRIFT : 0) - this.tuning.error) * 12));
+      if (DEBUG.auto && this.override) input = 1;
       this.itemEvents();
+      this.intrusionCheck();
       this.tubeCheck();
       const strength = this.tubeTick(dt);
       audio.setFault(1 - strength);
-      this.quality = this.tuning.step(dt, input, wind) * strength;
-      this.hud?.setTransmitter(this.storm || Math.abs(this.tuning.error) > TUNING.deadZone * 1.5, this.storm);
+      // While it has the frequency the dial won't turn; pushing on it is holding against it.
+      this.quality = this.tuning.step(dt, this.override ? 0 : input, wind) * strength;
+      this.otherTick(dt, input, strength);
+      this.hud?.setTransmitter(this.storm || !!this.dialIntrusion() || Math.abs(this.tuning.error) > TUNING.deadZone * 1.5, this.storm, this.dialIntrusion());
       audio.setTuning(this.tuning.error);
       this.recentQ += (this.quality - this.recentQ) * Math.min(1, dt * 0.8);
       if (this.signalSlot !== null && this.signalSlot < SHOW_SLOTS) {
@@ -1010,7 +1173,7 @@ export class BoothScene extends Phaser.Scene {
       }
       const segName = this.idx < 0 ? 'DUSK' : this.idx >= SHOW_SLOTS ? 'SMALL HOURS' : SEGMENT_LABEL[seg].split(/\s{2,}/)[0];
       this.hud?.setClock(`${segName} · ${formatClock(this.showClock)}`, this.deadAir);
-      this.hud?.drawTuning(this.tuning.error, this.quality, true);
+      this.hud?.drawTuning(this.tuning.error, this.quality, true, this.dialIntrusion());
     } else if (this.phase === 'other') {
       this.hud?.drawTuning(this.tuning.error, 1, false);
     }

@@ -1,9 +1,11 @@
 // The live sound of the station: one Web Audio graph.
 //
 //   program sources ─▶ program ─▶ duck ─┐
-//   voices (air / phone / other) ─▶ voice bus ─┴▶ signal (tuning, tube fault) ─▶ radio chain
+//   voices (air / phone) ─▶ voice bus ──┴▶ override ─┐
+//   the Other Station's voice ─▶ other ──────────────┴▶ signal (tuning, tube fault) ─▶ radio chain
 //                                       (band-limit, tube drive, comp) ─▶ master
 //   static noise + heterodyne whistle + mains hum (driven by tuning error) ──────────▶ master
+//   the Other Station's drone and its carrier's whistle ──────────────────────────────▶ master
 //   room sfx (switches, phone, needle drop) and the handset voice: dry ────────────────▶ master
 //
 // Voices are pre-rendered files (voice.ts). Browser TTS, the fallback, can't be routed here.
@@ -50,6 +52,16 @@ class AudioEngine {
   private signal!: GainNode;
   /** Voices join the chain here, after the duck (records duck under the DJ; voices don't). */
   private voiceBus!: GainNode;
+  /** The program and the station's own voices, pushed down while the Other Station has the frequency. */
+  private overrideGain!: GainNode;
+  private overriding = false;
+  /** The `other` voice channel: its level (a carrier's bleed, or full). */
+  private otherGain!: GainNode;
+  /** Drones under the Other Station, at the same level as its voice. */
+  private otherDrone!: GainNode;
+  /** The second carrier's whistle against yours. */
+  private whistle2!: OscillatorNode;
+  private whistle2Gain!: GainNode;
   private analyser!: AnalyserNode;
   private levelBuf = new Float32Array(new ArrayBuffer(1024 * 4));
 
@@ -83,8 +95,12 @@ class AudioEngine {
     comp.ratio.value = 4;
     this.signal = ctx.createGain();
     this.voiceBus = ctx.createGain();
-    this.voiceBus.connect(this.signal);
-    this.program.connect(this.duckGain).connect(this.signal).connect(hp).connect(this.programTone).connect(drive).connect(comp).connect(this.master);
+    this.overrideGain = ctx.createGain();
+    this.voiceBus.connect(this.overrideGain);
+    this.otherGain = ctx.createGain();
+    this.otherGain.connect(this.signal);
+    this.program.connect(this.duckGain).connect(this.overrideGain).connect(this.signal);
+    this.signal.connect(hp).connect(this.programTone).connect(drive).connect(comp).connect(this.master);
     this.analyser = ctx.createAnalyser();
     this.analyser.fftSize = 1024;
     comp.connect(this.analyser);
@@ -110,6 +126,16 @@ class AudioEngine {
     this.whistleGain.gain.value = 0;
     this.whistle.connect(this.whistleGain).connect(this.master);
     this.whistle.start();
+
+    // The Other Station's room-side sound: its drones, and a second whistle when its carrier is on the dial.
+    this.otherDrone = ctx.createGain();
+    this.otherDrone.connect(this.master);
+    this.whistle2 = ctx.createOscillator();
+    this.whistle2.type = 'sine';
+    this.whistle2Gain = ctx.createGain();
+    this.whistle2Gain.gain.value = 0;
+    this.whistle2.connect(this.whistle2Gain).connect(this.master);
+    this.whistle2.start();
 
     // Mains hum, very quiet, always there.
     const hum = ctx.createOscillator();
@@ -187,7 +213,8 @@ class AudioEngine {
     const e = Math.min(1, Math.abs(error));
     const f = this.fault;
     const t = this.ctx.currentTime;
-    this.staticGain.gain.setTargetAtTime(0.02 + 0.26 * Math.pow(e, 1.3) + 0.08 * f, t, 0.05);
+    const floor = this.overriding ? 0.5 * 0.3 : 0;
+    this.staticGain.gain.setTargetAtTime(Math.max(floor, 0.02 + 0.26 * Math.pow(e, 1.3) + 0.08 * f), t, 0.05);
     this.signal.gain.setTargetAtTime((1 - 0.75 * Math.pow(e, 1.1)) * (1 - 0.9 * f), t, 0.05);
     this.programTone.frequency.setTargetAtTime((4000 - 2800 * e) * (1 - 0.7 * f), t, 0.05);
     this.whistle.frequency.setTargetAtTime(200 + 2400 * e, t, 0.05);
@@ -198,6 +225,38 @@ class AudioEngine {
   setStatic(level: number): void {
     if (!this.ctx) return;
     this.staticGain.gain.setTargetAtTime(level * 0.3, this.ctx.currentTime, 0.2);
+  }
+
+  /**
+   * The `other` channel's level, and its drones': a carrier's bleed while one is on the
+   * dial (updated every frame), 1 otherwise.
+   */
+  setOtherGain(level: number): void {
+    if (!this.ctx) return;
+    const v = Math.max(0, Math.min(1, level));
+    const t = this.ctx.currentTime;
+    this.otherGain.gain.setTargetAtTime(v, t, 0.05);
+    this.otherDrone.gain.setTargetAtTime(v, t, 0.05);
+  }
+
+  /**
+   * A second carrier on the dial: a faint whistle whose pitch is the distance between it
+   * and yours (`distance` in tuning-error units), a little louder as it bleeds. level 0: gone.
+   */
+  setCarrier(level: number, distance: number): void {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const d = Math.min(1, Math.abs(distance));
+    this.whistle2.frequency.setTargetAtTime(120 + 2600 * d, t, 0.05);
+    this.whistle2Gain.gain.setTargetAtTime(level > 0 ? 0.006 + 0.012 * Math.min(1, level) : 0, t, 0.08);
+  }
+
+  /** The Other Station has the frequency: the program and the station's own voices drop to 0.1 and the static comes up. */
+  override(on: boolean): void {
+    if (!this.ctx) return;
+    this.overriding = on;
+    this.overrideGain.gain.setTargetAtTime(on ? 0.1 : 1, this.ctx.currentTime, 0.3);
+    this.setStatic(on ? 0.5 : 0.1);
   }
 
   /** Lower the program while the DJ talks. */
@@ -348,7 +407,8 @@ class AudioEngine {
         lp.connect(out);
         lp.connect(echo).connect(echoGain).connect(out);
         out.gain.value = 0.95;
-        out.connect(this.voiceBus);
+        // Its own level stage (setOtherGain), and past the override duck.
+        out.connect(this.otherGain);
         break;
       }
     }
@@ -514,7 +574,7 @@ class AudioEngine {
     const g = ctx.createGain();
     g.gain.value = 0;
     g.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 3);
-    g.connect(this.master);
+    g.connect(this.otherDrone);
     const oscs = [55, 55 * 1.059, 82.4].map((f, i) => {
       const o = ctx.createOscillator();
       o.type = i === 2 ? 'sine' : 'triangle';

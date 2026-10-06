@@ -59,6 +59,8 @@ call; see "What to do next".
   Night 1 headless start to finish, Night 2 prep through letter) green with no console errors.
   Packet B (events, people, gates, save; 2026-10-06): 132 tests, 23 shots (adds
   `15-continue`), Nights 1 and 2 resolve exactly as before.
+  Packet E (the Other Station, live; 2026-10-06): 181 tests, 25 shots (adds
+  `05e-booth-carrier` and `13a-night2-dawn-drift`, both `?drift`).
 - Runs: `src/run.ts` holds the run (night index, town, result); `startNight`, `finishNight`
   (keeps the result and saves), `nextNight` (saves), `resetRun`, `townBefore(n)` for
   `?night=N`, and the save: `saveRun` / `loadRun` / `savedRun` / `clearSave` on
@@ -88,12 +90,22 @@ call; see "What to do next".
     slot, storm report), `needle.ts` (arm sweep, groove band, late skip), `tube.ts`
     (`TubeFault` state machine), `calls.ts` (call results, the dump delay), `morse.ts`
     (code table, keying timeline/tape, `MorseCopy`, chart). Tests in `tests/<name>.test.ts`.
+  - `intrusion.ts`: the Other Station during the show (`otherStation.intrusions` in the
+    night data, not `events`). `carrier`: a second carrier at `OTHER_OFFSET` (-0.55, "1250")
+    over some slots; `bleed(error, tubeStrength)` is how much of it comes through yours,
+    `carrierForSlot`. `override` / `climax`: `intrusionsDue` (same timing rules as
+    `eventsDue`), `overrideSeconds` (holding the dial shortens it), `overrideCard`, and the
+    show clock (`clockText`). The resolver's `otherStationLive` turns `perf.bleed` and
+    `perf.overrides` into cards the town heard on 1260 (`NightResult.otherAired`, flags
+    `other_heard` and `other_aired_<card>`, lines that lead the ledger).
 - `src/data/night1.ts` — Night 1's 13 cards, its events (`n1_board` with three lines,
   `n1_tube`, `n1_morse`, `n1_storm`), the Other Station config, and the `?auto` / `?scene=dawn`
   rundowns (tested for validity). `records.json` + `records.ts` — the record catalog: 11
   real 78s and 5 synthesized stand-ins.
 - `src/audio/` — `engine.ts` (one Web Audio graph: radio chain, static/whistle/hum by tuning
-  error, record playback with stand-in fallback, phone ring, Other Station drone, level meter),
+  error, record playback with stand-in fallback, phone ring, Other Station drone, level meter;
+  `setOtherGain` for the `other` channel and drones, `setCarrier` for the second whistle,
+  `override(on)` to push the program and the station's voices under it),
   `pressings.ts` + `render.ts` (seeded stand-in tunes). Voices: `lines.ts` (pure: every
   spoken line and its id, a hash of voice + words), `voice.ts` (`speak()`: plays the line's
   pre-rendered file from `public/voice/` through `engine.playVoice` on a channel — `air` for
@@ -109,10 +121,12 @@ call; see "What to do next".
   with an `?auto` player for every one), Dawn (the 3–4 page ledger).
   `fx.ts`: post effects and `splitCameras` (UI on a clean second camera).
 - `src/ui/` — `RundownBuilder` (prep), `LiveHud` (teleprompter with a reveal mode for
-  callers, storm-only tuning gauge, cue box, running-order chips), one panel per task
+  callers and an override mode that keeps the station's own item behind it, a tuning gauge
+  shown in storms, with two carriers or under an override, cue box, running-order chips), one panel per task
   (`NeedlePanel`, `TubePanel`, `Switchboard`, `MorsePanel`), `widgets`.
-- Live controls: A/D tune (storms), SPACE cue / drop needle / leave switchboard, Q/W/E
-  spare tubes, 1/2/3 + ENTER switchboard, X dump, letters for Morse.
+- Live controls: A/D tune (storms; held hard through an override, shortens it), SPACE cue /
+  drop needle / leave switchboard, Q/W/E spare tubes, 1/2/3 + ENTER switchboard, X dump,
+  letters for Morse. `?drift` (with `?auto`) holds the dial toward 1250 in storms.
 - `tools/shots.mjs` — the eyes. Drives the game with `?auto&fast&mute`, waits on phases
   from `window.__deadair`, saves PNGs, fails on any console error. **Look at the PNGs**
   after visual changes; this caught several real bugs.

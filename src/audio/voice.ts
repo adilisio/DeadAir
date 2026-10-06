@@ -199,6 +199,46 @@ export function speak(text: string, opts: SpeakOptions = {}): Speech {
   };
 }
 
+/**
+ * The Other Station under your carrier: `text` in the DJ's voice on the `other` channel,
+ * over and over with `gap` seconds between, until stopped. How loud is the engine's
+ * setOtherGain (the bleed). Only voice files can sit under the program: with no file for
+ * the text (or under ?fast / ?mute) this plays nothing, and the carrier is just its
+ * whistle and drone, since the browser voice would go straight to the speakers at full volume.
+ */
+export function loopOther(text: string, gap = 4): { stop(): void } {
+  let stopped = false;
+  let handle: VoiceHandle | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  if (!DEBUG.fast && !DEBUG.mute) {
+    void (async () => {
+      await loadVoiceIndex();
+      const plan = audio.ctx ? planFor(text, 'dj') : null;
+      if (!plan || stopped) return;
+      let buffer: AudioBuffer;
+      try {
+        buffer = await bufferFor(plan);
+      } catch {
+        return;
+      }
+      while (!stopped) {
+        handle = audio.playVoice(buffer, 'other');
+        exposeDebug('voicePlays', ++plays);
+        await handle.ended;
+        if (stopped) break;
+        await new Promise<void>((r) => (timer = setTimeout(r, gap * 1000)));
+      }
+    })();
+  }
+  return {
+    stop: () => {
+      stopped = true;
+      clearTimeout(timer);
+      handle?.stop();
+    },
+  };
+}
+
 /** No voice at all: wait a reading-speed delay. */
 function timed(estimate: number): Speech {
   let timer: ReturnType<typeof setTimeout>;

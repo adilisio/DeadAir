@@ -29,6 +29,7 @@ const SHOTS = [
   { name: '05a-booth-call', query: '?mute&scene=booth&auto&fast', phase: 'call', settle: 900, timeout: 90000 },
   { name: '05b-booth-dump', query: '?mute&scene=booth&auto&fast', phase: 'dump', settle: 150, timeout: 90000 },
   { name: '05c-booth-storm', query: '?mute&scene=booth&auto&fast', phase: 'storm', settle: 900, timeout: 120000 },
+  { name: '05e-booth-carrier', query: '?mute&scene=booth&night=2&auto&fast&drift', phase: 'carrier', settle: 1500, timeout: 150000 },
   { name: '05d-booth-morse', query: '?mute&scene=booth&auto&fast', phase: 'morse', settle: 2300, timeout: 150000 },
   { name: '06-other-station', query: '?mute&scene=booth&auto&fast', phase: 'other-station', settle: 2500, timeout: 180000 },
   { name: '07-dawn-numbers', query: '?mute&scene=booth&auto&fast', phase: 'dawn', settle: 2200, timeout: 240000 },
@@ -38,6 +39,8 @@ const SHOTS = [
   { name: '11-night2-switchboard', query: '?mute&scene=booth&night=2&auto&fast', phase: 'switchboard', settle: 700, timeout: 90000 },
   { name: '12-night2-morse', query: '?mute&scene=booth&night=2&auto&fast', phase: 'morse', settle: 2300, timeout: 150000 },
   { name: '13-night2-dawn', query: '?mute&scene=booth&night=2&auto&fast', phase: 'dawn-page-1', settle: 3600, timeout: 300000 },
+  // ?drift leans toward 1250 in the squall: the town hears the other carrier.
+  { name: '13a-night2-dawn-drift', query: '?mute&scene=booth&night=2&auto&fast&drift', phase: 'dawn-page-1', settle: 3600, timeout: 300000 },
   { name: '14-night2-letter', query: '?mute&scene=dawn&night=2&auto', phase: 'dawn-letter', settle: 1200, timeout: 90000 },
   // A run saved after Night 1: the title offers to continue it.
   { name: '15-continue', query: '?mute', phase: 'title', settle: 1500, storage: { 'deadair.save': JSON.stringify({ version: 1, index: 1, town: { flags: ['n1_teddy_found'] } }) } },

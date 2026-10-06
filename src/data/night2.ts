@@ -293,6 +293,8 @@ export const NIGHT_2: NightDef = {
     intro: 'This is the Lamp. Twelve-sixty.',
     stamp: 'Monday. Two-fourteen in the morning.',
     outro: "Goodnight, Port Vesper. We'll be listening.",
+    // In the squall, a second carrier under yours.
+    intrusions: [{ kind: 'carrier', id: 'n2_carrier', slots: [4, 5] }],
   },
 
   letter: {

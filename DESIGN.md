@@ -105,6 +105,13 @@ The show plays in real time.
   for a set time. It can carry a `sender` (Night 2 on, Teddy at the relay hut). The panel shows a keying lamp, a tape of the current pass,
   and a chart of the word's letters among decoys; the player types the letters (a wrong
   one costs three seconds). Copied or faded, each has its own outcome at dawn.
+- **Two carriers.** Some slots put a second carrier on the dial at about 1250 (the Other
+  Station's `intrusions`, kind `carrier`; Night 2 has one in its squall). The gauge shows
+  it as a dim green needle and reads TWO CARRIERS. On 1260 it's nothing; drift toward 1250
+  and it bleeds through yours, louder on a weak tube: its voice, reading the card it would
+  read at sign-off, and a second whistle. If the town heard enough of it over those slots
+  (average bleed 0.35 or more), dawn treats that card as aired, by "you": its effects
+  (no chits), its reach outcome instead of the unaired one, and a line saying so.
 
 Each night schedules its tasks as a list of **events** (`events` in the night data: any
 number of `switchboard`, `tube`, `morse` and `storm`), so the show changes texture
@@ -148,6 +155,11 @@ warning.
 After you sign off, the dial slips. On 1260, a voice reads **the card you chose not to
 air**, word for word, timestamped days from now. Then dawn: the town's report. Meters,
 what changed, and who noticed.
+
+**Overrides** (`intrusions` of kind `override`, from a moment in the show for some
+seconds) don't wait for sign-off: it takes the frequency, the program drops under it and
+the needle pins to 1250 while it reads an unaired card; holding the dial hard against it
+(on a healthy tube) lets it go up to 40% sooner, and the town acts on what it read.
 
 ### Rules of the broadcast (resolver)
 

@@ -10,6 +10,8 @@ export const DEBUG = {
   fast: params.has('fast'),
   /** Plays the night with no input: auto-builds a rundown, auto-cues, auto-tunes. */
   auto: params.has('auto'),
+  /** With ?auto: in storms, hold the dial at -0.4 (toward 1250) instead of on 1260. */
+  drift: params.has('drift'),
   /** Mutes all audio output (screenshots, CI). */
   mute: params.has('mute'),
   /** Skip bloom, CRT curve and vignette (slow GPUs, debugging). */
