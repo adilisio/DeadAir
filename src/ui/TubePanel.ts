@@ -1,4 +1,5 @@
-// The tube drawer: which socket went dark, and three spares to choose from.
+// The tube drawer: which socket went dark, and up to three spares from the drawer, with
+// how many of each are left. With no spare of the right type, any tube is a bodge.
 import Phaser from 'phaser';
 import { UI } from '../art/palette';
 import { TUBE_TYPES, type TubeFault } from '../sim/tube';
@@ -27,9 +28,9 @@ export class TubePanel {
       parts.push(label(scene, sx + 18, y + 19, `V${i + 1}`, { size: 12, color: UI.dim, align: 'center' }).setOrigin(0.5, 0));
       parts.push(label(scene, sx + 18, y + 29, t, { size: 14, color: i === fault.socket ? UI.bad : UI.text, align: 'center' }).setOrigin(0.5, 0));
     });
-    parts.push(label(scene, x + 8, y + 50, 'SPARES', { size: 14, color: UI.amber }));
+    if (!fault.spares.length) parts.push(label(scene, x + 8, y + 50, 'THE DRAWER IS EMPTY', { size: 14, color: UI.bad }));
     fault.spares.forEach((t, i) => {
-      const b = button(scene, x + 56 + i * 50, y + 49, 46, 17, `${KEYS[i]} ${t}`, () => onPick(i), { size: 14 });
+      const b = button(scene, x + 8 + i * 66, y + 49, 62, 17, `${KEYS[i]} ${t} x${fault.drawer[t]}`, () => onPick(i), { size: 14 });
       this.buttons.push(b);
       parts.push(b.container);
     });
@@ -46,18 +47,20 @@ export class TubePanel {
     g.clear();
     const sx = BOX.x + 8 + f.socket * 39;
     const on = f.state === 'warming' ? 0.5 + 0.5 * Math.sin(this.scene.time.now / 60) : Math.floor(this.scene.time.now / 300) % 2;
-    g.lineStyle(1, f.state === 'warming' ? 0xffb347 : 0xff7a6b, f.fixed ? 0.3 : 0.4 + 0.6 * on);
+    g.lineStyle(1, f.state === 'warming' ? 0xffb347 : 0xff7a6b, f.settled ? 0.3 : 0.4 + 0.6 * on);
     g.strokeRect(sx + 0.5, BOX.y + 18.5, 35, 28);
 
+    const missing = `NO ${f.need} IN THE DRAWER`;
     const text = {
-      blown: 'match the dead tube',
-      fumble: 'DUD - that tube is dead',
+      blown: f.inStock ? 'match the dead tube' : missing,
+      fumble: f.spares.length ? 'DUD - that tube is dead' : missing,
       warming: 'warming up...',
       fixed: 'back on the air',
+      bodged: 'bodged - running weak',
     }[f.state];
     if (text !== this.shown) {
       this.shown = text;
-      const color = { blown: UI.hot, fumble: UI.bad, warming: UI.amber, fixed: UI.good }[f.state];
+      const color = { blown: f.inStock ? UI.hot : UI.bad, fumble: UI.bad, warming: UI.amber, fixed: UI.good, bodged: UI.bad }[f.state];
       this.status.setText(text).setColor(color);
       this.buttons.forEach((b) => b.setEnabled(f.state === 'blown'));
     }

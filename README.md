@@ -22,18 +22,26 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
 
 ## How a night works
 
-1. **Prep.** Pick six cards from the crate into three segments. Hover a card to read it and
-   see who it's for; the bars next to each segment show who's listening then.
+1. **Prep.** Pick six cards off the desk into three segments. Hover a card to read it and
+   see who it's for; the bars next to each segment show who's listening then. News tells
+   you where a story came from, not whether it's true.
 2. **Live.** Your show plays: records, news, warnings, ads, all read on air.
    - When a storm hits, **hold A / D** (or the arrow keys, or press on the TRANSMITTER
      gauge) to keep the signal on 1260. Static means fewer people heard you.
    - In a storm with **two carriers**, drifting toward 1250 lets the other one through.
    - **SPACE** cues the next talk item when the cue opens near the end of the current one.
-     If nothing's cued when an item ends, that's dead air.
+     If nothing's cued when an item ends, that's dead air. When the next item is a story
+     you can't vouch for, **H** cues it hedged: half the effect, harder to land, but it
+     can't come back on you.
+   - **TAB** (or THE DESK in the cue box) opens the desk: everything you didn't schedule.
+     During a record, at the cue, or in dead air, press **1-9** to put a card on next in
+     place of what was there. TAB or ESC closes it.
    - Records start themselves: the tonearm swings in, and **SPACE** drops the needle.
      Land it on the green lead-in groove. Early scratches on air; late loses the intro.
    - If a tube blows, the music dies: **Q / W / E** seats the spare that matches the dead
-     socket. A wrong one is a dud and costs a second.
+     socket. A wrong one is a dud and costs a second. The drawer only holds what you have:
+     with no spare of the right type, any tube is a bodge, and the Lamp runs weak for the
+     rest of the night.
    - When the switchboard lights up: **1 / 2 / 3** listens in on a line off air; press it
      again (or **ENTER**) to put them on. Each line waits only so long (its seconds are on
      its row); a fast red lamp is urgent. Keep listening and a caller may tell you something
@@ -44,7 +52,8 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
    - In the small hours something taps under the static. Read the dots and dashes off the
      tape against the chart and **type the letters** before it fades. Wrong guesses cost time.
 3. **Sign-off.** Then leave the set on for a minute.
-4. **Dawn.** The town's paper tells you what your show did.
+4. **Dawn.** The town's paper tells you what your show did. The notices page has
+   classifieds: spend chits on a spare tube for the drawer, or a record for a later night.
 5. **The next night.** The town carries over: its mood, who trusts you, and what happened.
    Night 2 remembers Night 1. There are two nights so far.
 

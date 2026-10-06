@@ -80,6 +80,16 @@ call; see "What to do next".
   (also on the debug hook). The performance reports per event (`tubes`, `morse` by id).
 - People: `TownState.people` counts each person's calls (aired / cut / dumped / ignored);
   the resolver sets `<person>_<count>` flags and `_2` once a count reaches two.
+- Packet D (the desk, hedged reads, sources, scarcity; 2026-10-06): news cards carry a
+  `source` (shown at prep instead of true/false) and some a `hedge` script. Live, TAB opens
+  the desk (`src/sim/desk.ts`: `deskCards` re-checks gates against `airedTonight`,
+  `swapNext`; `src/ui/DeskPanel.ts`) and H cues a hedged read; the scene passes the
+  running order as aired plus `hedged` and `swaps` to the resolver. `TownState.spares` is
+  the tube drawer (one of each to start; `save.ts` fills it in old saves); `TubeFault`
+  takes the drawer, and with no matching spare a tube is `bodged` (60% for the night).
+  The resolver takes `tubes[].used` out of the drawer. `NightDef.classifieds` sell spares
+  and records at dawn (`src/sim/classifieds.ts`: `buy`; `run.ts`: `buyClassified` re-saves);
+  the Dawn scene's NOTICES page shows them.
 
 ### How it fits together
 
@@ -90,7 +100,7 @@ call; see "What to do next".
   task's outcome. `tuning.ts` is the transmitter drift model.
   - Booth tasks, one file each with its pure logic and constants: `storm.ts` (wind per
     slot, storm report), `needle.ts` (arm sweep, groove band, late skip), `tube.ts`
-    (`TubeFault` state machine), `calls.ts` (call results, the dump delay in chars and
+    (`TubeFault` state machine and the spares drawer), `calls.ts` (call results, the dump delay in chars and
     seconds, ring patience, `dumpedSentence`, `requestResult`), `morse.ts`
     (code table, keying timeline/tape, `MorseCopy`, chart). Tests in `tests/<name>.test.ts`.
   - `intrusion.ts`: the Other Station during the show (`otherStation.intrusions` in the
@@ -101,6 +111,7 @@ call; see "What to do next".
     show clock (`clockText`). The resolver's `otherStationLive` turns `perf.bleed` and
     `perf.overrides` into cards the town heard on 1260 (`NightResult.otherAired`, flags
     `other_heard` and `other_aired_<card>`, lines that lead the ledger).
+  - `desk.ts` (desk cards, live swaps) and `classifieds.ts` (what chits buy at dawn).
 - `src/data/night1.ts` — Night 1's 13 cards, its events (`n1_board` with three lines,
   `n1_tube`, `n1_morse`, `n1_storm`), the Other Station config, and the `?auto` / `?scene=dawn`
   rundowns (tested for validity). `records.json` + `records.ts` — the record catalog: 11
@@ -125,11 +136,13 @@ call; see "What to do next".
   `fx.ts`: post effects and `splitCameras` (UI on a clean second camera).
 - `src/ui/` — `RundownBuilder` (prep), `LiveHud` (teleprompter with a reveal mode for
   callers and an override mode that keeps the station's own item behind it, a tuning gauge
-  shown in storms, with two carriers or under an override, cue box, running-order chips), one panel per task
-  (`NeedlePanel`, `TubePanel`, `Switchboard`, `MorsePanel`), `widgets`.
+  shown in storms, with two carriers or under an override, cue box with THE DESK button,
+  running-order chips), one panel per task (`NeedlePanel`, `TubePanel`, `Switchboard`,
+  `MorsePanel`), `DeskPanel` (live swaps), `widgets`.
 - Live controls: A/D tune (storms; held hard through an override, shortens it), SPACE cue /
-  drop needle / leave switchboard, Q/W/E spare tubes, 1/2/3 + ENTER switchboard, X dump,
-  letters for Morse. `?drift` (with `?auto`) holds the dial toward 1250 in storms.
+  drop needle / leave switchboard, H cue hedged, TAB desk (1-9 pick, ESC close), Q/W/E spare
+  tubes, 1/2/3 + ENTER switchboard, X dump, letters for Morse (H goes to Morse while it's on
+  the chart). `?drift` (with `?auto`) holds the dial toward 1250 in storms.
 - `tools/shots.mjs` — the eyes. Drives the game with `?auto&fast&mute`, waits on phases
   from `window.__deadair`, saves PNGs, fails on any console error. **Look at the PNGs**
   after visual changes; this caught several real bugs.

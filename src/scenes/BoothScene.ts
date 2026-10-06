@@ -12,12 +12,14 @@ import { finishNight, run } from '../run';
 import { pickOtherStationCard, resolveNight, segmentOfSlot } from '../sim/resolver';
 import { OTHER_OFFSET, bleed, carrierForSlot, intrusionsDue, overrideCard, overrideSeconds, type CarrierIntrusion, type TimedIntrusion } from '../sim/intrusion';
 import { eventsDue } from '../sim/events';
-import { linesOpenNow } from '../sim/nights';
+import { gateOpen, linesOpenNow } from '../sim/nights';
+import { deskCards, swapNext, type Swap } from '../sim/desk';
+import { DeskPanel } from '../ui/DeskPanel';
 import { TUNING, Tuning } from '../sim/tuning';
 import { CALM_WIND, windForSlot } from '../sim/storm';
 import { NEEDLE, armPosition, lateSkip, needleResult, sweepFor } from '../sim/needle';
 import { NeedlePanel } from '../ui/NeedlePanel';
-import { TubeFault } from '../sim/tube';
+import { TUBE, TubeFault, type TubeType } from '../sim/tube';
 import { TubePanel } from '../ui/TubePanel';
 import { DUMP_DELAY_SECONDS, RING_SECONDS, patienceOf, turnIndex } from '../sim/calls';
 import { MORSE_TIMING, MorseCopy, chartFor, keyState } from '../sim/morse';
@@ -198,6 +200,20 @@ export class BoothScene extends Phaser.Scene {
   /** Tube events due but waiting for an item to be playing (and the board to close). */
   private pendingTubes: TubeEvent[] = [];
   private tubeLog: { id: string; fault: TubeFault }[] = [];
+  /** Tonight's spares drawer (the town's, less what's been seated tonight). */
+  private drawer: Record<TubeType, number> = { ...run.town.spares };
+  /** Program strength left by bodged tubes: 1, or less for the rest of the night. */
+  private bodge = 1;
+  /** The current tube's outcome (fixed or bodged) has been applied. */
+  private tubeHandled = false;
+  /** The desk, open live; `deskSlot` is the item it would replace. */
+  private deskPanel: DeskPanel | null = null;
+  private deskSlot = -1;
+  private swaps: Swap[] = [];
+  /** The next item is cued to be read hedged; slots that were. */
+  private hedgeNext = false;
+  private hedgedSlots = new Set<number>();
+  private autoDeskDone = false;
   private rainGfx!: Phaser.GameObjects.Graphics;
   private flash!: Phaser.GameObjects.Rectangle;
   private ui: <T extends Phaser.GameObjects.GameObject>(o: T) => T = (o) => o;
@@ -262,6 +278,15 @@ export class BoothScene extends Phaser.Scene {
     this.tubePanel = null;
     this.pendingTubes = [];
     this.tubeLog = [];
+    this.drawer = { ...run.town.spares };
+    this.bodge = 1;
+    this.tubeHandled = false;
+    this.deskPanel = null;
+    this.deskSlot = -1;
+    this.swaps = [];
+    this.hedgeNext = false;
+    this.hedgedSlots = new Set();
+    this.autoDeskDone = false;
     audio.setFault(0);
   }
 
@@ -286,8 +311,15 @@ export class BoothScene extends Phaser.Scene {
     kb.addKey(K.ENTER).on('down', () => this.putOnAir());
     kb.addKey(K.X).on('down', () => this.dumpCall());
     kb.on('keydown', (e: KeyboardEvent) => this.typeMorse(e.key));
+    // The desk: TAB opens and closes it (captured, so the browser keeps focus), 1-9 pick.
+    kb.addKey(K.TAB).on('down', () => this.toggleDesk());
+    kb.addKey(K.ESC).on('down', () => this.closeDesk());
+    [K.ONE, K.TWO, K.THREE, K.FOUR, K.FIVE, K.SIX, K.SEVEN, K.EIGHT, K.NINE].forEach((code, i) => kb.addKey(code).on('down', () => this.pickDesk(i)));
+    kb.addKey(K.H).on('down', () => this.pressHedge());
 
-    this.builder = new RundownBuilder(this, run.night, run.town, (ids) => this.startShow(ids), (ids) => {
+    // At prep nothing has aired: cards waiting on tonight's show turn up on the desk live.
+    const prepNight = { ...run.night, cards: run.night.cards.filter((c) => gateOpen(c.gate, run.town.flags, { town: run.town, airedTonight: [] })) };
+    this.builder = new RundownBuilder(this, prepNight, run.town, (ids) => this.startShow(ids), (ids) => {
       // Render records in the background as soon as they're picked.
       for (const id of ids) {
         const card = id ? run.night.cards.find((c) => c.id === id) : undefined;
@@ -400,7 +432,7 @@ export class BoothScene extends Phaser.Scene {
     this.tubeGlows.forEach((t, i) => {
       // A blown tube is dark; a fresh one flickers as it warms.
       const f = this.tube && i === this.tube.socket && !this.tube.fixed ? this.tube : null;
-      const out = f ? (f.state === 'warming' ? (f.strength - 0.15) * (0.6 + 0.4 * Math.random()) : 0) : 1;
+      const out = f ? (f.state === 'warming' ? (f.strength - 0.15) * (0.6 + 0.4 * Math.random()) : f.bodged ? 0.35 * (0.5 + 0.5 * Math.random()) : 0) : 1;
       t.setAlpha((cold ? 0.3 : 0.85) * (0.92 + 0.08 * Math.sin(this.time.now / 70 + i * 2)) * flick * out);
     });
     this.tubeLight.intensity = (cold ? 0.6 : 1.8) * flick;
@@ -447,6 +479,7 @@ export class BoothScene extends Phaser.Scene {
     this.builder = null;
     this.hud = new LiveHud(this, this.cards, this.ui);
     this.hud.setOrder(-1, 0);
+    this.hud.setDeskHandler(() => this.toggleDesk());
     this.needlePanel = new NeedlePanel(this, this.ui);
     audio.unlock();
     prefetchVoices(run.night);
@@ -503,6 +536,7 @@ export class BoothScene extends Phaser.Scene {
   private beginItem(i: number): void {
     this.waitingSince = null;
     this.cued = false;
+    this.closeDesk();
     // Events due before this item. Before sign-off only a late switchboard still rings.
     const due = eventsDue(run.night, this.fired, i, 0, 'between');
     this.fireEvents(i < SHOW_SLOTS ? due : due.filter((e) => e.kind === 'switchboard'));
@@ -522,8 +556,16 @@ export class BoothScene extends Phaser.Scene {
     this.hud?.setOrder(i, i);
     const card = this.cards[i];
     this.airedTonight.push(card.id);
+    // A hedged read: the unconfirmed script goes out instead.
+    const hedged = this.hedgeNext && card.kind === 'news' && !!card.hedge;
+    this.hedgeNext = false;
+    if (hedged) this.hedgedSlots.add(i);
+    this.hud?.setChips(this.hedgedSlots);
     if (card.kind === 'record') this.startNeedle(i, card);
-    else this.talk(i, `${kindHeader(card)} · ${card.title}`, (card as TalkCard).script).done.then(() => this.endItem());
+    else {
+      const script = hedged && card.kind === 'news' ? card.hedge! : (card as TalkCard).script;
+      this.talk(i, `${kindHeader(card)}${hedged ? '*' : ''} · ${card.title}`, script).done.then(() => this.endItem());
+    }
   }
 
   // ───────────────────────────── Needle ─────────────────────────────
@@ -579,6 +621,12 @@ export class BoothScene extends Phaser.Scene {
       markPhase(h.real ? 'record' : 'record-standin');
       this.itemStart = this.time.now;
       this.itemDuration = h.duration;
+      if (DEBUG.auto && !this.autoDeskDone) {
+        // ?auto never swaps, but opens the desk once so the screenshot tool can see it.
+        this.autoDeskDone = true;
+        this.openDesk();
+        this.time.delayedCall(1500, () => this.closeDesk());
+      }
       await h.ended;
     } catch {
       // A record that won't play ends at once; the show goes on.
@@ -629,11 +677,104 @@ export class BoothScene extends Phaser.Scene {
     if (this.recordNext()) return;
     if (this.waitingSince !== null) {
       audio.sfx('click');
+      this.hedgeNext = false;
       this.beginItem(this.idx + 1);
-    } else if (this.playing && this.remaining() <= CUE_WINDOW && !this.cued) {
+    } else if (this.playing && this.remaining() <= CUE_WINDOW && (!this.cued || this.hedgeNext)) {
+      // SPACE runs it straight (and takes back a hedged cue).
       this.cued = true;
+      this.hedgeNext = false;
+      this.hud?.setChips(this.hedgedSlots);
       audio.sfx('click');
     }
+  }
+
+  /** Whether item `slot` is news with a hedged script. */
+  private hedgeable(slot: number): boolean {
+    const card = slot >= 0 && slot < SHOW_SLOTS ? this.cards[slot] : undefined;
+    return card?.kind === 'news' && !!card.hedge;
+  }
+
+  /** H: cue the next item hedged (or start it hedged, out of dead air). */
+  private pressHedge(): void {
+    if (this.phase !== 'live' || this.board || this.needle) return;
+    // While a signal is keying, a letter on its chart is a guess, not a cue.
+    if (this.morse?.chart.includes('H')) return;
+    const next = this.idx + 1;
+    if (!this.hedgeable(next)) return;
+    if (this.waitingSince !== null) {
+      audio.sfx('click');
+      this.hedgeNext = true;
+      this.beginItem(next);
+    } else if (this.playing && this.remaining() <= CUE_WINDOW && !(this.cued && this.hedgeNext)) {
+      this.cued = true;
+      this.hedgeNext = true;
+      this.hud?.setChips(new Set([...this.hedgedSlots, next]));
+      audio.sfx('click');
+    }
+  }
+
+  // ───────────────────────────── Desk ─────────────────────────────
+
+  /**
+   * The desk opens while there's a next item to replace and the moment allows: a talk
+   * item's cue window, any time during a record, or dead air. Not over a call or the needle.
+   */
+  private deskAvailable(): boolean {
+    if (this.phase !== 'live' || this.board || this.needle) return false;
+    const next = this.idx + 1;
+    if (next < 0 || next >= SHOW_SLOTS) return false;
+    if (this.waitingSince !== null) return true;
+    if (!this.playing) return false;
+    if (this.idx >= 0 && this.cards[this.idx].kind === 'record') return true;
+    return this.remaining() <= CUE_WINDOW;
+  }
+
+  private toggleDesk(): void {
+    if (this.deskPanel) this.closeDesk();
+    else this.openDesk();
+  }
+
+  private openDesk(): void {
+    if (this.deskPanel || !this.deskAvailable()) return;
+    const slot = this.idx + 1;
+    // Re-checked every time: a card can be waiting on something that's aired since.
+    const cards = deskCards(run.night, this.cards.map((c) => c.id), run.town, this.airedTonight);
+    this.deskSlot = slot;
+    this.deskPanel = new DeskPanel(this, cards, this.cards[slot].title, run.town, (i) => this.pickDesk(i), this.ui);
+    audio.sfx('click');
+    markPhase('desk');
+  }
+
+  private closeDesk(): void {
+    this.deskPanel?.destroy();
+    this.deskPanel = null;
+    this.deskSlot = -1;
+  }
+
+  /** Put desk card `i` on next; the card it replaces goes back on the desk. */
+  private pickDesk(i: number): void {
+    const panel = this.deskPanel;
+    const card = panel?.cards[i];
+    if (!panel || !card || this.deskSlot !== this.idx + 1) return;
+    const r = swapNext(this.cards.map((c) => c.id), this.deskSlot, card.id);
+    if (!r) return;
+    this.cards[this.deskSlot] = card;
+    this.swaps.push(r.swap);
+    this.hedgeNext = false;
+    if (card.kind === 'record') audio.prepare(card.recordId, RECORD_SECONDS);
+    this.hud?.setChips(this.hedgedSlots);
+    exposeDebug('rundown', r.rundown);
+    exposeDebug('swaps', this.swaps);
+    audio.sfx('thunk');
+    markPhase('desk-swap');
+    this.closeDesk();
+  }
+
+  /** Keep the desk honest: it closes when the moment passes, and the cue box offers it. */
+  private deskTick(): void {
+    const available = this.deskAvailable();
+    if (this.deskPanel && (!available || this.deskSlot !== this.idx + 1)) this.closeDesk();
+    this.hud?.setDesk(available, !!this.deskPanel);
   }
 
   private nextTitle(): string {
@@ -928,12 +1069,13 @@ export class BoothScene extends Phaser.Scene {
 
   // ───────────────────────────── Tube ─────────────────────────────
 
-  /** Blow the next due tube while an item plays, the board is closed and the last tube is fixed. */
+  /** Blow the next due tube while an item plays, the board is closed and the last tube is dealt with. */
   private tubeCheck(): void {
     const def = this.pendingTubes[0];
-    if (!def || this.board || !this.playing || (this.tube && !this.tube.fixed)) return;
+    if (!def || this.board || !this.playing || (this.tube && !this.tubeHandled)) return;
     this.pendingTubes.shift();
-    this.tube = new TubeFault(def.socket, rng(1260 + def.socket));
+    this.tube = new TubeFault(def.socket, this.drawer, rng(1260 + def.socket));
+    this.tubeHandled = false;
     this.tubeLog.push({ id: def.id, fault: this.tube });
     this.tubePanel = new TubePanel(this, this.tube, (i) => this.pickTube(i), this.ui);
     audio.sfx('pop');
@@ -943,28 +1085,41 @@ export class BoothScene extends Phaser.Scene {
     markPhase('tube');
     if (DEBUG.auto) {
       const fault = this.tube;
-      this.time.delayedCall(DEBUG.fast ? 800 : 2500, () => this.pickTube(fault.spares.indexOf(fault.need)));
+      // The right spare if the drawer has one; otherwise whatever's there.
+      this.time.delayedCall(DEBUG.fast ? 800 : 2500, () => this.pickTube(fault.inStock ? fault.spares.indexOf(fault.need) : 0));
     }
   }
 
   private pickTube(i: number): void {
     if (this.phase !== 'live' || !this.tube) return;
     const r = this.tube.pick(i);
-    if (r === 'right') audio.sfx('thunk');
+    if (r === 'right' || r === 'bodged') audio.sfx('thunk');
     else if (r === 'wrong') audio.sfx('pop');
   }
 
-  /** Advance a blown tube; returns the program strength (1 when healthy). */
+  /**
+   * Advance a blown tube; returns the program strength (1 when healthy, less while a tube
+   * is out, and less for the rest of the night after a bodge).
+   */
   private tubeTick(dt: number): number {
     const f = this.tube;
-    if (!f || f.fixed) return 1;
+    if (!f || this.tubeHandled) return this.bodge;
     f.step(dt);
     this.tubePanel?.update();
-    if (f.fixed) {
+    // A pick can settle the tube (a bodge) between frames, so this checks every frame until handled.
+    if (f.settled) {
+      this.tubeHandled = true;
+      // The seated spare is out of tonight's drawer (the resolver takes it from the town's).
+      if (f.used) this.drawer[f.used] = Math.max(0, this.drawer[f.used] - 1);
+      if (f.bodged) {
+        this.bodge *= TUBE.bodgedStrength;
+        markPhase('tube-bodged');
+      }
       this.tubePanel?.close();
       this.tubePanel = null;
+      return this.bodge;
     }
-    return f.strength;
+    return f.strength * this.bodge;
   }
 
   // ───────────────────────────── Morse ─────────────────────────────
@@ -1184,6 +1339,8 @@ export class BoothScene extends Phaser.Scene {
 
   private endShow(): void {
     if (this.phase !== 'live') return;
+    this.closeDesk();
+    this.hud?.setDesk(false);
     if (this.storm) this.setStorm(false);
     this.endOverride();
     if (this.carrier) this.setCarrier(null);
@@ -1199,17 +1356,25 @@ export class BoothScene extends Phaser.Scene {
     this.tweens.add({ targets: this.lampLight, intensity: 1.2, duration: 1500 });
 
     const signal = this.sigSum.map((s, i) => (this.sigTime[i] > 0 ? s / this.sigTime[i] : 1));
+    // The running order as it aired, swaps and all.
     const result = resolveNight(run.night, run.town, {
       rundown: this.cards.map((c) => c.id),
       signal,
       deadAirSeconds: this.deadAir,
       calls: this.calls,
       needles: this.drops,
-      tubes: this.tubeLog.map((t) => ({ id: t.id, seconds: t.fault.down })),
+      tubes: this.tubeLog.map(({ id, fault }) => ({
+        id,
+        seconds: fault.down,
+        ...(fault.used ? { used: fault.used } : {}),
+        ...(fault.bodged ? { bodged: true } : {}),
+      })),
       morse: this.morseResults,
       bleed: this.bleedSum.map((s, i) => (this.bleedTime[i] > 0 ? s / this.bleedTime[i] : 0)),
       overrides: this.overrideLog,
       confided: this.confidedTonight,
+      hedged: [...this.hedgedSlots].map((i) => this.cards[i].id),
+      swaps: this.swaps,
     });
     finishNight(result);
     exposeDebug('result', result);
@@ -1285,7 +1450,9 @@ export class BoothScene extends Phaser.Scene {
 
       if (this.morse) this.morseTick(dt);
 
-      // Cueing and dead air.
+      // Cueing and dead air; the desk.
+      this.deskTick();
+      const hedge = this.hedgeable(this.idx + 1);
       if (this.board) {
         this.boardTick(dt);
         this.hud?.setCue('hidden', '');
@@ -1295,11 +1462,11 @@ export class BoothScene extends Phaser.Scene {
       } else if (this.waitingSince !== null) {
         const silent = (this.time.now - this.waitingSince) / 1000;
         if (silent > DEAD_AIR_GRACE) this.deadAir += dt;
-        this.hud?.setCue(silent > DEAD_AIR_GRACE ? 'dead' : 'open', this.nextTitle(), Math.max(0, silent - DEAD_AIR_GRACE));
+        this.hud?.setCue(silent > DEAD_AIR_GRACE ? 'dead' : 'open', this.nextTitle(), Math.max(0, silent - DEAD_AIR_GRACE), hedge);
       } else if (this.playing) {
         const rem = this.remaining();
         if (this.recordNext()) this.hud?.setCue('needleNext', this.nextTitle());
-        else this.hud?.setCue(this.cued ? 'cued' : rem <= CUE_WINDOW ? 'open' : 'waiting', this.nextTitle());
+        else this.hud?.setCue(this.cued ? (this.hedgeNext ? 'cuedHedged' : 'cued') : rem <= CUE_WINDOW ? 'open' : 'waiting', this.nextTitle(), 0, hedge);
         if (DEBUG.auto && rem <= CUE_WINDOW) this.cued = true;
       } else this.hud?.setCue('hidden', '');
 

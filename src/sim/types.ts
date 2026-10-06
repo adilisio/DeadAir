@@ -1,6 +1,7 @@
 // Core types for the broadcast simulation. Pure data: no Phaser, no DOM.
 
 import type { PersonId } from '../data/people';
+import type { TubeType } from './tube';
 
 export const FACTIONS = ['netters', 'chapel', 'linemen'] as const;
 export type FactionId = (typeof FACTIONS)[number];
@@ -30,7 +31,7 @@ export interface DawnLine {
   text: string;
   tone: Tone;
   /** Which sequence rule produced this line, if any. */
-  rule?: 'breather' | 'panic' | 'adFatigue' | 'dedication' | 'needles' | 'tube';
+  rule?: 'breather' | 'panic' | 'adFatigue' | 'dedication' | 'needles' | 'tube' | 'swap';
 }
 
 /** What happens when a reach check resolves. `effects` are applied unscaled. */
@@ -59,7 +60,7 @@ export type StatName = (typeof STAT_NAMES)[number];
 
 /**
  * When a card or caller is in play. Every clause must hold: all of `requires` set, none of
- * `unless`, every `when` threshold (inclusive), and for switchboard lines, `tonight`.
+ * `unless`, every `when` threshold (inclusive), and for switchboard lines and desk cards, `tonight`.
  */
 export interface Gate {
   requires?: string[];
@@ -67,9 +68,9 @@ export interface Gate {
   /** Simple stat thresholds, all must hold. Stat names: morale | safety | credibility | listeners | chits | trust.netters | trust.chapel | trust.linemen */
   when?: { stat: StatName; min?: number; max?: number }[];
   /**
-   * Only for switchboard lines: evaluated against the card ids aired so far tonight when the
-   * board opens, and `flags`, the confidences heard off air tonight (`t_<confide flag>`; all
-   * must have been heard).
+   * For switchboard lines and desk cards: evaluated against the card ids aired so far tonight
+   * when the board rings or the desk opens (at prep nothing has aired yet), and `flags`, the
+   * confidences heard off air tonight (`t_<confide flag>`; all must have been heard).
    */
   tonight?: { aired?: string[]; notAired?: string[]; flags?: string[] };
 }
@@ -107,6 +108,10 @@ export interface NewsCard extends TalkCardBase {
   truth: 'true' | 'rumor' | 'false';
   /** For false news: what happens at dawn when the lie comes apart. */
   unravel?: { credibility: number; line: string };
+  /** Who or where the story came from, shown at prep instead of whether it's true. */
+  source: string;
+  /** An alternate script that reads the story as unconfirmed: half the effects, a harder reach, no unravel. */
+  hedge?: string;
 }
 
 export interface WarningCard extends TalkCardBase {
@@ -256,6 +261,19 @@ export interface NightDef {
   letter: { body: string; from: string };
   /** Rundowns for ?auto (a sensible show) and ?scene=dawn (a messy one). Must use ungated cards. */
   rundowns: { auto: string[]; demo: string[] };
+  /** Small ads in the morning paper: what the station's chits can buy at dawn. */
+  classifieds?: Classified[];
+}
+
+/** A small ad on the dawn NOTICES page: chits for a spare tube or a record. */
+export interface Classified {
+  id: string;
+  text: string;
+  cost: number;
+  /** A spare for the drawer, or a record (sets flag `owns_<recordId>`; later crates gate on it). */
+  gives: { spare?: TubeType; record?: string };
+  /** Checked against the town after the night. */
+  gate?: Gate;
 }
 
 export interface TownState {
@@ -268,6 +286,8 @@ export interface TownState {
   flags: string[];
   /** What the station has done to each caller, across the run. The resolver also sets flags from these. */
   people: Partial<Record<PersonId, PersonRecord>>;
+  /** The spares drawer: tubes on hand by type, carried from night to night. */
+  spares: Record<TubeType, number>;
 }
 
 /** Counts of how a person's calls went: put on and heard, cut off, dumped, left ringing. */
@@ -290,8 +310,12 @@ export interface ShowPerformance {
   calls: CallRecord[];
   /** Per slot: how the needle dropped (records only; null or missing for talk). */
   needles?: (NeedleResult | null)[];
-  /** Per tube event that blew: seconds the program was down. Events not listed never blew. */
-  tubes?: { id: string; seconds: number }[];
+  /**
+   * Per tube event that blew: seconds the program was down, the spare seated from the drawer
+   * (the resolver takes it out of the drawer), and whether it was the wrong type (bodged).
+   * Events not listed never blew.
+   */
+  tubes?: { id: string; seconds: number; used?: TubeType; bodged?: boolean }[];
   /** Per Morse event that keyed: whether it was copied. Events not listed never keyed. */
   morse?: { id: string; result: 'decoded' | 'missed' }[];
   /** Per slot: average bleed of the second carrier through yours, 0..1 (0 where there was none). */
@@ -300,6 +324,10 @@ export interface ShowPerformance {
   overrides?: { id: string; card: string | null; seconds: number; held: number }[];
   /** Confidences heard off air tonight, as `t_<flag>` (the scene's confidedTonight). */
   confided?: string[];
+  /** Card ids read with their hedged script. */
+  hedged?: string[];
+  /** Live swaps off the desk, in order: at `slot`, card `in` went on instead of `out`. */
+  swaps?: { slot: number; out: string; in: string }[];
 }
 
 export interface NightResult {

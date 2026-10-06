@@ -25,6 +25,8 @@ const SHOTS = [
   { name: '04a-booth-needle', query: '?mute&scene=booth&auto&fast', phase: 'needle', settle: 450, timeout: 90000 },
   { name: '04b-booth-record', query: '?mute&scene=booth&auto&fast', phase: 'record', settle: 1500, timeout: 90000 },
   { name: '04c-booth-tube', query: '?mute&scene=booth&auto&fast', phase: 'tube', settle: 300, timeout: 90000 },
+  // ?auto opens the desk once during the first record, and closes it 1.5 s later.
+  { name: '04d-booth-desk', query: '?mute&scene=booth&auto&fast', phase: 'desk', settle: 600, timeout: 90000 },
   { name: '05-booth-switchboard', query: '?mute&scene=booth&auto&fast', phase: 'switchboard', settle: 700, timeout: 90000 },
   { name: '05-booth-switchboard-confide', query: '?mute&scene=booth&auto&fast', phase: 'confide', settle: 60, timeout: 90000 },
   { name: '05a-booth-call', query: '?mute&scene=booth&auto&fast', phase: 'call', settle: 900, timeout: 90000 },
@@ -34,6 +36,7 @@ const SHOTS = [
   { name: '05d-booth-morse', query: '?mute&scene=booth&auto&fast', phase: 'morse', settle: 2300, timeout: 150000 },
   { name: '06-other-station', query: '?mute&scene=booth&auto&fast', phase: 'other-station', settle: 2500, timeout: 180000 },
   { name: '07-dawn-numbers', query: '?mute&scene=booth&auto&fast', phase: 'dawn', settle: 2200, timeout: 240000 },
+  { name: '07a-dawn-notices', query: '?mute&scene=dawn&auto', phase: 'dawn-notices', settle: 1200, timeout: 90000 },
   { name: '08-dawn-stories', query: '?mute&scene=dawn&auto', phase: 'dawn-page-1', settle: 3600 },
   { name: '09-dawn-letter', query: '?mute&scene=dawn&auto', phase: 'dawn-letter', settle: 1200, timeout: 90000 },
   { name: '10-night2-prep', query: '?mute&scene=booth&night=2&auto', phase: 'prep-filled', settle: 800 },

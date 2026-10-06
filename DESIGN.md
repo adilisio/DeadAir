@@ -53,7 +53,8 @@ Playtesting decides which mode deserves to grow.
 
 ### 1. Prep — build the rundown
 
-You have a crate of **cards** for tonight. The show has **3 segments × 2 slots**:
+Cards for tonight sit on **the desk**. The show has **3 segments × 2 slots**; the rundown
+is a plan, and the night can change it:
 
 | Segment | Clock | Who's listening |
 | --- | --- | --- |
@@ -64,13 +65,28 @@ You have a crate of **cards** for tonight. The show has **3 segments × 2 slots*
 Card kinds:
 
 - **Record** — a song. Genre and mood. Each faction has tastes.
-- **News** — something that happened. True, rumor, or false. False news hits hard now
-  and costs Credibility when it unravels.
+- **News** — something that happened. True, rumor, or false, but prep doesn't say which:
+  each story shows its **source** ("an unsigned note under the door", "Doc Hessler,
+  paying", "Sister Agnes, in person") and a blurb that says what the DJ actually knows.
+  False news hits hard now and costs Credibility when it unravels. Some stories carry a
+  **hedged** script that reads them as unconfirmed (chosen live, at the cue).
 - **Warning** — a public-safety notice. Matters most if the right people hear it.
 - **Ad** — a sponsor pays Chits. Listeners hate two in a row.
 
 Where a card airs matters as much as which card: the same warning saves lives at 2 a.m.
 and is wasted at 11.
+
+### The desk
+
+Every card not in the running order is on the desk, and the desk stays open live. With
+TAB (or THE DESK button in the cue box) the player pulls it up while a talk item's cue
+window is open, at any time during a record, or in dead air; picking a card (1-9 or a
+click) puts it on **next**, in place of what was there, and that card goes back on the
+desk. The desk is checked again each time it opens against what has aired so far tonight,
+so a card gated on `tonight` can turn up mid-show. Swaps are recorded in the performance
+and the resolver reads the running order as it aired: the Other Station reads the first
+preferred card *left off*, so a swap changes what it has. The paper notices the first
+swap ("You tore up the running order at 11:30 PM...").
 
 ### 2. Live — run the show
 
@@ -83,15 +99,24 @@ The show plays in real time.
   the wind pushes it around; hold it on frequency. Static rises as you drift. Your signal
   multiplies your reach, and the ledger reports whether the Lamp held through the storm.
 - **Cue the next item** before the air goes silent. Every second of dead air costs
-  Listeners and Credibility.
+  Listeners and Credibility. The cue window is also the decision point: swap the next item
+  off the desk, or, when it's a story with a hedged script, choose how to read it:
+  `SPACE run it · H hedge it`. A hedged read ("I can't stand behind this") takes half of
+  every effect, needs 1.25 times the audience to land a reach check, and never unravels.
+  The chip in the running order shows `NEWS*`.
 - **Drop the needle.** Records don't need cueing; the tonearm swings in and the player
   drops it on the lead-in groove. Too early skates across the record on air (Listeners,
   Credibility, and the ledger names the record); too late skips the intro (a little
   Listeners). Every record clean gets a kind word at dawn.
 - **Swap a blown tube.** When a night's `tube` event comes due, a transmitter tube blows mid-item
   and the program drops to a whisper. Read which socket went dark, pick the matching spare
-  from three; a dud costs a second of fumbling, the right one warms up and the Lamp comes
-  back. Lost seconds cost signal; the ledger praises a quick swap or reports a slow one.
+  from up to three in the drawer; a dud costs a second of fumbling, the right one warms up
+  and the Lamp comes back. Lost seconds cost signal; the ledger praises a quick swap or
+  reports a slow one. **The drawer is the town's** (`TownState.spares`, one of each to
+  start) and a seated spare is gone for good. With no spare of the right type, the player
+  seats the wrong one (or, with an empty drawer, rigs something after two seconds) and the
+  Lamp runs at 60% for the rest of the night: less reach, fewer listeners, and a line at
+  dawn. Spares come back only through the classifieds.
 - **The switchboard.** When a night's `switchboard` event comes due, up to three lines ring at
   once, each with a few words on the board, and it can ring over a record (the record ducks
   under the call and keeps its time). Each line has its own `patience` (default 18 s): its
@@ -144,10 +169,11 @@ night N".
 
 A night's cards and switchboard lines can carry a **gate**: flags (`requires` /
 `unless`), stat thresholds (`when`: `morale`, `safety`, `credibility`, `listeners`,
-`chits`, `trust.<faction>`, min and max inclusive), and for callers only, what has aired
-so far tonight (`tonight: { aired, notAired }`). Before prep the night is opened against
-the town, so the crate and the boards hold only what's in play; when a board rings, its
-lines are checked again against what has aired by then.
+`chits`, `trust.<faction>`, min and max inclusive), and for callers and desk cards, what
+has aired so far tonight (`tonight: { aired, notAired }`). Before prep the night is opened
+against the town, so the desk and the boards hold only what's in play (a card waiting on
+tonight stays off the prep screen); when a board rings or the desk opens live, it is
+checked again against what has aired by then.
 
 **People remember.** Every caller is a person (`src/data/people.ts`). At dawn the
 resolver counts each of their calls as aired, cut, dumped or ignored (a late dump counts
@@ -168,7 +194,9 @@ Station also reads back what you dumped.
 
 After you sign off, the dial slips. On 1260, a voice reads **the card you chose not to
 air**, word for word, timestamped days from now. Then dawn: the town's report. Meters,
-what changed, and who noticed.
+what changed, and who noticed; the drawer; the **notices**, where the night's classifieds
+sell a spare tube or a record for chits (one click; the record sets `owns_<id>` for a
+later night's crate to gate on); and a letter.
 
 **Overrides** (`intrusions` of kind `override`, from a moment in the show for some
 seconds) don't wait for sign-off: it takes the frequency, the program drops under it and
@@ -196,6 +224,10 @@ Pure TypeScript in `src/sim/`, fully unit-tested. In short:
 - **Reach checks:** some warnings and calls only work if the right people hear them
   (share × signal ≥ threshold). These set story flags the dawn report reads.
 - **Lies unravel:** false news sets an immediate effect, then a Credibility loss at dawn.
+- **Hedged reads:** half of every effect (rounded toward zero, trust included), reach
+  threshold ×1.25, no unravel.
+- **Tubes:** a seated spare leaves the drawer; a bodge (no matching spare) costs Listeners
+  and runs the rest of the night at 60% signal.
 
 ## Look
 

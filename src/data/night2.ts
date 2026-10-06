@@ -46,7 +46,8 @@ export const NIGHT_2: NightDef = {
     // ── News ─────────────────────────────────────────────────
     {
       id: 'news_switch', kind: 'news', truth: 'true', title: 'The Linemen will light the infirmary',
-      blurb: 'True. The Ridge Road line reaches the Chapel by Sunday. Electric light in the sick ward.',
+      source: 'the Linemen',
+      blurb: 'The Linemen say the Ridge Road line reaches the Chapel by Sunday. Electric light in the sick ward.',
       script:
         "Big news from up the hill. The Linemen say the Ridge Road line will carry current to the Chapel infirmary by Sunday. Electric light in the sick ward, for the first time in sixty years. Sister Agnes says she'll believe it when she sees it. So will I. But I would like to see it.",
       effects: { morale: 6, trust: { linemen: 6, chapel: 2 } },
@@ -54,17 +55,23 @@ export const NIGHT_2: NightDef = {
     },
     {
       id: 'news_herring', kind: 'news', truth: 'rumor', title: 'Herring off the east breakwater',
-      blurb: "Rumor. Dock Street says the herring are running. Nobody's seen it. Everybody wants it to be true.",
+      source: 'Dock Street talk',
+      blurb: "Dock Street says the herring are running. Nobody you've talked to has seen it. Everybody wants it to be true.",
       script:
         "Word on Dock Street is the herring are running thick off the east breakwater, first time since the fall. I haven't seen it myself, so take it as a rumor. But if it's true, there's going to be a lot of fish for a lot of people.",
+      hedge:
+        "One from Dock Street, and it's only talk. Some folks say the herring are running off the east breakwater. Nobody I've talked to has seen a single fish. Don't sell your boots for bait just yet.",
       effects: { morale: 4, trust: { netters: 4 }, credibility: -1 },
       helps: 'netters',
     },
     {
       id: 'news_cure', kind: 'news', truth: 'false', title: "Doc Hessler's tonic cures pneumonia",
-      blurb: "False, and Doc's paying 9 chits to say it. Throw away your sulfa, he says.",
+      source: 'Doc Hessler, paying',
+      blurb: "Doc says his tonic cured Mrs. Pruitt's pneumonia, and he's paying 9 chits to say so. Throw away your sulfa, he says.",
       script:
         "Here's one Doc Hessler asked me to pass along, and he's paying for it, I'll be honest. He says his Lake Tonic cured Mrs. Pruitt's pneumonia in two days flat. He says you can throw away your sulfa. That's what he says.",
+      hedge:
+        "Doc Hessler paid for this next part, so here it is, and here's me being plain: the Lamp can't vouch for a word of it. Doc says his Lake Tonic cured Mrs. Pruitt's pneumonia. He says throw away your sulfa. I wouldn't. Ask Sister Agnes before you ask Doc.",
       effects: { chits: 9, listeners: 4, safety: -3, trust: { chapel: -5 } },
       unravel: {
         credibility: -12,
@@ -73,7 +80,8 @@ export const NIGHT_2: NightDef = {
     },
     {
       id: 'news_wozniak', kind: 'news', truth: 'true', title: 'The Wozniak brothers know the channel',
-      blurb: 'True. The brothers you heard tapping last night are home, and they have a tip for the Netters.',
+      source: 'the Wozniak brothers, in person',
+      blurb: 'The brothers you heard tapping last night came by the station themselves. They have a tip for the Netters.',
       gate: { requires: ['n1_shanty_found'] },
       script:
         "Remember the Wozniak brothers, who drifted out on their shanty last night? They're home, they're fine, and they say the north channel is open water all the way to the point. Bill Wozniak says he'll lead boats through at dawn. Bill also says thank you. Several times.",
@@ -82,7 +90,8 @@ export const NIGHT_2: NightDef = {
     },
     {
       id: 'news_memorial', kind: 'news', truth: 'true', title: 'For Henryk Ostrowski',
-      blurb: 'True, and hard. The Chapel holds a service tomorrow for the man the north shelf took.',
+      source: 'the Ostrowski family',
+      blurb: 'Hard to read. The family asked you to: a service at the Chapel tomorrow for the man the north shelf took.',
       gate: { requires: ['n1_boat_lost'] },
       script:
         "The Ostrowski family will hold a service at the Chapel tomorrow for Henryk Ostrowski, who went through the north shelf on Thursday. He was sixty-one. He mended nets for half this town and never took a chit for it. If you have a story about him, bring it.",
@@ -92,7 +101,8 @@ export const NIGHT_2: NightDef = {
     },
     {
       id: 'news_agnes', kind: 'news', truth: 'true', title: 'Sister Agnes answers',
-      blurb: 'True. You let a caller call her a thief. She would like to reply, on the air.',
+      source: 'Sister Agnes, in person',
+      blurb: 'You let a caller call her a thief. She came down the hill herself, and she would like to reply, on the air.',
       gate: { requires: ['n1_slander_aired'] },
       script:
         "Last night a caller on this station said Sister Agnes was cutting medicine with chalk. I let it go out. That's on me. Tonight Sister Agnes asked me to say this: the infirmary is open, the sulfa is real, and anyone who doubts it can come and watch her measure it. I'd take her up on that.",
@@ -428,4 +438,15 @@ export const NIGHT_2: NightDef = {
     auto: ['warn_live_wire', 'rec_dreamland', 'news_switch', 'rec_howcome', 'warn_squall', 'rec_cradle'],
     demo: ['news_cure', 'rec_home', 'ad_candles', 'ad_scrap', 'news_herring', 'rec_millstream'],
   },
+
+  classifieds: [
+    {
+      id: 'n2_ad_866', cost: 8, gives: { spare: '866' },
+      text: 'Linemen surplus, Ridge Road yard: one 866 rectifier, glass a little cloudy, lights up fine. Eight chits, no haggling.',
+    },
+    {
+      id: 'n2_ad_tiger_rag', cost: 5, gives: { record: 'tiger_rag' },
+      text: '"Tiger Rag", hot band, a little warped, plays fine if you hold your breath. Five chits. Kaminski boat, ask for the young one.',
+    },
+  ],
 };

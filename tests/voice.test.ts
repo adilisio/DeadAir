@@ -17,6 +17,7 @@ describe('voiceLines', () => {
       expect(has('dj', night.signOn)).toBe(true);
       expect(has('dj', night.signOff)).toBe(true);
       for (const card of night.cards) if (card.kind !== 'record') expect(has('dj', card.script), card.id).toBe(true);
+      for (const card of night.cards) if (card.kind === 'news' && card.hedge) expect(has('dj', card.hedge), `${card.id} hedge`).toBe(true);
       for (const line of callerLines(night)) {
         expect(has(line.person, line.preview), line.id).toBe(true);
         expect(has(line.person, line.script), line.id).toBe(true);

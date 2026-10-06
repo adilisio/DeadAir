@@ -1,4 +1,5 @@
-// Prep phase: pick six cards from the crate into three segments.
+// Prep phase: pick six cards off the desk into three segments. What's left stays on the
+// desk, and can still be swapped in live.
 import Phaser from 'phaser';
 import { UI } from '../art/palette';
 import { AUDIENCE, reachHint, validateRundown } from '../sim/resolver';
@@ -16,7 +17,6 @@ export const KIND_TAG: Record<Card['kind'], { tag: string; color: string }> = {
 
 export const SEGMENT_LABEL = { dusk: 'DUSK   8 PM', late: 'LATE  11 PM', small: 'SMALL HOURS  2 AM' } as const;
 
-const TRUTH_LABEL = { true: 'CONFIRMED', rumor: 'RUMOR', false: 'UNVERIFIED' } as const;
 
 export function describeCard(card: Card, town?: TownState): string {
   switch (card.kind) {
@@ -28,7 +28,7 @@ export function describeCard(card: Card, town?: TownState): string {
       return `RECORD${who} · loved by the ${loves}${hates}`;
     }
     case 'news':
-      return `NEWS · ${TRUTH_LABEL[card.truth]}${card.grim ? ' · hard news' : ''}`;
+      return `NEWS · from ${card.source}${card.grim ? ' · hard news' : ''}`;
     case 'warning':
       return `WARNING · the ${card.reach ? FACTION_NAMES[card.reach.faction] : 'town'} need to hear this${card.reach && town ? ` · ${reachHint(card.reach, town)}` : ''}${card.grim ? ' · hard news' : ''}`;
     case 'ad':
@@ -86,7 +86,7 @@ export class RundownBuilder {
     const c = L.crate;
     this.rowH = Math.min(c.rowH, Math.floor((c.bottom - c.y - 30) / night.cards.length));
     add(panel(scene, c.x, c.y, c.w, 24 + night.cards.length * this.rowH + 6));
-    add(label(scene, c.x + 8, c.y + 3, 'THE CRATE', { size: 18, color: UI.amber }));
+    add(label(scene, c.x + 8, c.y + 3, 'THE DESK', { size: 18, color: UI.amber }));
     night.cards.forEach((card, i) => {
       const y = c.y + 24 + i * this.rowH;
       const bg = add(scene.add.graphics());

@@ -23,7 +23,7 @@ import {
   type TownState,
 } from './types';
 import { STORM_HELD, STORM_LOST, stormSignal } from './storm';
-import { TUBE } from './tube';
+import { TUBE, TUBE_TYPES, fullDrawer, type TubeType } from './tube';
 import { callResult, dumpedSentence, isReachCheck, requestResult } from './calls';
 import { airedWhenBoardOpens, eventsOf } from './events';
 import { linesOpenNow } from './nights';
@@ -56,6 +56,10 @@ export const RULES = {
   /** A blown tube swapped fast, or slow. */
   tubeQuick: { credibility: 2 },
   tubeSlow: { listeners: -6, credibility: -2 },
+  /** A blown tube with no spare of its type: the rest of the night at bodged strength. */
+  tubeBodged: { listeners: -8 },
+  /** A hedged read needs this much more audience to land. */
+  hedgeThreshold: 1.25,
 } as const;
 
 const SCRATCH_LINES = [
@@ -84,6 +88,7 @@ export const STARTING_STATE: TownState = {
   trust: { netters: 50, chapel: 50, linemen: 50 },
   flags: [],
   people: {},
+  spares: fullDrawer(),
 };
 
 export function segmentOfSlot(slot: number): SegmentId {
@@ -93,7 +98,7 @@ export function segmentOfSlot(slot: number): SegmentId {
 export function cloneState(s: TownState): TownState {
   const people: TownState['people'] = {};
   for (const [id, rec] of Object.entries(s.people ?? {})) if (rec) people[id as PersonId] = { ...rec };
-  return { ...s, trust: { ...s.trust }, flags: [...s.flags], people };
+  return { ...s, trust: { ...s.trust }, flags: [...s.flags], people, spares: { ...fullDrawer(), ...s.spares } };
 }
 
 /** Which of a person's counters a call result adds to. A late dump went out and was dumped. */
@@ -198,6 +203,39 @@ export function reachHint(check: ReachCheck, town: TownState): string {
   return "they'll need the whole town listening";
 }
 
+/** A hedged read's effects: every number halved, rounding toward zero, trust included. */
+export function hedgeEffects(fx: Effects): Effects {
+  const half = (v: number) => Math.trunc(v / 2) || 0; // no -0
+  const out: Effects = {};
+  for (const k of ['morale', 'safety', 'listeners', 'credibility', 'chits'] as const) {
+    const v = fx[k];
+    if (v !== undefined) out[k] = half(v);
+  }
+  if (fx.trust) {
+    const trust: Partial<Record<FactionId, number>> = {};
+    for (const f of FACTIONS) {
+      const v = fx.trust[f];
+      if (v !== undefined) trust[f] = half(v);
+    }
+    out.trust = trust;
+  }
+  return out;
+}
+
+/** The show clock when item `slot` begins: 8 PM, then 70 minutes a slot. */
+export function slotClock(slot: number): string {
+  const mins = 20 * 60 + slot * 70;
+  const h24 = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${h24 < 12 ? 'AM' : 'PM'}`;
+}
+
+/** "a 5U4", "an 807". */
+function withArticle(t: TubeType): string {
+  return `${t.startsWith('8') ? 'an' : 'a'} ${t}`;
+}
+
 function applyOutcome(state: TownState, o: Outcome, lines: DawnLine[]): void {
   applyEffects(state, o.effects);
   addFlag(state, o.flag);
@@ -269,6 +307,11 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   const factor = audienceFactor(start.listeners);
   const reaches = (check: ReachCheck, segment: SegmentId, signal: number) =>
     reachPasses(check, segment, signal, factor, start.trust[check.faction]);
+  // Hedged reads: only news with a hedged script can be read that way.
+  const hedged = new Set((perf.hedged ?? []).filter((id) => {
+    const c = byId.get(id);
+    return c?.kind === 'news' && !!c.hedge;
+  }));
   const lines: DawnLine[] = [];
   const show = perf.rundown.map((id) => byId.get(id)!);
   const signalAt = (i: number) => Math.max(0, Math.min(1, perf.signal[i] ?? 1));
@@ -287,8 +330,9 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
       return;
     }
 
-    // Talk cards.
-    let fx: Effects = card.effects;
+    // Talk cards. A hedged read takes half the effect.
+    const isHedged = hedged.has(card.id);
+    let fx: Effects = isHedged ? hedgeEffects(card.effects) : card.effects;
     if (card.grim && next?.kind === 'record') {
       // Breather: a record right after hard news lets people take it in.
       fx = { ...fx, morale: Math.max(0, fx.morale ?? 0) };
@@ -310,7 +354,8 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     }
 
     if (card.reach) {
-      const passed = reaches(card.reach, segment, signal);
+      const check = isHedged ? { ...card.reach, threshold: card.reach.threshold * RULES.hedgeThreshold } : card.reach;
+      const passed = reaches(check, segment, signal);
       applyOutcome(state, passed ? card.reach.success : card.reach.fail, lines);
     }
   });
@@ -325,6 +370,17 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     if (!aired.has(card.id) && !otherAired.includes(card.id) && isTalk(card) && card.reach) {
       applyOutcome(state, card.reach.unaired ?? card.reach.fail, lines);
     }
+  }
+
+  // The running order torn up live. The paper notices the first time.
+  const swap = perf.swaps?.[0];
+  if (swap) {
+    const title = (id: string) => byId.get(id)?.title ?? id;
+    lines.push({
+      text: `You tore up the running order at ${slotClock(swap.slot)} and put "${title(swap.in)}" on instead of "${title(swap.out)}". The paper noticed.`,
+      tone: 'neutral',
+      rule: 'swap',
+    });
   }
 
   // The switchboards. Only lines that rang count: tonight-gated ones are checked against
@@ -381,12 +437,22 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   }
 
   // Blown tubes. The lost signal already cost listeners; this is what people say about it.
+  // A seated spare leaves the drawer; a bodge is its own story.
   for (const tube of eventsOf(night, 'tube')) {
-    const seconds = perf.tubes?.find((t) => t.id === tube.id)?.seconds;
-    if (seconds === undefined) continue;
+    const blew = perf.tubes?.find((t) => t.id === tube.id);
+    if (!blew) continue;
+    const { seconds, used, bodged } = blew;
+    if (used && TUBE_TYPES.includes(used)) state.spares[used] = Math.max(0, (state.spares[used] ?? 0) - 1);
     const secs = Math.round(seconds);
     const during = show[tube.at.slot]?.title ?? 'the show';
-    if (seconds <= TUBE.quickSeconds) {
+    const need = TUBE_TYPES[tube.socket];
+    if (bodged) {
+      applyEffects(state, RULES.tubeBodged);
+      const text = used
+        ? `The ${need} went and there wasn't another in the drawer. You ran the rest of the night on ${withArticle(used)} and a prayer. Past the breakwater they heard about half of it.`
+        : `The ${need} went and the drawer was empty. You ran the rest of the night on a jumper wire and a prayer. Past the breakwater they heard about half of it.`;
+      lines.push({ text, tone: 'bad', rule: 'tube' });
+    } else if (seconds <= TUBE.quickSeconds) {
       applyEffects(state, RULES.tubeQuick);
       lines.push({ text: `A tube blew in the middle of "${during}". You had a spare seated before most people noticed.`, tone: 'good', rule: 'tube' });
     } else if (seconds >= TUBE.slowSeconds) {
@@ -426,9 +492,9 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   if (avgSignal < 0.6) lines.push({ text: 'Half the town heard more static than show.', tone: 'bad' });
   else if (avgSignal > 0.9 && !storms.length) lines.push({ text: 'Clear signal all night. They heard you all the way up in the Chapel bell tower.', tone: 'good' });
 
-  // Lies come apart at dawn.
+  // Lies come apart at dawn, unless the station said it couldn't vouch for them.
   for (const card of show) {
-    if (card.kind === 'news' && card.truth === 'false' && card.unravel) {
+    if (card.kind === 'news' && card.truth === 'false' && card.unravel && !hedged.has(card.id)) {
       applyEffects(state, { credibility: card.unravel.credibility });
       lines.push({ text: card.unravel.line, tone: 'bad' });
     }

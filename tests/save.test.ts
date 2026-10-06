@@ -32,6 +32,15 @@ describe('save', () => {
     expect(r!.town.people).toEqual({});
   });
 
+  it('fills a missing or broken spares drawer from the starting one', () => {
+    expect(parseRun(JSON.stringify({ version: 1, index: 1, town: {} }))!.town.spares).toEqual(STARTING_STATE.spares);
+    const r = parseRun(JSON.stringify({ version: 1, index: 1, town: { spares: { '5U4': 0, '866': 3, '807': -1, '6L6': 'x', nope: 4 } } }));
+    expect(r!.town.spares).toEqual({ ...STARTING_STATE.spares, '5U4': 0, '866': 3 });
+    const town = cloneState(STARTING_STATE);
+    town.spares['5U4'] = 0;
+    expect(parseRun(serializeRun({ index: 1, town }))!.town.spares['5U4']).toBe(0);
+  });
+
   it('keeps only known people with sane counts', () => {
     const r = parseRun(JSON.stringify({ version: 1, index: 0, town: { people: { grace: { cut: 2, aired: 'x' }, nobody: { cut: 1 }, lottie: 7 } } }));
     expect(r!.town.people).toEqual({ grace: { aired: 0, cut: 2, dumped: 0, ignored: 0 } });
