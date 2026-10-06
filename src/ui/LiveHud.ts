@@ -5,9 +5,9 @@ import Phaser from 'phaser';
 import { UI } from '../art/palette';
 import type { Card } from '../sim/types';
 import { KIND_TAG } from './RundownBuilder';
-import { bar, label, panel } from './widgets';
+import { bar, button, label, panel, type Button } from './widgets';
 
-export type CueState = 'hidden' | 'waiting' | 'open' | 'cued' | 'dead' | 'needleNext' | 'needle';
+export type CueState = 'hidden' | 'waiting' | 'open' | 'cued' | 'cuedHedged' | 'dead' | 'needleNext' | 'needle';
 
 const TP = { x: 12, y: 290, w: 446, h: 64 };
 const CUE = { x: 464, y: 290, w: 164, h: 64 };
@@ -32,6 +32,8 @@ export class LiveHud {
   private cueNext: Phaser.GameObjects.Text;
   private cueHint: Phaser.GameObjects.Text;
   private cueGfx: Phaser.GameObjects.Graphics;
+  private deskBtn: Button;
+  private deskHandler: () => void = () => {};
   /** Pointer held on the tuning gauge: -1 left half, 1 right half. */
   pointerTune = 0;
 
@@ -65,6 +67,9 @@ export class LiveHud {
     add(label(scene, CUE.x + 8, CUE.y + 2, 'UP NEXT', { size: 14, color: UI.amber }));
     this.cueNext = add(label(scene, CUE.x + 8, CUE.y + 18, '', { size: 15, color: UI.text, wrap: CUE.w - 16 }));
     this.cueHint = add(label(scene, CUE.x + 8, CUE.y + 46, '', { size: 14, color: UI.dim }));
+    this.deskBtn = button(scene, CUE.x + CUE.w - 66, CUE.y + 4, 60, 14, 'THE DESK', () => this.deskHandler(), { size: 13 });
+    this.deskBtn.container.setVisible(false);
+    add(this.deskBtn.container);
 
     // Tuning gauge: only shown while the transmitter needs a hand (storms).
     const tune: Phaser.GameObjects.GameObject[] = [panel(scene, TUNE.x, TUNE.y, TUNE.w, TUNE.h)];
@@ -107,6 +112,24 @@ export class LiveHud {
     this.clockText.setText(text);
     this.deadText.setX(this.clockText.x + this.clockText.width + 14);
     this.deadText.setText(deadAir > 0.05 ? `dead air ${deadAir.toFixed(1)}s` : '');
+  }
+
+  /** What THE DESK button in the cue box does. */
+  setDeskHandler(onDesk: () => void): void {
+    this.deskHandler = onDesk;
+  }
+
+  /** Show THE DESK button while the desk can be opened; `open` lights it. */
+  setDesk(available: boolean, open = false): void {
+    this.deskBtn.container.setVisible(available || open);
+    this.deskBtn.setLabel(open ? 'CLOSE' : 'THE DESK');
+  }
+
+  /** Relabel the running-order chips after a swap; hedged slots read `NEWS*`. */
+  setChips(hedged: ReadonlySet<number> = new Set()): void {
+    this.cards.forEach((c, i) => {
+      this.chipText[i]?.setText(`${KIND_TAG[c.kind].tag}${hedged.has(i) ? '*' : ''}`).setColor(KIND_TAG[c.kind].color);
+    });
   }
 
   setOrder(current: number, done: number): void {
@@ -165,7 +188,8 @@ export class LiveHud {
     bar(g, x0, TUNE.y + 44, w, 3, quality, qColor);
   }
 
-  setCue(state: CueState, nextTitle: string, deadSeconds = 0): void {
+  /** `hedge`: the next item can be read hedged, so the hint offers H as well as SPACE. */
+  setCue(state: CueState, nextTitle: string, deadSeconds = 0, hedge = false): void {
     const g = this.cueGfx;
     g.clear();
     if (state === 'hidden') {
@@ -175,13 +199,14 @@ export class LiveHud {
     }
     const hint = {
       waiting: 'cue opens near the end',
-      open: 'SPACE to cue it',
-      cued: 'cued - rolls next',
-      dead: `DEAD AIR ${deadSeconds.toFixed(1)}s - SPACE!`,
+      open: hedge ? 'SPACE run it · H hedge it' : 'SPACE to cue it',
+      cued: hedge ? 'cued - H to hedge it' : 'cued - rolls next',
+      cuedHedged: 'cued hedged - rolls next',
+      dead: `DEAD AIR ${deadSeconds.toFixed(1)}s - SPACE${hedge ? '/H' : '!'}`,
       needleNext: 'record - the arm swings in',
       needle: 'SPACE - drop the needle',
     }[state];
-    const color = { waiting: UI.dim, open: UI.hot, cued: UI.good, dead: UI.bad, needleNext: UI.dim, needle: UI.hot }[state];
+    const color = { waiting: UI.dim, open: UI.hot, cued: UI.good, cuedHedged: UI.good, dead: UI.bad, needleNext: UI.dim, needle: UI.hot }[state];
     this.cueNext.setText(nextTitle);
     this.cueHint.setText(hint).setColor(color);
     const pulse = state === 'dead' || state === 'open' || state === 'needle' ? 0.55 + 0.45 * Math.abs(Math.sin(this.scene.time.now / 160)) : 1;

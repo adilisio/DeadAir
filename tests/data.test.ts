@@ -84,6 +84,15 @@ describe.each(NIGHTS.map((n) => [n.number, n] as const))('night %i content', (_n
     for (const c of night.cards) if (c.kind === 'record') expect(resolveRecord(c.recordId), c.id).toBeDefined();
   });
 
+  it('says where every news story came from, and keeps hedges short of the full read', () => {
+    for (const c of night.cards) {
+      if (c.kind !== 'news') continue;
+      expect(c.source.trim().length, c.id).toBeGreaterThan(0);
+      expect(c.blurb, `${c.id}: blurbs don't say what's true`).not.toMatch(/^(True|False|Rumor)\b/);
+      if (c.hedge) expect(c.hedge.length, c.id).toBeGreaterThan(20);
+    }
+  });
+
   it('gives every talk card a script and every card a blurb', () => {
     for (const c of night.cards) {
       expect(c.blurb.length, c.id).toBeGreaterThan(0);
@@ -121,7 +130,9 @@ describe.each(NIGHTS.map((n) => [n.number, n] as const))('night %i content', (_n
         expect(w.min !== undefined || w.max !== undefined, w.stat).toBe(true);
       }
     }
-    for (const c of night.cards) expect(c.gate?.tonight, `${c.id}: tonight-gates are for switchboard lines`).toBeUndefined();
+    for (const c of night.cards) {
+      for (const id of [...(c.gate?.tonight?.aired ?? []), ...(c.gate?.tonight?.notAired ?? [])]) expect(ids.has(id), `${c.id}: ${id}`).toBe(true);
+    }
     for (const l of allLines(night)) {
       for (const id of [...(l.gate?.tonight?.aired ?? []), ...(l.gate?.tonight?.notAired ?? [])]) expect(ids.has(id), `${l.id}: ${id}`).toBe(true);
     }

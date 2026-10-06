@@ -1,15 +1,18 @@
-// Dawn: the town's report on the night, as a three-page morning ledger.
+// Dawn: the town's report on the night, as a morning ledger of a few pages: the numbers,
+// what people are saying, the notices (classifieds to spend chits on), and a letter.
 import Phaser from 'phaser';
 import { ART_SCALE, DEBUG, H } from '../config';
 import { markPhase } from '../debugHook';
 import { applyScreenLook, glow, splitCameras } from './fx';
 import { EXTERIOR } from '../art/exterior';
 import { hex, P } from '../art/palette';
-import { hasNextNight, nextNight, run, resetRun } from '../run';
+import { buyClassified, hasNextNight, nextNight, run, resetRun } from '../run';
+import { alreadyBought, canBuy, classifiedsFor } from '../sim/classifieds';
+import { TUBE_TYPES } from '../sim/tube';
 import { resolveNight } from '../sim/resolver';
 import { letterText } from '../sim/nights';
 import { eventsOf } from '../sim/events';
-import { FACTIONS, FACTION_NAMES, type DawnLine, type NightResult } from '../sim/types';
+import { FACTIONS, FACTION_NAMES, type Classified, type DawnLine, type NightResult } from '../sim/types';
 import { button, label } from '../ui/widgets';
 import { audio } from '../audio/engine';
 
@@ -55,7 +58,8 @@ export class DawnScene extends Phaser.Scene {
     g.fillRect(PAPER.x + 12, PAPER.y + 57, PAPER.w - 24, 1);
 
     this.content = ui(this.add.container(0, 0));
-    this.pages = [(c) => this.pageNumbers(c), ...this.storyPages(), (c) => this.pageOther(c)];
+    const notices = classifiedsFor(run.night, this.result.after).length ? [(c: Phaser.GameObjects.Container) => this.pageNotices(c)] : [];
+    this.pages = [(c) => this.pageNumbers(c), ...this.storyPages(), ...notices, (c) => this.pageOther(c)];
 
     const next = button(this, PAPER.x + PAPER.w - 150, PAPER.y + PAPER.h - 30, 138, 20, 'TURN THE PAGE >', () => this.turn(1), { size: 16, color: 0x5a3a20, textColor: INK, dimColor: INK_DIM });
     const prev = button(this, PAPER.x + 12, PAPER.y + PAPER.h - 30, 90, 20, '< BACK', () => this.turn(-1), { size: 16, color: 0x5a3a20, textColor: INK, dimColor: INK_DIM });
@@ -120,9 +124,12 @@ export class DawnScene extends Phaser.Scene {
       y += 20;
     };
     for (const [name, b, a, max] of rows) drawRow(name, b, a, max, hex(INK));
-    y += 10;
+    // The drawer, one line.
+    const spares = TUBE_TYPES.map((t) => `${t} x${after.spares[t] ?? 0}`).join('  ');
+    c.add(label(this, x, y, `SPARES  ${spares}`, { size: 15, color: INK_DIM }));
+    y += 22;
     c.add(label(this, x, y, 'WHO TRUSTS THE LAMP', { size: 20, color: INK }));
-    y += 26;
+    y += 24;
     const fColor = { netters: 0x2b7f92, chapel: 0x6f4f9a, linemen: 0xa4501f };
     for (const f of FACTIONS) drawRow(`The ${FACTION_NAMES[f]}`, before.trust[f], after.trust[f], 100, fColor[f]);
   }
@@ -164,6 +171,37 @@ export class DawnScene extends Phaser.Scene {
         y += t.height + 10;
       });
     });
+  }
+
+  /** The classifieds: chits for a spare or a record, one click each. */
+  private pageNotices(c: Phaser.GameObjects.Container): void {
+    markPhase('dawn-notices');
+    const town = this.result.after;
+    const x = PAPER.x + 20;
+    let y = PAPER.y + 66;
+    c.add(label(this, x, y, 'NOTICES', { size: 20, color: INK }));
+    c.add(label(this, PAPER.x + PAPER.w - 20, y + 4, `chits in the jar: ${town.chits}`, { size: 16, color: INK_DIM }).setOrigin(1, 0));
+    y += 26;
+    c.add(label(this, x, y, 'CLASSIFIEDS', { size: 14, color: INK_DIM }));
+    y += 18;
+    const btnW = 112;
+    for (const ad of classifiedsFor(run.night, town)) {
+      const text = label(this, x, y, ad.text, { size: 16, color: INK, wrap: PAPER.w - 40 - btnW - 10 });
+      const bought = alreadyBought(town, ad);
+      const b = button(this, PAPER.x + PAPER.w - 20 - btnW, y, btnW, 20, bought ? 'BOUGHT' : `BUY - ${ad.cost} chits`, () => this.buyAd(ad), {
+        size: 16, color: 0x5a3a20, textColor: INK, dimColor: INK_DIM,
+      });
+      b.setEnabled(canBuy(town, ad));
+      c.add([text, b.container]);
+      y += Math.max(text.height, 20) + 14;
+    }
+  }
+
+  private buyAd(ad: Classified): void {
+    if (!buyClassified(ad) || !run.result) return;
+    this.result = run.result;
+    audio.sfx('thunk');
+    this.showPage(this.page);
   }
 
   private pageOther(c: Phaser.GameObjects.Container): void {

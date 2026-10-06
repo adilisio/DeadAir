@@ -5,7 +5,9 @@ import { STARTING_STATE, cloneState, resolveNight } from './sim/resolver';
 import { openNight } from './sim/nights';
 import { eventsOf } from './sim/events';
 import { parseRun, serializeRun, type SavedRun } from './sim/save';
-import type { NightDef, NightResult, TownState } from './sim/types';
+import { buy } from './sim/classifieds';
+import { TUBE_TYPES } from './sim/tube';
+import type { Classified, NightDef, NightResult, ShowPerformance, TownState } from './sim/types';
 
 export const run: { index: number; night: NightDef; town: TownState; result: NightResult | null } = {
   index: 0,
@@ -31,6 +33,19 @@ export function finishNight(result: NightResult): void {
   run.result = result;
   if (hasNextNight()) writeSave({ index: run.index + 1, town: result.after });
   else clearSave();
+}
+
+/**
+ * Answer a classified at dawn: spend from the night's result and save it again, so the
+ * next night starts with the purchase. False if there's no result or it can't be bought.
+ */
+export function buyClassified(c: Classified): boolean {
+  if (!run.result) return false;
+  const after = buy(run.result.after, c);
+  if (!after) return false;
+  run.result = { ...run.result, after };
+  if (hasNextNight()) writeSave({ index: run.index + 1, town: after });
+  return true;
 }
 
 /** After dawn: carry the town into the next night. */
@@ -99,7 +114,7 @@ export function clearSave(): void {
 
 /**
  * The town as it would stand before night `index` if every earlier night went like its
- * ?auto show (all callers put on, Morse copied). For ?night=N.
+ * ?auto show (all callers put on, Morse copied, each tube swapped from the drawer). For ?night=N.
  */
 export function townBefore(index: number): TownState {
   let town = cloneState(STARTING_STATE);
@@ -111,7 +126,19 @@ export function townBefore(index: number): TownState {
       deadAirSeconds: 0,
       calls: eventsOf(night, 'switchboard').flatMap((b) => b.lines.filter((l) => !l.turn).map((l) => ({ line: l.id }))),
       morse: eventsOf(night, 'morse').map((m) => ({ id: m.id, result: 'decoded' as const })),
+      tubes: autoTubes(night, town),
     }).after;
   }
   return town;
+}
+
+/** The ?auto show's tubes: each swapped for a spare of its type while the drawer has one. */
+function autoTubes(night: NightDef, town: TownState): NonNullable<ShowPerformance['tubes']> {
+  const drawer = { ...town.spares };
+  return eventsOf(night, 'tube').map((t) => {
+    const need = TUBE_TYPES[t.socket];
+    if ((drawer[need] ?? 0) <= 0) return { id: t.id, seconds: 3, bodged: true };
+    drawer[need] -= 1;
+    return { id: t.id, seconds: 3, used: need };
+  });
 }

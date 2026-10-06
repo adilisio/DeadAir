@@ -4,6 +4,7 @@
 
 import { FACTIONS, type PersonRecord, type TownState } from './types';
 import { STARTING_STATE, cloneState } from './resolver';
+import { TUBE_TYPES } from './tube';
 import { PEOPLE, type PersonId } from '../data/people';
 
 export const SAVE_VERSION = 1;
@@ -44,6 +45,13 @@ export function parseRun(s: string | null | undefined): SavedRun | null {
       if (!(id in PEOPLE) || !isObj(rec)) continue;
       const r: PersonRecord = { aired: count(rec.aired), cut: count(rec.cut), dumped: count(rec.dumped), ignored: count(rec.ignored) };
       town.people[id as PersonId] = r;
+    }
+  }
+  // The spares drawer (added after version 1 shipped): missing or broken counts keep the default.
+  if (isObj(raw.spares)) {
+    for (const t of TUBE_TYPES) {
+      const v = raw.spares[t];
+      if (typeof v === 'number' && Number.isInteger(v) && v >= 0) town.spares[t] = v;
     }
   }
   return { index, town };

@@ -49,7 +49,8 @@ export const NIGHT_1: NightDef = {
     // ── News ─────────────────────────────────────────────────
     {
       id: 'news_infirmary', kind: 'news', truth: 'true', title: 'The Chapel infirmary opens its doors',
-      blurb: 'True. Medicine came in on a trader boat. Good news, plain and simple.',
+      source: 'Sister Agnes, by note',
+      blurb: "A note in Sister Agnes's hand: medicine came in on a trader boat, and the infirmary will see anyone.",
       script:
         "Some good news for once. Sister Agnes up at the Chapel says a trader boat brought in a crate of sulfa powder, and the infirmary will see anybody with a fever. No questions, no tithe. Go see her. Then thank her.",
       effects: { morale: 6, trust: { chapel: 6 } },
@@ -57,17 +58,23 @@ export const NIGHT_1: NightDef = {
     },
     {
       id: 'news_wiring', kind: 'news', truth: 'rumor', title: 'Wiring pulled from the Chapel',
-      blurb: "Rumor. Someone pulled the wiring out of the Chapel's old wing. People saw a Linemen cart.",
+      source: 'Church Road talk',
+      blurb: "Church Road says the wiring's gone from the Chapel's old wing, and a Linemen cart was seen. You haven't been up to look.",
       script:
         "Now, I can't swear to this one. But folks up at the Chapel say somebody pulled the wiring out of the old infirmary wing last week, and a few of them say they saw a Linemen cart on Church Road. If somebody's lighting up a substation with the Chapel's walls, they owe this town an explanation.",
+      hedge:
+        "This one's going around Church Road, and I'll tell you straight, I haven't seen a thing myself. Folks say the wiring's gone from the Chapel's old infirmary wing. Some say there was a Linemen cart. Nobody's shown me anything. If you know more, the Lamp would like to hear it.",
       effects: { trust: { chapel: 4, linemen: -8 }, credibility: -2 },
       helps: 'chapel',
     },
     {
       id: 'news_wells', kind: 'news', truth: 'false', title: 'Poison in the east wells',
-      blurb: 'An unsigned note under the door blaming the Linemen. No proof. It would make one hell of a broadcast.',
+      source: 'an unsigned note under the door',
+      blurb: "No name on it, and it blames the Linemen. Nobody's tested the wells that you know of. It would make one hell of a broadcast.",
       script:
         "I got a note tonight. No name on it. It says the Linemen's new substation is leaking transformer oil into the east wells, and that they know it. Boil your water, Port Vesper. Boil all of it.",
+      hedge:
+        "I got a note tonight with no name on it, and I can't stand behind it. It says the new substation might be leaking into the east wells. Nobody's tested anything that I know of. If you want to be careful, boil your water till somebody does.",
       effects: { morale: -6, safety: 4, trust: { linemen: -8 }, listeners: 25 },
       grim: true,
       unravel: {
@@ -277,6 +284,17 @@ export const NIGHT_1: NightDef = {
     // A messier show, so the ledger has plenty to report.
     demo: ['news_wells', 'rec_harris', 'ad_tonic', 'ad_fish', 'warn_ice', 'rec_moonlight'],
   },
+
+  classifieds: [
+    {
+      id: 'n1_ad_5u4', cost: 7, gives: { spare: '5U4' },
+      text: "Ridge Road yard: one 5U4 rectifier, tested, seven chits or a week's fish.",
+    },
+    {
+      id: 'n1_ad_aint_we_got_fun', cost: 5, gives: { record: 'aint_we_got_fun' },
+      text: 'For sale, one side only good: "Ain\'t We Got Fun", Billy Jones. Five chits. Ask for Lottie.',
+    },
+  ],
 };
 
 export const NIGHT_1_AUTO_RUNDOWN = NIGHT_1.rundowns.auto;

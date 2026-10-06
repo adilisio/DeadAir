@@ -71,7 +71,12 @@ export function voiceLines(nights: NightDef[]): VoiceLine[] {
   for (const night of nights) {
     add('dj', night.signOn);
     add('dj', night.signOff);
-    for (const card of night.cards) if (card.kind !== 'record') add('dj', card.script);
+    for (const card of night.cards) {
+      if (card.kind === 'record') continue;
+      add('dj', card.script);
+      // A hedged read is its own line.
+      if (card.kind === 'news') add('dj', card.hedge);
+    }
     for (const line of callerLines(night)) {
       add(line.person, line.preview);
       add(line.person, line.script);
