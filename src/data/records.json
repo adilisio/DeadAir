@@ -132,6 +132,126 @@
       "sourceFile": "DOWN BY THE OLD MILL STREAM - BALLARD AND NAIR.mp3",
       "file": "old_mill_stream.mp3",
       "fallback": "waltz"
+    },
+    {
+      "id": "crazy_blues",
+      "title": "Crazy Blues",
+      "performer": "Noble Sissle",
+      "year": 1921,
+      "label": "Edison",
+      "composer": "Perry Bradford (1920)",
+      "archiveId": "78_crazy-blues_noble-sissle-perry-bradford_gbia0178694a",
+      "sourceFile": "Crazy Blues - NOBLE SISSLE - Perry Bradford.mp3",
+      "file": "crazy_blues.mp3",
+      "fallback": "blues"
+    },
+    {
+      "id": "tiger_rag",
+      "title": "Tiger Rag",
+      "performer": "Friars Society Orchestra",
+      "year": 1922,
+      "label": "Gennett",
+      "composer": "Original Dixieland Jazz Band / Nick LaRocca (1917)",
+      "archiveId": "78_tiger-rag_friars-society-orchestra-husk-ohara_gbia0446634b",
+      "sourceFile": "Tiger Rag - Friars Society Orchestra - Husk O'Hara.mp3",
+      "file": "tiger_rag.mp3",
+      "fallback": "ragtime"
+    },
+    {
+      "id": "abide_with_me",
+      "title": "Abide with Me",
+      "performer": "Alma Gluck & Louise Homer",
+      "year": 1914,
+      "label": "Victrola",
+      "composer": "William H. Monk & Henry F. Lyte (1861/1847)",
+      "archiveId": "78_abide-with-me_alma-gluck-louise-homer-h-f-lyte-wm-h-monk_gbia0452095a",
+      "sourceFile": "Abide with Me - Alma Gluck-Louise Homer - H. F. Lyte.mp3",
+      "file": "abide_with_me.mp3",
+      "fallback": "ballad"
+    },
+    {
+      "id": "rock_of_ages",
+      "title": "Rock of Ages",
+      "performer": "Music Lovers Quartette",
+      "year": 1920,
+      "label": "National Music Lovers",
+      "composer": "Thomas Hastings & Augustus Toplady (1830/1763)",
+      "archiveId": "78_rock-of-ages_music-lovers-quartette_gbia0176329b",
+      "sourceFile": "ROCK OF AGES - MUSIC LOVERS QUARTETTE.mp3",
+      "file": "rock_of_ages.mp3",
+      "fallback": "ballad"
+    },
+    {
+      "id": "aint_we_got_fun",
+      "title": "Ain't We Got Fun",
+      "performer": "Billy Jones",
+      "year": 1921,
+      "label": "Edison",
+      "composer": "Richard A. Whiting, Gus Kahn & Raymond B. Egan (1921)",
+      "archiveId": "78_aint-we-got-fun_billy-jones-richard-a-whiting_gbia0189578b",
+      "sourceFile": "Ain't We Got Fun - BILLY JONES - Richard A. Whiting.mp3",
+      "file": "aint_we_got_fun.mp3",
+      "fallback": "ragtime"
+    },
+    {
+      "id": "carolina_morning",
+      "title": "Carolina in the Morning",
+      "performer": "Billy Burton & Everett Clark",
+      "year": 1922,
+      "label": "Banner",
+      "composer": "Walter Donaldson & Gus Kahn (1922)",
+      "archiveId": "78_carolina-in-the-morning_billy-burton-and-everett-clark-gus-kahn-and-walter-donaldso_gbia0336418a",
+      "sourceFile": "CAROLINA IN THE MORNING - Billy Burton and Everett Clark.mp3",
+      "file": "carolina_morning.mp3",
+      "fallback": "ragtime"
+    },
+    {
+      "id": "kathleen",
+      "title": "I'll Take You Home Again, Kathleen",
+      "performer": "Walter Van Brunt",
+      "year": 1914,
+      "label": "Edison",
+      "composer": "Thomas P. Westendorf (1875)",
+      "archiveId": "78_ill-take-you-home-again-kathleen_walter-van-brunt-thomas-p-westendorf_gbia0087999b",
+      "sourceFile": "I'll Take You Home Again, Kathleen - Walter Van Brunt.mp3",
+      "file": "kathleen.mp3",
+      "fallback": "waltz"
+    },
+    {
+      "id": "maggie",
+      "title": "When You and I Were Young, Maggie",
+      "performer": "Henry Burr & Peerless Quartet",
+      "year": 1923,
+      "label": "Montgomery Ward",
+      "composer": "J. A. Butterfield & George W. Johnson (1866)",
+      "archiveId": "78_when-you-and-i-were-young-maggie_henry-burr-and-peerless-quartet-george-w.-johnson_gbia0009356a",
+      "sourceFile": "When You And I Were Youn - Henry Burr and Peerless Quartet.mp3",
+      "file": "maggie.mp3",
+      "fallback": "waltz"
+    },
+    {
+      "id": "over_there",
+      "title": "Over There",
+      "performer": "Enrico Caruso",
+      "year": 1918,
+      "label": "His Master's Voice",
+      "composer": "George M. Cohan (1917)",
+      "archiveId": "78_over-there_enrico-caruso-cohan_gbia0077684b",
+      "sourceFile": "Over There - Enrico Caruso - Cohan.mp3",
+      "file": "over_there.mp3",
+      "fallback": "march"
+    },
+    {
+      "id": "ships_sailing_home",
+      "title": "When My Ships Come Sailing Home",
+      "performer": "John McCormack",
+      "year": 1915,
+      "label": "Victrola",
+      "composer": "Francis Dorel & Reginald Stewart (1905)",
+      "archiveId": "78_when-my-ships-come-sailing-home_john-mccormack-reginald-stewart-francis-dorel_gbia0520085a",
+      "sourceFile": "When My Ships Come Sailing Home - John McCormack.mp3",
+      "file": "ships_sailing_home.mp3",
+      "fallback": "ballad"
     }
   ]
 }

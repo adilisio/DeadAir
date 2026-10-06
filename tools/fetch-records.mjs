@@ -5,7 +5,8 @@
 //   npm run records -- --force -> fetch them all again
 //   npm run records -- --credits -> only rewrite CREDITS.md
 //
-// With ffmpeg on the PATH, each side is converted to a small mono MP3 with leading
+// With ffmpeg on the PATH, each side is converted to a small mono MP3 (first 95 s: the game
+// plays 75 s, plus a late needle drop) with leading
 // silence trimmed and loudness evened out. Without ffmpeg the original file is kept.
 // Downloads use Node's fetch, falling back to curl (handy behind proxies).
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, renameSync } from 'node:fs';
@@ -46,8 +47,8 @@ if (!creditsOnly) {
       await download(url, tmp);
       if (hasFfmpeg) {
         const ff = spawnSync('ffmpeg', [
-          '-y', '-loglevel', 'error', '-i', tmp,
-          '-ac', '1', '-ar', '22050',
+          '-y', '-loglevel', 'error', '-i', tmp, '-vn', '-map_metadata', '-1',
+          '-ac', '1', '-ar', '22050', '-t', '95',
           '-af', 'silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.2,loudnorm=I=-18:TP=-2:LRA=11',
           '-codec:a', 'libmp3lame', '-b:a', '64k', dest,
         ], { stdio: 'inherit' });
