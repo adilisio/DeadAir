@@ -18,4 +18,8 @@ export const DEBUG = {
   scene: params.get('scene') ?? '',
   /** Start the run at this night (1-based), as if earlier nights went like their ?auto shows. */
   night: Number(params.get('night') ?? 1) || 1,
+  /** Whether ?night was given (it wins over a saved run). */
+  nightGiven: params.has('night'),
+  /** Forget the saved run. */
+  reset: params.has('reset'),
 };

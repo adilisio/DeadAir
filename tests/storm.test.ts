@@ -4,9 +4,10 @@ import { STARTING_STATE, resolveNight } from '../src/sim/resolver';
 import { Tuning } from '../src/sim/tuning';
 import { rng } from '../src/audio/pressings';
 import { NIGHT_1, NIGHT_1_AUTO_RUNDOWN } from '../src/data/night1';
-import type { ShowPerformance } from '../src/sim/types';
+import { eventsOf } from '../src/sim/events';
+import type { NightDef, ShowPerformance } from '../src/sim/types';
 
-const storm = NIGHT_1.storm!;
+const storm = eventsOf(NIGHT_1, 'storm')[0];
 
 function perf(signal: number[]): ShowPerformance {
   return { rundown: NIGHT_1_AUTO_RUNDOWN, signal, deadAirSeconds: 0, calls: [] };
@@ -36,6 +37,17 @@ describe('storms', () => {
     for (const s of storm.slots) lost[s] = 0.3;
     const r = resolveNight(NIGHT_1, STARTING_STATE, perf(lost));
     expect(r.lines.some((l) => l.text === storm.lost.line)).toBe(true);
+  });
+
+  it('blows in every storm a night has, and reports each one', () => {
+    const second = { ...storm, id: 'second', slots: [0], held: { line: 'second held', effects: {} }, lost: { line: 'second lost', effects: {} } };
+    const night: NightDef = { ...NIGHT_1, events: [...NIGHT_1.events, second] };
+    expect(windForSlot(night, 0)).toBe(STORM_WIND);
+    expect(windForSlot(night, 3)).toBe(STORM_WIND);
+    expect(windForSlot(night, 1)).toBe(CALM_WIND);
+    const r = resolveNight(night, STARTING_STATE, perf([0.3, 1, 1, 1, 1, 1]));
+    expect(r.lines.some((l) => l.text === storm.held.line)).toBe(true);
+    expect(r.lines.some((l) => l.text === 'second lost')).toBe(true);
   });
 
   it('a calm transmitter settles back toward 1260 on its own', () => {

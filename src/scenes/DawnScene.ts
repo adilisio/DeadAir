@@ -8,6 +8,7 @@ import { hex, P } from '../art/palette';
 import { hasNextNight, nextNight, run, resetRun } from '../run';
 import { resolveNight } from '../sim/resolver';
 import { letterText } from '../sim/nights';
+import { eventsOf } from '../sim/events';
 import { FACTIONS, FACTION_NAMES, type DawnLine, type NightResult } from '../sim/types';
 import { button, label } from '../ui/widgets';
 import { audio } from '../audio/engine';
@@ -226,7 +227,7 @@ function demoResult(): NightResult {
     rundown: run.night.rundowns.demo,
     signal: [1, 0.9, 0.6, 0.8, 1, 1],
     deadAirSeconds: 6,
-    calls: run.night.switchboard.lines.slice(0, 2).map((l) => ({ line: l.id })),
+    calls: (eventsOf(run.night, 'switchboard')[0]?.lines ?? []).slice(0, 2).map((l) => ({ line: l.id })),
   });
 }
 

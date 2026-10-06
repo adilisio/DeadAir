@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { W, H, ART_SCALE } from '../config';
-import { markPhase } from '../debugHook';
+import { W, H, ART_SCALE, DEBUG } from '../config';
+import { exposeDebug, markPhase } from '../debugHook';
+import { loadRun, resetRun, savedRun } from '../run';
 import { EXTERIOR } from '../art/exterior';
 import { hex, P, UI } from '../art/palette';
 import { applyScreenLook, glow } from './fx';
@@ -38,20 +39,35 @@ export class TitleScene extends Phaser.Scene {
       .text(W * 0.27, H * 0.43, 'click to sign on', { fontFamily: 'VT323', fontSize: '24px', color: UI.text })
       .setOrigin(0.5);
     this.tweens.add({ targets: prompt, alpha: 0.35, duration: 1100, yoyo: true, repeat: -1 });
+    // A saved run: ENTER or a click on this line continues it; anything else starts over.
+    const saved = DEBUG.nightGiven ? null : savedRun();
+    const cont = saved
+      ? this.add
+          .text(W * 0.27, H * 0.43 + 30, `continue: night ${saved.index + 1}  (enter)`, { fontFamily: 'VT323', fontSize: '22px', color: UI.amber })
+          .setOrigin(0.5)
+          .setInteractive({ useHandCursor: true })
+      : null;
+    if (cont) prompt.setText('click to sign on: a new run');
     this.add
       .text(W - 8, H - 6, 'headphones recommended', { fontFamily: 'VT323', fontSize: '16px', color: UI.dim })
       .setOrigin(1, 1);
 
     applyScreenLook(this, { bloom: 0.9 });
 
-    const go = () => {
+    let started = false;
+    const go = (continueRun: boolean) => {
+      if (started) return;
+      started = true;
+      // A new run leaves the old save alone until this run saves over it at its first dawn.
+      if (!(continueRun && loadRun()) && !DEBUG.nightGiven) resetRun();
       audio.unlock();
       audio.sfx('thunk');
       this.cameras.main.fadeOut(600, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Booth'));
     };
-    this.input.once('pointerdown', go);
-    this.input.keyboard?.once('keydown', go);
+    this.input.once('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => go(!!cont && over.includes(cont)));
+    this.input.keyboard?.once('keydown', (e: KeyboardEvent) => go(!!cont && e.key === 'Enter'));
+    exposeDebug('continue', saved ? saved.index + 1 : null);
     markPhase('title');
   }
 

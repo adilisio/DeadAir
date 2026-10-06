@@ -15,7 +15,7 @@ import { mkdirSync } from 'node:fs';
 
 const filter = process.argv[2] ?? '';
 
-/** Each shot: open url, wait until the game reports `phase`, optionally run steps, then capture. */
+/** Each shot: open url (after putting `storage` in localStorage), wait until the game reports `phase`, then capture. */
 const SHOTS = [
   { name: '00-boot', query: '?mute', phase: 'boot', settle: 800 },
   { name: '01-title', query: '?mute', phase: 'title', settle: 1500 },
@@ -39,6 +39,8 @@ const SHOTS = [
   { name: '12-night2-morse', query: '?mute&scene=booth&night=2&auto&fast', phase: 'morse', settle: 2300, timeout: 150000 },
   { name: '13-night2-dawn', query: '?mute&scene=booth&night=2&auto&fast', phase: 'dawn-page-1', settle: 3600, timeout: 300000 },
   { name: '14-night2-letter', query: '?mute&scene=dawn&night=2&auto', phase: 'dawn-letter', settle: 1200, timeout: 90000 },
+  // A run saved after Night 1: the title offers to continue it.
+  { name: '15-continue', query: '?mute', phase: 'title', settle: 1500, storage: { 'deadair.save': JSON.stringify({ version: 1, index: 1, town: { flags: ['n1_teddy_found'] } }) } },
 ];
 
 const server = await createServer({ server: { port: 5199, strictPort: false }, logLevel: 'error' });
@@ -59,6 +61,11 @@ for (const shot of SHOTS.filter((s) => new RegExp(filter).test(s.name))) {
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('pageerror', (e) => errors.push(String(e)));
 
+  if (shot.storage) {
+    await page.addInitScript((items) => {
+      for (const [k, v] of Object.entries(items)) localStorage.setItem(k, v);
+    }, shot.storage);
+  }
   const started = Date.now();
   try {
     await page.goto(base + shot.query);

@@ -2,7 +2,8 @@
 // comes off the lake the wind and the old tubes push it around and the player
 // rides the dial.
 
-import type { NightDef, StormDef } from './types';
+import type { NightDef, StormEvent } from './types';
+import { eventsOf } from './events';
 
 export const CALM_WIND = 0;
 export const STORM_WIND = 1.4;
@@ -12,12 +13,13 @@ export const STORM_HELD = 0.85;
 /** Below this the storm took the station off the air. */
 export const STORM_LOST = 0.6;
 
+/** The wind in a slot: any of the night's storms blowing makes it stormy. */
 export function windForSlot(night: NightDef, slot: number): number {
-  return night.storm?.slots.includes(slot) ? STORM_WIND : CALM_WIND;
+  return eventsOf(night, 'storm').some((s) => s.slots.includes(slot)) ? STORM_WIND : CALM_WIND;
 }
 
-/** Mean signal over the storm's slots. */
-export function stormSignal(storm: StormDef, signal: number[]): number {
+/** Mean signal over one storm's slots. */
+export function stormSignal(storm: StormEvent, signal: number[]): number {
   if (!storm.slots.length) return 1;
   const sum = storm.slots.reduce((s, slot) => s + Math.max(0, Math.min(1, signal[slot] ?? 1)), 0);
   return sum / storm.slots.length;

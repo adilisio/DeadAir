@@ -3,7 +3,8 @@ import { MORSE, MorseCopy, chartFor, encode, keyState, passUnits, timeline } fro
 import { STARTING_STATE, resolveNight } from '../src/sim/resolver';
 import { NIGHT_1, NIGHT_1_AUTO_RUNDOWN } from '../src/data/night1';
 import { rng } from '../src/audio/pressings';
-import { SHOW_SLOTS, type ShowPerformance } from '../src/sim/types';
+import { eventsOf } from '../src/sim/events';
+import { SHOW_SLOTS, type NightDef, type ShowPerformance } from '../src/sim/types';
 
 const U = 1; // one second per unit keeps the arithmetic readable
 
@@ -67,7 +68,7 @@ describe('Morse', () => {
   });
 
   it('copying the signal helps the Netters; missing it costs them', () => {
-    const p = (morse?: 'decoded' | 'missed'): ShowPerformance => ({ rundown: NIGHT_1_AUTO_RUNDOWN, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [], morse });
+    const p = (result?: 'decoded' | 'missed'): ShowPerformance => ({ rundown: NIGHT_1_AUTO_RUNDOWN, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [], morse: result ? [{ id: 'n1_morse', result }] : undefined });
     const got = resolveNight(NIGHT_1, STARTING_STATE, p('decoded'));
     const lost = resolveNight(NIGHT_1, STARTING_STATE, p('missed'));
     expect(got.after.flags).toContain('n1_shanty_found');
@@ -76,11 +77,23 @@ describe('Morse', () => {
     expect(resolveNight(NIGHT_1, STARTING_STATE, p()).after.flags.some((f) => f.startsWith('n1_shanty'))).toBe(false);
   });
 
+  it('resolves each Morse event on its own', () => {
+    const first = eventsOf(NIGHT_1, 'morse')[0];
+    const second = { ...first, id: 'second', decoded: { ...first.decoded, flag: 'second_copied' }, missed: { ...first.missed, flag: 'second_missed' } };
+    const night: NightDef = { ...NIGHT_1, events: [...NIGHT_1.events, second] };
+    const r = resolveNight(night, STARTING_STATE, {
+      rundown: NIGHT_1_AUTO_RUNDOWN, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [],
+      morse: [{ id: 'second', result: 'missed' }, { id: 'n1_morse', result: 'decoded' }],
+    });
+    expect(r.after.flags).toEqual(expect.arrayContaining(['n1_shanty_found', 'second_missed']));
+    expect(r.after.flags).not.toContain('second_copied');
+  });
+
   it('night 1 keys a real word inside the show', () => {
-    const m = NIGHT_1.morse!;
+    const m = eventsOf(NIGHT_1, 'morse')[0];
     expect(() => encode(m.word)).not.toThrow();
-    expect(m.slot).toBeGreaterThanOrEqual(0);
-    expect(m.slot).toBeLessThan(SHOW_SLOTS);
+    expect(m.at.slot).toBeGreaterThanOrEqual(0);
+    expect(m.at.slot).toBeLessThan(SHOW_SLOTS);
     // At least a few passes before it fades.
     expect(m.seconds).toBeGreaterThan(passUnits(m.word) * 0.16 * 3);
   });

@@ -165,127 +165,128 @@ export const NIGHT_2: NightDef = {
     },
   ],
 
-  switchboard: {
-    slot: 1,
-    lines: [
-      {
-        id: 'call_grace_thanks', person: 'grace',
-        gate: { requires: ['n1_teddy_found'] },
-        name: 'Grace Okafor',
-        prompt: 'Mrs. Okafor again. cheerful',
-        preview: "It's Grace Okafor! I want to thank those Linemen boys. On the air, if you'll let me.",
-        script:
-          "Hello, it's Grace Okafor, on Elm. Last week I called this station crying, and the Linemen found my Teddy on pylon four. I want to say thank you, all of you, and I've baked enough bread to prove it. Come by Elm Street. Teddy will hand it out. He's grounded, so he's home.",
-        voice: { pitch: 1.35, rate: 1.05 },
-        aired: {
-          flag: 'n2_grace_thanks', tone: 'good',
-          effects: { morale: 4, trust: { linemen: 6 } },
-          line: "Half the Linemen night crew lined up on Elm Street for Grace Okafor's bread. Teddy handed it out, grounded and grinning.",
-        },
-        cut: {
-          flag: 'n2_grace_cut', tone: 'bad',
-          effects: { morale: -3, credibility: -2 },
-          line: 'You cut Grace Okafor off in the middle of a thank-you. Elm Street is not sure what to make of you.',
-        },
-      },
-      {
-        id: 'call_grace_angry', person: 'grace',
-        gate: { unless: ['n1_teddy_found'] },
-        name: 'Grace Okafor',
-        prompt: 'Mrs. Okafor. sounds angry',
-        preview: "You didn't help me last week. You can put me on now.",
-        script:
-          "This is Grace Okafor. Last week my boy spent the night on a pylon and froze half to death, and nobody came. I want the Linemen to hear this. You don't take children up those towers anymore. Not mine, not anybody's. Fourteen is too young. That's all.",
-        voice: { pitch: 1.3, rate: 1.0 },
-        aired: {
-          flag: 'n2_grace_spoke', tone: 'good',
-          effects: { credibility: 3, safety: 2, trust: { chapel: 3, linemen: -3 } },
-          line: 'Grace Okafor said her piece on the Lamp. The Linemen grumbled, then quietly put up a sign at the yard: nobody under sixteen.',
-        },
-        notTaken: {
-          flag: 'n2_grace_ignored', tone: 'bad',
-          effects: { morale: -2, credibility: -2 },
-          line: 'Mrs. Okafor called the Lamp again and nobody picked up. She says she has stopped listening.',
-        },
-        cut: {
-          flag: 'n2_grace_cut', tone: 'bad',
-          effects: { credibility: -4, trust: { chapel: -3 } },
-          line: 'You cut Grace Okafor off before she finished. Twice now this station has left her hanging, and Elm Street knows it.',
-        },
-      },
-      {
-        id: 'call_sparky', person: 'sparky',
-        name: 'Sparky',
-        prompt: "a man, excited. 'with the Linemen'",
-        preview: "Hey! Is this the radio? I'm with the Linemen, kind of. Everybody's got to come see this.",
-        script:
-          "Hey, Port Vesper! This is Sparky, I'm with the Linemen, kind of, I carry the spools. Tonight we're testing the Ridge Road line, and it is going to be beautiful. So everybody come on up to pylon six and see the lights! Bring the kids! Climb on up for a better look, it's perfectly safe!",
-        voice: { pitch: 1.2, rate: 1.15 },
-        aired: {
-          flag: 'n2_sparky_aired', tone: 'bad',
-          effects: { safety: -6, credibility: -3, trust: { linemen: -3 } },
-          line: 'Sparky told the whole town to climb pylon six during a live test, on your air. The Linemen spent the night chasing people off the tower. Nobody died. It was close.',
-        },
-        turn: {
-          at: 'So everybody come on up',
-          caught: {
-            flag: 'n2_sparky_dumped', tone: 'good',
-            effects: { safety: 2, credibility: 2, trust: { linemen: 2 } },
-            line: 'You dumped Sparky before he invited the whole town up a live pylon. The Linemen took his spools away for a week.',
+  events: [
+    {
+      kind: 'switchboard', id: 'n2_board', at: { slot: 1 },
+      lines: [
+        {
+          id: 'call_grace_thanks', person: 'grace',
+          gate: { requires: ['n1_teddy_found'] },
+          name: 'Grace Okafor',
+          prompt: 'Mrs. Okafor again. cheerful',
+          preview: "It's Grace Okafor! I want to thank those Linemen boys. On the air, if you'll let me.",
+          script:
+            "Hello, it's Grace Okafor, on Elm. Last week I called this station crying, and the Linemen found my Teddy on pylon four. I want to say thank you, all of you, and I've baked enough bread to prove it. Come by Elm Street. Teddy will hand it out. He's grounded, so he's home.",
+          voice: { pitch: 1.35, rate: 1.05 },
+          aired: {
+            flag: 'n2_grace_thanks', tone: 'good',
+            effects: { morale: 4, trust: { linemen: 6 } },
+            line: "Half the Linemen night crew lined up on Elm Street for Grace Okafor's bread. Teddy handed it out, grounded and grinning.",
+          },
+          cut: {
+            flag: 'n2_grace_cut', tone: 'bad',
+            effects: { morale: -3, credibility: -2 },
+            line: 'You cut Grace Okafor off in the middle of a thank-you. Elm Street is not sure what to make of you.',
           },
         },
-      },
-      {
-        id: 'call_bill', person: 'bill',
-        name: 'Old Bill',
-        prompt: 'Old Bill, Dock Street. rambling',
-        preview: "Is this the Lamp? It's Bill. My knee's been talking to me. I'd like to share what it says.",
-        script:
-          "Evening, Lamp, it's Bill Wozniak, Dock Street. My left knee has called every storm on this lake for forty years, and tonight it says squall, around three, out of the northwest. My right knee disagrees, but my right knee is a liar. Tie your boats up.",
-        voice: { pitch: 0.75, rate: 0.95 },
-        aired: {
-          flag: 'n2_bill_knee', tone: 'good',
-          effects: { safety: 2, morale: 2, trust: { netters: 4 } },
-          line: "Half the docks tied up early because Old Bill's knee said so. Bill is insufferable this morning. He was right.",
+        {
+          id: 'call_grace_angry', person: 'grace',
+          gate: { unless: ['n1_teddy_found'] },
+          name: 'Grace Okafor',
+          prompt: 'Mrs. Okafor. sounds angry',
+          preview: "You didn't help me last week. You can put me on now.",
+          script:
+            "This is Grace Okafor. Last week my boy spent the night on a pylon and froze half to death, and nobody came. I want the Linemen to hear this. You don't take children up those towers anymore. Not mine, not anybody's. Fourteen is too young. That's all.",
+          voice: { pitch: 1.3, rate: 1.0 },
+          aired: {
+            flag: 'n2_grace_spoke', tone: 'good',
+            effects: { credibility: 3, safety: 2, trust: { chapel: 3, linemen: -3 } },
+            line: 'Grace Okafor said her piece on the Lamp. The Linemen grumbled, then quietly put up a sign at the yard: nobody under sixteen.',
+          },
+          notTaken: {
+            flag: 'n2_grace_ignored', tone: 'bad',
+            effects: { morale: -2, credibility: -2 },
+            line: 'Mrs. Okafor called the Lamp again and nobody picked up. She says she has stopped listening.',
+          },
+          cut: {
+            flag: 'n2_grace_cut', tone: 'bad',
+            effects: { credibility: -4, trust: { chapel: -3 } },
+            line: 'You cut Grace Okafor off before she finished. Twice now this station has left her hanging, and Elm Street knows it.',
+          },
         },
-        cut: {
-          flag: 'n2_bill_cut', tone: 'neutral',
-          effects: { trust: { netters: -2 } },
-          line: "You cut Old Bill off mid-knee. He's telling Dock Street the radio has no respect for science.",
+        {
+          id: 'call_sparky', person: 'sparky',
+          name: 'Sparky',
+          prompt: "a man, excited. 'with the Linemen'",
+          preview: "Hey! Is this the radio? I'm with the Linemen, kind of. Everybody's got to come see this.",
+          script:
+            "Hey, Port Vesper! This is Sparky, I'm with the Linemen, kind of, I carry the spools. Tonight we're testing the Ridge Road line, and it is going to be beautiful. So everybody come on up to pylon six and see the lights! Bring the kids! Climb on up for a better look, it's perfectly safe!",
+          voice: { pitch: 1.2, rate: 1.15 },
+          aired: {
+            flag: 'n2_sparky_aired', tone: 'bad',
+            effects: { safety: -6, credibility: -3, trust: { linemen: -3 } },
+            line: 'Sparky told the whole town to climb pylon six during a live test, on your air. The Linemen spent the night chasing people off the tower. Nobody died. It was close.',
+          },
+          turn: {
+            at: 'So everybody come on up',
+            caught: {
+              flag: 'n2_sparky_dumped', tone: 'good',
+              effects: { safety: 2, credibility: 2, trust: { linemen: 2 } },
+              line: 'You dumped Sparky before he invited the whole town up a live pylon. The Linemen took his spools away for a week.',
+            },
+          },
         },
+        {
+          id: 'call_bill', person: 'bill',
+          name: 'Old Bill',
+          prompt: 'Old Bill, Dock Street. rambling',
+          preview: "Is this the Lamp? It's Bill. My knee's been talking to me. I'd like to share what it says.",
+          script:
+            "Evening, Lamp, it's Bill Wozniak, Dock Street. My left knee has called every storm on this lake for forty years, and tonight it says squall, around three, out of the northwest. My right knee disagrees, but my right knee is a liar. Tie your boats up.",
+          voice: { pitch: 0.75, rate: 0.95 },
+          aired: {
+            flag: 'n2_bill_knee', tone: 'good',
+            effects: { safety: 2, morale: 2, trust: { netters: 4 } },
+            line: "Half the docks tied up early because Old Bill's knee said so. Bill is insufferable this morning. He was right.",
+          },
+          cut: {
+            flag: 'n2_bill_cut', tone: 'neutral',
+            effects: { trust: { netters: -2 } },
+            line: "You cut Old Bill off mid-knee. He's telling Dock Street the radio has no respect for science.",
+          },
+        },
+      ],
+    },
+    { kind: 'tube', id: 'n2_tube', at: { slot: 2, frac: 0.4 }, socket: 4 },
+    {
+      kind: 'morse', id: 'n2_morse', at: { slot: 3 },
+      word: 'SPOOL',
+      seconds: 50,
+      sender: 'teddy',
+      decoded: {
+        flag: 'n2_spool_sent', tone: 'good',
+        effects: { morale: 2, trust: { linemen: 7 } },
+        line: 'You copied S-P-O-O-L off the static: a Linemen crew at the dead relay hut, tapping on the old telegraph wire. A runner got a spool to them before midnight, and the Ridge Road test went off on time.',
       },
-    ],
-  },
-
-  tube: { slot: 2, at: 0.4, socket: 4 },
-
-  morse: {
-    slot: 3,
-    word: 'SPOOL',
-    seconds: 50,
-    decoded: {
-      flag: 'n2_spool_sent', tone: 'good',
-      effects: { morale: 2, trust: { linemen: 7 } },
-      line: 'You copied S-P-O-O-L off the static: a Linemen crew at the dead relay hut, tapping on the old telegraph wire. A runner got a spool to them before midnight, and the Ridge Road test went off on time.',
+      missed: {
+        flag: 'n2_relay_dark', tone: 'bad',
+        effects: { morale: -2, trust: { linemen: -4 } },
+        line: 'A Linemen crew at the relay hut tapped for help on the old telegraph wire half the night. Nobody copied it. The Ridge Road test is pushed back a week.',
+      },
     },
-    missed: {
-      flag: 'n2_relay_dark', tone: 'bad',
-      effects: { morale: -2, trust: { linemen: -4 } },
-      line: 'A Linemen crew at the relay hut tapped for help on the old telegraph wire half the night. Nobody copied it. The Ridge Road test is pushed back a week.',
+    {
+      kind: 'storm', id: 'n2_storm',
+      slots: [4, 5],
+      held: {
+        line: "The squall hit at three and the Lamp didn't flinch. People on the docks said you sounded like you were in the room.",
+        effects: { credibility: 3, listeners: 6 },
+      },
+      lost: {
+        line: 'When the squall came through, the Lamp went to static. The Netters tied up by lantern light and guessed.',
+        effects: { listeners: -10 },
+      },
     },
-  },
-
-  storm: {
-    slots: [4, 5],
-    held: {
-      line: "The squall hit at three and the Lamp didn't flinch. People on the docks said you sounded like you were in the room.",
-      effects: { credibility: 3, listeners: 6 },
-    },
-    lost: {
-      line: 'When the squall came through, the Lamp went to static. The Netters tied up by lantern light and guessed.',
-      effects: { listeners: -10 },
-    },
-  },
+  ],
 
   otherStation: {
     prefer: ['news_cure', 'warn_squall', 'warn_live_wire', 'news_switch', 'news_herring'],
