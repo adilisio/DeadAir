@@ -12,6 +12,8 @@ Phaser 4 + TypeScript + Vite. Read `HANDOFF.md` first if you're new to the proje
 - `npm run build` — typecheck + production build to `dist/`
 - `npm run shots` — headless play-through: screenshots to `shots/`, fails on any console error.
   Pass a filter: `npm run shots -- dawn`. Set `CHROMIUM_PATH` if Playwright's browser isn't installed.
+- `npm run voices` — render spoken lines with no voice file yet (Kokoro, offline, CPU) into
+  `public/voice/`. Run it after editing any spoken text; `-- --list` shows what's missing.
 
 URL switches (see `src/config.ts`): `?fast` short records/talk, `?auto` plays itself,
 `?mute` silent, `?nofx` no post effects, `?scene=booth|dawn` jump in, `?night=N` start at
@@ -28,7 +30,8 @@ center outward, so keep its strength low.
 - `src/sim/` — game rules. **Pure TS, no Phaser, no DOM.** Everything here is unit-tested.
 - `src/data/` — content: nights (`nights.ts` lists them in order), cards, records (with
   provenance). Typed TS objects. Cards and callers can be gated on earlier nights' flags.
-- `src/audio/` — Web Audio: radio chain, static, stand-in pressings, voice.
+- `src/audio/` — Web Audio: radio chain, static, stand-in pressings, voice (pre-rendered files
+  played on air / phone / handset / Other Station channels; `lines.ts` lists every spoken line).
 - `src/art/` — pixel art painted in code at boot (palette + painter + scenes).
 - `src/scenes/` — Phaser scenes. `src/ui/` — reusable UI pieces.
 - `tests/` — Vitest. `tools/shots.mjs` — screenshot/smoke tool.

@@ -10,14 +10,17 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "shots": "node tools/shots.mjs",
-    "records": "node tools/fetch-records.mjs"
+    "records": "node tools/fetch-records.mjs",
+    "voices": "tsx tools/voices.ts"
   },
   "dependencies": {
     "@fontsource/vt323": "^5.3.0",
     "phaser": "^4.2.1"
   },
   "devDependencies": {
+    "kokoro-js": "^1.2.1",
     "playwright": "^1.56.1",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.2",
     "vitest": "^5.0.3"

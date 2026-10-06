@@ -36,7 +36,7 @@ call; see "What to do next".
 | Station | WLMP 1260 AM, **"the Lamp"** (owner: keep it). |
 | Factions | **Netters** (fishing families), **the Chapel** (church: infirmary and school; kind, powerful, certain), **the Linemen** (engineers restringing the dead lines to bring the power back). The owner asked that not every faction be blue-collar. |
 | Music | Real public-domain 78s (US recordings published before 1926; songs before 1931). |
-| Voices | Browser TTS first; human-sounding voices are the goal (owner may record lines). |
+| Voices | Kokoro TTS rendered offline to files, one voice per person (`src/data/people.ts`), played through the radio chain; browser TTS only as a fallback. Owner may record lines (they drop into `public/voice/`). |
 | Daytime (M2) | All three modes, each small, on one top-down engine: town walk, map + travel event, short ruin run. |
 | Still open | The DJ's name. What the Other Station is (owner decides; don't explain it in content). |
 
@@ -79,8 +79,16 @@ call; see "What to do next".
   real 78s and 5 synthesized stand-ins.
 - `src/audio/` — `engine.ts` (one Web Audio graph: radio chain, static/whistle/hum by tuning
   error, record playback with stand-in fallback, phone ring, Other Station drone, level meter),
-  `pressings.ts` + `render.ts` (seeded stand-in tunes), `voice.ts` (speechSynthesis with a
-  timed fallback).
+  `pressings.ts` + `render.ts` (seeded stand-in tunes). Voices: `lines.ts` (pure: every
+  spoken line and its id, a hash of voice + words), `voice.ts` (`speak()`: plays the line's
+  pre-rendered file from `public/voice/` through `engine.playVoice` on a channel — `air` for
+  the DJ, `phone` for callers on air, `handset` for listening in off air, `other` for the
+  Other Station, which is the DJ's own files slowed and doubled — with proportional word
+  timing for the teleprompter; falls back to speechSynthesis for lines with no file, and to
+  a silent timed delay under `?fast`/`?mute`). Voices join the chain after the duck, so
+  records duck under them, and tuning and tube faults reach them.
+  `tools/voices.ts` (`npm run voices`) renders missing lines offline with Kokoro (kokoro-js,
+  CPU, a little slower than real time) and ffmpeg; see `public/voice/README.md`.
 - `src/scenes/` — Boot (paints textures, waits for the VT323 font), Title, **Booth** (prep →
   live → sign-off → Other Station; owns the live state machine and drives each booth task,
   with an `?auto` player for every one), Dawn (the 3–4 page ledger).
@@ -104,8 +112,11 @@ call; see "What to do next".
   "everything is too dark" problem was the vignette, not the lighting.
 - **UI must go through `ui()` from `splitCameras`** or it renders twice (once with CRT smear).
 - Text glyphs: stick to ASCII in UI strings (VT323 lacks some symbols like `●` and `…`).
-- `speechSynthesis` audio **cannot** be routed through Web Audio, so TTS can't get the radio
-  filter. The upgrade is a TTS that renders buffers (e.g. Kokoro in the browser) or recorded files.
+- `speechSynthesis` audio **cannot** be routed through Web Audio, so the browser-voice fallback
+  gets no radio filter. That's why lines are pre-rendered: **after editing any spoken text
+  (scripts, previews, sign-on/off, Other Station lines) or a person's voice, run
+  `npm run voices`** or that line plays in the browser voice. Shots run `?mute`, so they
+  never exercise the voice files; `window.__deadair.data.voicePlays` counts files played.
 - Headless rendering of stand-in records is slow here (3–9 s each); the game pre-renders
   records as soon as they're placed in the rundown.
 - `BoothScene` already has a `needles` field (the VU/dial/clock graphics). Vite serves code
@@ -141,11 +152,10 @@ call; see "What to do next".
    cards and callers (Morse copied → the Wozniak tip, boat lost → memorial, slander aired
    → Sister Agnes replies, Teddy found or not → which Grace calls).
    Also pending: one-line first-time hints if needed, volume sliders and a pause.
-2. **Human-sounding voices.** (a) A drop-in folder for the owner's recorded lines (e.g.
-   `public/voice/<card-id>.mp3`, used when present, routed through the radio chain).
-   (b) In-browser neural TTS (Kokoro via `kokoro-js` was the idea) rendering to buffers,
-   so voices also get the radio filter. Untested; it downloads ~80 MB of model on first
-   run, and its host will need allowing in the cloud environment.
+2. **Voices: listen.** Every line is pre-rendered with Kokoro and plays through the radio
+   chain (2026-10-06). Nobody in-session could hear them: the owner should judge the voice
+   picks in `src/data/people.ts`, the phone and Other Station sound, and levels against
+   the records. The owner's own recordings drop into `public/voice/` (see its README).
 3. **M2: One Day** — town walk, map with a travel event, one ruin run; outputs are cards
    and records for the night. See `DESIGN.md`.
 4. **Night 3+** needs new records: all eleven real 78s are now used (a test keeps each

@@ -4,8 +4,9 @@ import { exposeDebug, markPhase } from '../debugHook';
 import { BOOTH } from '../art/booth';
 import { hex, P, UI } from '../art/palette';
 import { applyScreenLook, glow, splitCameras } from './fx';
-import { audio, type RecordHandle } from '../audio/engine';
-import { speak, type Speech } from '../audio/voice';
+import { audio, type RecordHandle, type VoiceChannel } from '../audio/engine';
+import { prefetchVoices, speak, type Speech } from '../audio/voice';
+import type { PersonId } from '../data/people';
 import { rng } from '../audio/pressings';
 import { run } from '../run';
 import { resolveNight, segmentOfSlot } from '../sim/resolver';
@@ -93,6 +94,8 @@ export class BoothScene extends Phaser.Scene {
   private stopRing: (() => void) | null = null;
   private record: RecordHandle | null = null;
   private speech: Speech | null = null;
+  /** A caller heard off air on the handset while their line is selected. */
+  private listen: Speech | null = null;
   private speaking = false;
   private spokenChars = 0;
   private wordEvents = false;
@@ -340,6 +343,7 @@ export class BoothScene extends Phaser.Scene {
     this.hud.setOrder(-1, 0);
     this.needlePanel = new NeedlePanel(this, this.ui);
     audio.unlock();
+    prefetchVoices(run.night);
     audio.sfx('thunk');
     this.hud.setOnAir(true, '[ ON AIR ]');
     this.tweens.add({ targets: this.onAirSign, alpha: 1, duration: 120 });
@@ -350,7 +354,7 @@ export class BoothScene extends Phaser.Scene {
   }
 
   /** Speak a script on air, lighting the teleprompter as it goes. */
-  private talk(i: number, header: string, script: string, opts: { pitch?: number; rate?: number; color?: string; reveal?: boolean } = {}): Speech {
+  private talk(i: number, header: string, script: string, opts: { person?: PersonId; channel?: VoiceChannel; color?: string; reveal?: boolean } = {}): Speech {
     this.idx = i;
     this.playing = true;
     this.speaking = true;
@@ -361,8 +365,8 @@ export class BoothScene extends Phaser.Scene {
     this.hud?.setTeleprompter(header, script, opts.color, opts.reveal);
     audio.duck(true);
     const sp = speak(script, {
-      pitch: opts.pitch,
-      rate: opts.rate,
+      person: opts.person ?? 'dj',
+      channel: opts.channel ?? 'air',
       onWord: (c) => {
         this.spokenChars = c;
         this.wordEvents = true;
@@ -539,6 +543,9 @@ export class BoothScene extends Phaser.Scene {
     b.states[i] = 'listening';
     b.selected = i;
     audio.sfx('click');
+    const line = run.night.switchboard.lines[i];
+    this.listen?.cancel();
+    this.listen = speak(line.preview, { person: line.person, channel: 'handset' });
   }
 
   private putOnAir(): void {
@@ -546,6 +553,8 @@ export class BoothScene extends Phaser.Scene {
     if (!b || b.onAir !== null || b.selected === null) return;
     const i = b.selected;
     const line = run.night.switchboard.lines[i];
+    this.listen?.cancel();
+    this.listen = null;
     b.onAir = i;
     b.states[i] = 'onair';
     b.dumpedAt = undefined;
@@ -555,7 +564,7 @@ export class BoothScene extends Phaser.Scene {
     this.signalSlot = b.slot;
     markPhase('call');
     const header = `LINE ${['ONE', 'TWO', 'THREE'][i]} · ${line.name.toUpperCase()}`;
-    this.talk(b.slot - 1, header, line.script, { pitch: line.voice?.pitch ?? 1.2, rate: line.voice?.rate ?? 1.05, color: '#c9e7ff', reveal: true })
+    this.talk(b.slot - 1, header, line.script, { person: line.person, channel: 'phone', color: '#c9e7ff', reveal: true })
       .done.then(() => this.callEnded(i));
   }
 
@@ -589,6 +598,8 @@ export class BoothScene extends Phaser.Scene {
   private closeBoard(): void {
     const b = this.board;
     if (!b || b.onAir !== null) return;
+    this.listen?.cancel();
+    this.listen = null;
     this.stopRing?.();
     this.stopRing = null;
     b.states = b.states.map((s) => (s === 'ringing' || s === 'listening' ? 'gone' : s));
@@ -810,7 +821,7 @@ export class BoothScene extends Phaser.Scene {
     this.tweens.add({ targets: this.ghostTint, alpha: 0.18, duration: 2500 });
     this.hud?.setOnAir(false, '1260 kc');
     this.hud?.setClock('?? · 2:14 AM');
-    this.talk(-1, 'UNKNOWN STATION · 1260', script, { pitch: 0.4, rate: 0.82, color: UI.eerie }).done.then(() => {
+    this.talk(-1, 'UNKNOWN STATION · 1260', script, { person: 'dj', channel: 'other', color: UI.eerie }).done.then(() => {
       audio.duck(false);
       audio.setStatic(0.7);
       stopDrone();

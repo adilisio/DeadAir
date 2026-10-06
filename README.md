@@ -17,6 +17,9 @@ npm run dev
 
 Open http://localhost:5173 in Chrome or Edge and click to sign on. Use headphones: it's a radio game.
 
+Voices are pre-rendered into `public/voice/` with `npm run voices` and play through the
+radio. A line with no file yet (say, a script you just edited) falls back to the browser's voice.
+
 ## How a night works
 
 1. **Prep.** Pick six cards from the crate into three segments. Hover a card to read it and
@@ -61,5 +64,6 @@ Combine them with `&`, e.g. http://localhost:5173/?scene=booth&fast
 | `npm test` | Unit tests for the game rules and content |
 | `npm run build` | Typecheck + production build in `dist/` (open with any static server) |
 | `npm run shots` | Headless play-through; screenshots in `shots/` |
+| `npm run voices` | Render spoken lines that have no voice file yet (Kokoro TTS, offline) |
 
 First time running `npm run shots` on a new machine: `npx playwright install chromium`.
