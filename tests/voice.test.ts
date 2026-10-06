@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { NIGHTS } from '../src/data/nights';
 import { NIGHT_1 } from '../src/data/night1';
+import { NIGHT_2 } from '../src/data/night2';
+import { eventsOf } from '../src/sim/events';
+import { dumpedSentence, turnIndex } from '../src/sim/calls';
 import { PEOPLE } from '../src/data/people';
 import { resolveNight, STARTING_STATE } from '../src/sim/resolver';
 import { charsSpokenAt, hash16, parseVoiceIndex, splitIntoKnown, voiceIdFor, voiceLines, callerLines } from '../src/audio/lines';
@@ -19,6 +22,37 @@ describe('voiceLines', () => {
         expect(has(line.person, line.script), line.id).toBe(true);
       }
       for (const part of [night.otherStation.intro, night.otherStation.stamp, night.otherStation.outro]) expect(has('dj', part)).toBe(true);
+    }
+  });
+
+  it('collects what callers confide (in their voice) and what the DJ says after (in the DJ voice)', () => {
+    let confides = 0;
+    let afters = 0;
+    for (const night of NIGHTS) {
+      for (const line of callerLines(night)) {
+        if (line.confide) {
+          confides++;
+          expect(has(line.person, line.confide.text), line.id).toBe(true);
+        }
+        if (line.after) {
+          afters++;
+          expect(has('dj', line.after), line.id).toBe(true);
+        }
+      }
+    }
+    expect(confides).toBeGreaterThan(0);
+    expect(afters).toBeGreaterThan(0);
+  });
+
+  it('collects the sentences the Other Station can read back, in the DJ voice', () => {
+    for (const night of NIGHTS) {
+      for (const line of callerLines(night)) {
+        // The sentence a caller turns in, every night.
+        if (line.turn) expect(has('dj', dumpedSentence(line, turnIndex(line))), line.id).toBe(true);
+        // On a night that reads what was dumped, any sentence a dump can land in.
+        if (!night.otherStation.readsDumped) continue;
+        for (let at = 0; at <= line.script.length; at++) expect(has('dj', dumpedSentence(line, at)), `${line.id}@${at}`).toBe(true);
+      }
     }
   });
 
@@ -124,6 +158,25 @@ describe('splitIntoKnown', () => {
     expect(parts![0]).toBe(NIGHT_1.otherStation.intro);
     expect(parts!.at(-1)).toBe(NIGHT_1.otherStation.outro);
     if (card && card.kind !== 'record') expect(parts).toContain(card.script);
+  });
+
+  it('reads a dumped sentence back as known lines too', () => {
+    const board = eventsOf(NIGHT_2, 'switchboard')[0];
+    const sparky = board.lines.find((l) => l.id === 'call_sparky')!;
+    const grace = board.lines.find((l) => l.id === 'call_grace_angry')!;
+    const result = resolveNight(NIGHT_2, STARTING_STATE, {
+      rundown: NIGHT_2.rundowns.auto,
+      signal: [1, 1, 1, 1, 1, 1],
+      deadAirSeconds: 0,
+      calls: [{ line: grace.id, dumpedAt: 50 }, { line: sparky.id, dumpedAt: turnIndex(sparky) + 2 }],
+    });
+    const script = result.otherStation.script;
+    expect(script).toContain(dumpedSentence(sparky, turnIndex(sparky)));
+    expect(script).toContain(dumpedSentence(grace, 50));
+    const dj = all.filter((l) => l.person === 'dj').map((l) => l.text);
+    const parts = splitIntoKnown(script, dj);
+    expect(parts).not.toBeNull();
+    expect(parts!.join(' ')).toBe(script);
   });
 
   it('returns null when part of the text is unknown', () => {

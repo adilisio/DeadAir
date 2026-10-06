@@ -1,8 +1,8 @@
 // Nights in a run. Each night's content can depend on what earlier nights did:
 // cards and callers carry a `gate` on story flags and town stats, and a night is
 // "opened" against the town before prep, leaving only what's in play. Switchboard
-// lines can also gate on what has aired so far tonight; the board re-checks them
-// when it rings (`linesOpenNow`).
+// lines can also gate on what has aired so far tonight and on what callers confided
+// off air tonight; the board re-checks them when it rings (`linesOpenNow`).
 
 import type { CallLine, Gate, NightDef, StatName, SwitchboardEvent, TownState } from './types';
 
@@ -10,6 +10,8 @@ import type { CallLine, Gate, NightDef, StatName, SwitchboardEvent, TownState } 
 export interface GateContext {
   town?: TownState;
   airedTonight?: readonly string[];
+  /** Confidences heard off air so far tonight (`t_<flag>`). */
+  confidedTonight?: readonly string[];
 }
 
 /** A town number by its gate name (`trust.chapel` and so on). */
@@ -36,12 +38,19 @@ export function gateOpen(gate: Gate | undefined, flags: readonly string[], ctx: 
     if (!(gate.tonight.aired ?? []).every((id) => aired.includes(id))) return false;
     if ((gate.tonight.notAired ?? []).some((id) => aired.includes(id))) return false;
   }
+  const confided = ctx.confidedTonight;
+  if (confided && gate.tonight?.flags) {
+    if (!gate.tonight.flags.every((f) => confided.includes(f))) return false;
+  }
   return true;
 }
 
-/** The lines on this board that ring now, given the town and what's aired so far tonight. */
-export function linesOpenNow(board: SwitchboardEvent, town: TownState, airedTonight: readonly string[]): CallLine[] {
-  return board.lines.filter((l) => gateOpen(l.gate, town.flags, { town, airedTonight }));
+/**
+ * The lines on this board that ring now, given the town, what's aired so far tonight and
+ * (when known) the confidences heard tonight. Without `confidedTonight` that clause is open.
+ */
+export function linesOpenNow(board: SwitchboardEvent, town: TownState, airedTonight: readonly string[], confidedTonight?: readonly string[]): CallLine[] {
+  return board.lines.filter((l) => gateOpen(l.gate, town.flags, { town, airedTonight, confidedTonight }));
 }
 
 /**

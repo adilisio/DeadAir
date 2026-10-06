@@ -9,6 +9,7 @@
 import { PEOPLE, type PersonId } from '../data/people';
 import type { CallLine, NightDef } from '../sim/types';
 import { eventsOf } from '../sim/events';
+import { dumpedSentence, sentencesOf, turnIndex } from '../sim/calls';
 
 export interface VoiceLine {
   id: string;
@@ -75,6 +76,14 @@ export function voiceLines(nights: NightDef[]): VoiceLine[] {
     for (const line of callerLines(night)) {
       add(line.person, line.preview);
       add(line.person, line.script);
+      // Off the record, on the handset.
+      add(line.person, line.confide?.text);
+      // The DJ, on air, after the call.
+      add('dj', line.after);
+      // Sentences the Other Station can read back in the DJ's voice: the one a caller turns
+      // in, and on nights it reads what was dumped, every sentence a dump can land in.
+      if (line.turn) add('dj', dumpedSentence(line, turnIndex(line)));
+      if (night.otherStation.readsDumped) for (const s of sentencesOf(line.script)) add('dj', s);
     }
     // The Other Station speaks in the DJ's voice; the wrongness is applied at playback.
     add('dj', night.otherStation.intro);

@@ -154,10 +154,17 @@ export const NIGHT_1: NightDef = {
           id: 'call_okafor', person: 'grace',
           name: 'Mrs. Okafor',
           prompt: 'a woman, crying',
+          urgent: true,
+          patience: 20,
           preview: "Is this the Lamp? Please. It's my boy. He went up Ridge Road at sundown and he isn't back.",
           script:
             "Hello? Is this on? It's Grace Okafor, on Elm. My boy Teddy went up the Ridge Road pylons with the Linemen crew at sundown and he isn't back. He's fourteen. If anybody's out there, please, look for him.",
           voice: { pitch: 1.35, rate: 1.05 },
+          confide: {
+            text: "He went up because the Linemen told him there'd be a spool to carry and a chit for it. Don't say that part on the air. They'll never let him near the yard again.",
+            flag: 'grace_ridge',
+          },
+          after: "Grace, stay by the phone. Anybody near Ridge Road with a lantern: pylon four, a boy named Teddy. Go slow.",
           aired: {
             faction: 'linemen',
             threshold: 0.5,
@@ -187,6 +194,8 @@ export const NIGHT_1: NightDef = {
           id: 'call_chalk', person: 'anon',
           name: 'No name',
           prompt: "a man, no name. 'about the Chapel'",
+          // "Yeah, I'll hold." He will.
+          patience: 75,
           preview: "Yeah, I'll hold. Folks ought to hear what's going on up at that Chapel. Somebody has to say it.",
           script:
             "Evening, Lamp. Long-time listener. I won't give my name, you'll see why. Folks ought to know what's going on up at that Chapel. That sulfa powder Sister Agnes is handing out? It's chalk. She's cutting it with chalk and selling the real stuff downriver, and anybody who lines up for it is a fool.",
@@ -209,6 +218,8 @@ export const NIGHT_1: NightDef = {
           id: 'call_lottie', person: 'lottie',
           name: 'Lottie Kowalczyk',
           prompt: 'Lottie K., smokehouse row. chipper',
+          patience: 60,
+          after: "Walt, your supper's in the oven. The town knows now. Good luck.",
           preview: "Oh! Is this the Lamp? Oh, how exciting. I just want to say hello to my Walt.",
           script:
             "Hello, Lamp! It's Lottie Kowalczyk. I just want to tell my Walt, on the Linemen night crew: your supper's in the oven, the cat ate half of it, and I love you anyhow. That's all. Hi, everybody!",

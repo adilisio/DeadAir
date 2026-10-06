@@ -93,14 +93,26 @@ The show plays in real time.
   from three; a dud costs a second of fumbling, the right one warms up and the Lamp comes
   back. Lost seconds cost signal; the ledger praises a quick swap or reports a slow one.
 - **The switchboard.** When a night's `switchboard` event comes due, up to three lines ring at
-  once, each with a few words on the board. Listen in off air to hear a line before
-  deciding; put as many on as you like before the lines give up (the clock pauses while
-  someone's on). Each line has its own outcome for airing, never being taken, or being cut
-  off. On air, the teleprompter shows only what the caller has said so far.
+  once, each with a few words on the board, and it can ring over a record (the record ducks
+  under the call and keeps its time). Each line has its own `patience` (default 18 s): its
+  seconds tick down dimly on its row, on air or not, and it hangs up when they run out; the
+  one you're listening to holds. An `urgent` line's lamp blinks fast and the board says
+  URGENT while it rings. Listen in off air to hear the preview; keep listening and some
+  callers **confide** something they won't say on air (heard only if you wait for it;
+  tonight's later lines can gate on it with `tonight.flags: ['t_<flag>']`, and the town
+  remembers the flag). A caller can ask for a record (`request`): if their call airs and
+  that record plays later tonight, one dawn line; if the night runs out first, another.
+  When a call ends clean, the DJ can say one line `after` it on air. Each line has its own
+  outcome for airing, never being taken, or being cut off. On air, the teleprompter shows
+  only what the caller has said so far.
 - **The dump button.** Some callers turn: `turn.at` marks the first words that must not go
-  out. The station runs a few seconds behind the phone (`DUMP_DELAY_CHARS`), so dumping
-  just after they turn still keeps it off the air. Dump too late and it went out; dump an
-  honest caller and you cut them off.
+  out. The delay is audible: you hear the caller on the handset at once, and the town hears
+  them through the transmitter `DUMP_DELAY_SECONDS` (3 s; `DUMP_DELAY_CHARS`, 40, in the
+  rules) later, so dumping just after they turn still keeps it off the air. Nothing on screen
+  marks a dump in flight; you have to know the delay. Dump too late and it went out; dump an
+  honest caller and you cut them off. What you dump isn't gone: the dumped sentence is kept,
+  whole, and on nights where the Other Station `readsDumped` (Night 2 on) it reads it back
+  after sign-off, finished, in your voice.
 - **Morse under the static.** A night's `morse` event keys a word over and over, faint,
   for a set time. It can carry a `sender` (Night 2 on, Teddy at the relay hut). The panel shows a keying lamp, a tape of the current pass,
   and a chart of the word's letters among decoys; the player types the letters (a wrong
@@ -147,8 +159,10 @@ Grace Okafor calls to thank the Linemen, or don't and she calls to tell them off
 
 Each night also moves its booth tasks around. Night 1: needle and tube at dusk,
 switchboard and storm late, Morse in the small hours. Night 2: switchboard at dusk, tube
-and Morse (from Teddy) late, the storm in the small hours, right on top of the squall
-warning.
+and Morse (from Teddy) late with a second board ringing over the late record (Lottie wants
+Walt's birthday song; Pruitt calls, bitten or grateful, and Walt if Lottie got on last
+night), the storm in the small hours, right on top of the squall warning. Night 2's Other
+Station also reads back what you dumped.
 
 ### 3. Sign-off, the Other Station, and dawn
 

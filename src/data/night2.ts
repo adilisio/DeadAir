@@ -174,6 +174,7 @@ export const NIGHT_2: NightDef = {
           gate: { requires: ['n1_teddy_found'] },
           name: 'Grace Okafor',
           prompt: 'Mrs. Okafor again. cheerful',
+          patience: 30,
           preview: "It's Grace Okafor! I want to thank those Linemen boys. On the air, if you'll let me.",
           script:
             "Hello, it's Grace Okafor, on Elm. Last week I called this station crying, and the Linemen found my Teddy on pylon four. I want to say thank you, all of you, and I've baked enough bread to prove it. Come by Elm Street. Teddy will hand it out. He's grounded, so he's home.",
@@ -194,6 +195,7 @@ export const NIGHT_2: NightDef = {
           gate: { unless: ['n1_teddy_found'] },
           name: 'Grace Okafor',
           prompt: 'Mrs. Okafor. sounds angry',
+          patience: 30,
           preview: "You didn't help me last week. You can put me on now.",
           script:
             "This is Grace Okafor. Last week my boy spent the night on a pylon and froze half to death, and nobody came. I want the Linemen to hear this. You don't take children up those towers anymore. Not mine, not anybody's. Fourteen is too young. That's all.",
@@ -218,6 +220,7 @@ export const NIGHT_2: NightDef = {
           id: 'call_sparky', person: 'sparky',
           name: 'Sparky',
           prompt: "a man, excited. 'with the Linemen'",
+          patience: 30,
           preview: "Hey! Is this the radio? I'm with the Linemen, kind of. Everybody's got to come see this.",
           script:
             "Hey, Port Vesper! This is Sparky, I'm with the Linemen, kind of, I carry the spools. Tonight we're testing the Ridge Road line, and it is going to be beautiful. So everybody come on up to pylon six and see the lights! Bring the kids! Climb on up for a better look, it's perfectly safe!",
@@ -240,6 +243,8 @@ export const NIGHT_2: NightDef = {
           id: 'call_bill', person: 'bill',
           name: 'Old Bill',
           prompt: 'Old Bill, Dock Street. rambling',
+          // Bill has waited forty years for the lake to prove him right. He can wait for you.
+          patience: 45,
           preview: "Is this the Lamp? It's Bill. My knee's been talking to me. I'd like to share what it says.",
           script:
             "Evening, Lamp, it's Bill Wozniak, Dock Street. My left knee has called every storm on this lake for forty years, and tonight it says squall, around three, out of the northwest. My right knee disagrees, but my right knee is a liar. Tie your boats up.",
@@ -253,6 +258,116 @@ export const NIGHT_2: NightDef = {
             flag: 'n2_bill_cut', tone: 'neutral',
             effects: { trust: { netters: -2 } },
             line: "You cut Old Bill off mid-knee. He's telling Dock Street the radio has no respect for science.",
+          },
+        },
+      ],
+    },
+    {
+      // Rings over the late record. Lottie wants a song; whoever else calls depends on Night 1.
+      kind: 'switchboard', id: 'n2_board_late', at: { slot: 3, frac: 0.4 },
+      lines: [
+        {
+          id: 'call_lottie_request', person: 'lottie',
+          name: 'Lottie Kowalczyk',
+          prompt: 'Lottie K. again. chipper',
+          patience: 45,
+          preview: "Oh, it's Lottie! Is the music man there? I have a request. It's for Walt. It's important. It's his birthday.",
+          script:
+            "Hello, Lamp! Lottie Kowalczyk, smokehouse row, me again. Tonight is my Walt's birthday. He's fifty-two and he's up a pole somewhere in the dark, so I can't give him his cake. Could you play Meet Me Tonight in Dreamland? We danced to it at the Grange, back when the Grange had a roof. Happy birthday, Walt. Wear your scarf.",
+          after: "Happy birthday, Walt. Let me see what's in the stacks.",
+          aired: {
+            flag: 'n2_lottie_birthday', tone: 'good',
+            effects: { morale: 2, trust: { netters: 2 } },
+            line: 'Smokehouse row heard Lottie on the air and baked Walt a birthday cake out of what they had, which was mostly flour and smoked perch.',
+          },
+          cut: {
+            flag: 'n2_lottie_cut', tone: 'bad',
+            effects: { morale: -2, trust: { netters: -2 } },
+            line: 'You cut Lottie Kowalczyk off in the middle of a birthday. Smokehouse row has opinions, and it is sharing them.',
+          },
+          request: {
+            recordId: 'meet_me_in_dreamland',
+            played: {
+              flag: 'n2_lottie_request_played', tone: 'good',
+              effects: { morale: 3, trust: { netters: 3 } },
+              line: "Walt's birthday song went out at one in the morning. Lottie says he cried. Walt says it was the cold.",
+            },
+            missed: {
+              flag: 'n2_lottie_request_missed', tone: 'neutral',
+              effects: {},
+              line: "Lottie asked for a song for Walt's birthday and the night ran out before it came on. She says it's fine. She says it twice.",
+            },
+          },
+        },
+        {
+          id: 'call_walt', person: 'walt',
+          gate: { requires: ['n1_lottie_aired'] },
+          name: 'Walt Kowalczyk',
+          prompt: 'Walt K., night crew. shy',
+          patience: 30,
+          preview: "Uh. Hello. This is Walt. Lottie's Walt. Is it all right if I say something? It's short.",
+          confide: {
+            text: "Don't tell Lottie I called, all right? It's my birthday tonight. If she hears me on the radio she'll make a fuss, and I'll cry, and the crew will see.",
+            flag: 'walt_birthday',
+          },
+          script:
+            "Hi. It's Walt Kowalczyk, on the night crew. Last week my wife told the whole town about my supper, and the crew has not let me forget the cat. I just wanted to say: Lottie, it was a good supper. What the cat left of it. Thank you. That's all. I'm going back up the pole now.",
+          aired: {
+            flag: 'n2_walt_thanks', tone: 'good',
+            effects: { morale: 2 },
+            line: 'Walt Kowalczyk said thank you for his supper on the air. The night crew made him say it again at the yard, slower, with feeling.',
+          },
+          cut: {
+            flag: 'n2_walt_cut', tone: 'bad',
+            effects: { morale: -1, trust: { linemen: -2 } },
+            line: 'You cut Walt Kowalczyk off in the middle of a thank-you. He says he understands. Lottie does not.',
+          },
+        },
+        {
+          id: 'call_pruitt_bitten', person: 'pruitt',
+          gate: { requires: ['n1_dogs_bite'] },
+          name: 'Pruitt',
+          prompt: 'Pruitt, a lineman. angry',
+          patience: 25,
+          preview: "Is this the Lamp? It's Pruitt. You know which Pruitt. Put me on.",
+          script:
+            "This is Pruitt, Ridge Road crew. Thursday night a dog pack took a piece out of my leg between pylon three and pylon five. Eleven stitches. Sister Agnes did them, and she was kind about it, which made it worse. I walked Ridge Road alone because nobody told me. Say the name of the station that didn't tell me.",
+          after: "This is the Lamp, twelve-sixty. That was us. I'm sorry, Pruitt.",
+          aired: {
+            flag: 'n2_pruitt_spoke', tone: 'neutral',
+            effects: { credibility: -2, trust: { linemen: 2 } },
+            line: 'Pruitt said his piece on your air. The Linemen liked that you let him. Some of the town liked you a little less for what he said.',
+          },
+          cut: {
+            flag: 'n2_pruitt_cut', tone: 'bad',
+            effects: { trust: { linemen: -4 } },
+            line: 'You cut Pruitt off before he could say your name. The whole Ridge Road crew heard you do it.',
+          },
+          notTaken: {
+            flag: 'n2_pruitt_ignored', tone: 'neutral',
+            effects: {},
+            line: "Pruitt let the Lamp's line ring a long time. Nobody picked up. He says that's about what he expected.",
+          },
+        },
+        {
+          id: 'call_pruitt_pairs', person: 'pruitt',
+          gate: { unless: ['n1_dogs_bite'] },
+          name: 'Pruitt',
+          prompt: 'Pruitt, a lineman. gruff',
+          patience: 35,
+          preview: "Lamp? Pruitt, Ridge Road crew. It's nothing bad. Got a minute?",
+          script:
+            "Evening. Pruitt, Ridge Road crew. I don't call radio stations. But Thursday you said go in pairs, so we went in pairs, and a dog pack followed us from pylon three to pylon five and didn't like the odds. So. Thank you. That's all. Don't make a thing of it.",
+          after: "Pruitt says don't make a thing of it, so I won't. Pairs, Linemen. Always pairs.",
+          aired: {
+            flag: 'n2_pruitt_thanks', tone: 'good',
+            effects: { trust: { linemen: 3 } },
+            line: 'Pruitt thanked the Lamp on the air, which the Ridge Road crew says he has never once done for a person. They have been calling him Mister Manners all morning.',
+          },
+          cut: {
+            flag: 'n2_pruitt_cut', tone: 'bad',
+            effects: { trust: { linemen: -2 } },
+            line: "You cut Pruitt off in the middle of a thank-you. He won't try that again.",
           },
         },
       ],
@@ -295,6 +410,8 @@ export const NIGHT_2: NightDef = {
     outro: "Goodnight, Port Vesper. We'll be listening.",
     // In the squall, a second carrier under yours.
     intrusions: [{ kind: 'carrier', id: 'n2_carrier', slots: [4, 5] }],
+    // Tonight it also reads back what you dumped, finished.
+    readsDumped: true,
   },
 
   letter: {

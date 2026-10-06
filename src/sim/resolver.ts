@@ -24,7 +24,7 @@ import {
 } from './types';
 import { STORM_HELD, STORM_LOST, stormSignal } from './storm';
 import { TUBE } from './tube';
-import { callResult, isReachCheck } from './calls';
+import { callResult, dumpedSentence, isReachCheck, requestResult } from './calls';
 import { airedWhenBoardOpens, eventsOf } from './events';
 import { linesOpenNow } from './nights';
 import { HARD_HOLD, OTHER_HEARD, clockText, intrusionsOf } from './intrusion';
@@ -328,10 +328,11 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   }
 
   // The switchboards. Only lines that rang count: tonight-gated ones are checked against
-  // what had aired by the time their board opened.
+  // what had aired by the time their board opened, and the confidences heard tonight.
+  const confided = perf.confided ?? [];
   for (const board of eventsOf(night, 'switchboard')) {
     const slot = board.at.slot;
-    for (const line of linesOpenNow(board, start, airedWhenBoardOpens(board, perf.rundown))) {
+    for (const line of linesOpenNow(board, start, airedWhenBoardOpens(board, perf.rundown), confided)) {
       const result = callResult(line, perf.calls.find((c) => c.line === line.id));
       let outcome: Outcome | undefined;
       if (result === 'aired' || result === 'late') {
@@ -342,9 +343,23 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
       else if (result === 'cut') outcome = line.cut ?? line.notTaken;
       else outcome = line.notTaken;
       if (outcome) applyOutcome(state, outcome, lines);
+      // A record asked for on the air: did it come on later tonight?
+      if (result === 'aired' || result === 'late') {
+        const req = requestResult(board, line, perf.rundown, night.cards);
+        if (req) applyOutcome(state, req, lines);
+      }
       notePerson(state, line.person, result);
+      // What they told you off air, the station remembers.
+      if (line.confide && confided.includes(`t_${line.confide.flag}`)) addFlag(state, line.confide.flag);
     }
   }
+
+  // What was dumped, in the order it was dumped: the Other Station may read it back.
+  const callers = new Map(eventsOf(night, 'switchboard').flatMap((b) => b.lines.map((l) => [l.id, l] as const)));
+  const dumped = perf.calls.flatMap((c) => {
+    const line = callers.get(c.line);
+    return line && c.dumpedAt !== undefined ? [{ person: line.person, text: dumpedSentence(line, c.dumpedAt) }] : [];
+  });
 
   // The needle.
   if (perf.needles) {
@@ -455,9 +470,10 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   const otherId = pickOtherStationCard(night, perf.rundown);
   const otherCard = otherId ? byId.get(otherId) : undefined;
   const body = otherCard && isTalk(otherCard) ? otherCard.script : '';
-  const script = [night.otherStation.intro, night.otherStation.stamp, body, night.otherStation.outro]
+  const reread = night.otherStation.readsDumped ? dumped.map((d) => d.text) : [];
+  const script = [night.otherStation.intro, night.otherStation.stamp, ...reread, body, night.otherStation.outro]
     .filter(Boolean)
     .join(' ');
 
-  return { before: cloneState(start), after: state, lines, otherStation: { cardId: otherId, script }, otherAired };
+  return { before: cloneState(start), after: state, lines, otherStation: { cardId: otherId, script, dumped }, otherAired };
 }

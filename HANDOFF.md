@@ -61,6 +61,8 @@ call; see "What to do next".
   `15-continue`), Nights 1 and 2 resolve exactly as before.
   Packet E (the Other Station, live; 2026-10-06): 181 tests, 25 shots (adds
   `05e-booth-carrier` and `13a-night2-dawn-drift`, both `?drift`).
+  Packet C (switchboard v2): 177 tests, 25 shots (adds `05-booth-switchboard-confide`,
+  `11a-night2-board-late`).
 - Runs: `src/run.ts` holds the run (night index, town, result); `startNight`, `finishNight`
   (keeps the result and saves), `nextNight` (saves), `resetRun`, `townBefore(n)` for
   `?night=N`, and the save: `saveRun` / `loadRun` / `savedRun` / `clearSave` on
@@ -88,7 +90,8 @@ call; see "What to do next".
   task's outcome. `tuning.ts` is the transmitter drift model.
   - Booth tasks, one file each with its pure logic and constants: `storm.ts` (wind per
     slot, storm report), `needle.ts` (arm sweep, groove band, late skip), `tube.ts`
-    (`TubeFault` state machine), `calls.ts` (call results, the dump delay), `morse.ts`
+    (`TubeFault` state machine), `calls.ts` (call results, the dump delay in chars and
+    seconds, ring patience, `dumpedSentence`, `requestResult`), `morse.ts`
     (code table, keying timeline/tape, `MorseCopy`, chart). Tests in `tests/<name>.test.ts`.
   - `intrusion.ts`: the Other Station during the show (`otherStation.intrusions` in the
     night data, not `events`). `carrier`: a second carrier at `OTHER_OFFSET` (-0.55, "1250")
@@ -176,7 +179,9 @@ call; see "What to do next".
    Morse hard on `?fast`). Night 1's shape: needle and tube at dusk; switchboard (Mrs.
    Okafor, a nameless slanderer to dump, Lottie) and a storm late; Morse ("HELP") in the
    small hours. Night 2 (`src/data/night2.ts`): switchboard at dusk (Grace Okafor, Sparky
-   inviting the town up a live pylon, Old Bill's knee), tube and Morse ("SPOOL", from Teddy) late, the
+   inviting the town up a live pylon, Old Bill's knee), tube and Morse ("SPOOL", from Teddy) late,
+   a second board over the late record (Lottie's birthday request for Walt; Pruitt, bitten or
+   grateful; Walt if Lottie aired on Night 1), the
    squall in the small hours on top of the squall warning. Night 1's flags gate Night 2
    cards and callers (Morse copied → the Wozniak tip, boat lost → memorial, slander aired
    → Sister Agnes replies, Teddy found or not → which Grace calls).
