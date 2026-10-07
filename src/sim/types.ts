@@ -242,15 +242,17 @@ export type NightEvent = SwitchboardEvent | TubeEvent | MorseEvent | StormEvent;
 
 /**
  * The Other Station during the show. A `carrier` sits on the dial during its slots; an
- * `override` takes the frequency for `seconds` from `at`; a `climax` is Night 6's (for now
- * it runs like an override; with no `card`, it reads the first unaired preferred card).
+ * `override` takes the frequency for `seconds` from `at`; a `climax` is the last night's: it
+ * takes the frequency for `seconds` (no shorter for holding) and the player holds the dial
+ * (jam it), lets it through, or talks over it with `counter` (with no `card`, it reads the
+ * first unaired preferred card).
  * Ids share the night's event id space. A `gate` is checked when the night opens.
  * See src/sim/intrusion.ts.
  */
 export type Intrusion =
   | { kind: 'carrier'; id: string; gate?: Gate; slots: number[] } // a second carrier on the dial during these slots
   | { kind: 'override'; id: string; gate?: Gate; at: EventTrigger; seconds: number; card?: string } // it takes the frequency for a while
-  | { kind: 'climax'; id: string; gate?: Gate; at: EventTrigger; seconds: number; card?: string; counter: string }; // Night 6 (behaves like override for now)
+  | { kind: 'climax'; id: string; gate?: Gate; at: EventTrigger; seconds: number; card?: string; counter: string }; // the last night's: hold, carry or counter
 
 /** A line the dawn adds after everything else, when its gate is open against the town after the night. */
 export interface DawnLineDef {
@@ -349,6 +351,12 @@ export interface PersonRecord {
 /** How a record's needle went down: on the lead-in, late into the song, or skating across. */
 export type NeedleResult = 'clean' | 'late' | 'scratch';
 
+/**
+ * How the climax went: the dial held through at least CLIMAX_HOLD of it (jammed), held some
+ * and let go (failed: it got through), left alone (carried), or talked over (countered).
+ */
+export type ClimaxResult = 'jammed' | 'carried' | 'countered' | 'failed';
+
 /** What the live show produced. Signal is 0..1 per slot (1 = perfectly tuned). */
 export interface ShowPerformance {
   rundown: string[];
@@ -370,6 +378,11 @@ export interface ShowPerformance {
   bleed?: number[];
   /** Per override that ran: the card it read (null: drone only), its seconds after the hold, and the fraction held. */
   overrides?: { id: string; card: string | null; seconds: number; held: number }[];
+  /**
+   * The climax, if it ran: what the player did, the fraction of it the dial was held, the
+   * card it read (null: drone only), and the counter card the DJ read over it (countered).
+   */
+  climax?: { id: string; result: ClimaxResult; held: number; card: string | null; counter?: string };
   /** Confidences heard off air tonight, as `t_<flag>` (the scene's confidedTonight). */
   confided?: string[];
   /** Card ids read with their hedged script. */

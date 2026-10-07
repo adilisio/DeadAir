@@ -10,7 +10,7 @@ import type { PersonId } from '../data/people';
 import { rng } from '../audio/pressings';
 import { finishNight, run } from '../run';
 import { pickOtherStationCard, resolveNight, segmentOfSlot } from '../sim/resolver';
-import { OTHER_OFFSET, bleed, carrierForSlot, intrusionsDue, overrideCard, overrideSeconds, type CarrierIntrusion, type TimedIntrusion } from '../sim/intrusion';
+import { JAM_SIGNAL, OTHER_OFFSET, bleed, carrierForSlot, climaxResult, intrusionsDue, overrideCard, overrideSeconds, type CarrierIntrusion, type TimedIntrusion } from '../sim/intrusion';
 import { eventsDue } from '../sim/events';
 import { gateOpen, linesOpenNow } from '../sim/nights';
 import { deskCards, swapNext, type Swap } from '../sim/desk';
@@ -34,6 +34,7 @@ import {
   type NeedleResult,
   type NightEvent,
   type RecordCard,
+  type ShowPerformance,
   type SwitchboardEvent,
   type TalkCard,
   type TubeEvent,
@@ -41,7 +42,7 @@ import {
 import { RundownBuilder, SEGMENT_LABEL } from '../ui/RundownBuilder';
 import { resolveRecord } from '../data/records';
 
-import { LiveHud, kindHeader } from '../ui/LiveHud';
+import { LiveHud, kindHeader, type DialIntrusion } from '../ui/LiveHud';
 
 const S = ART_SCALE;
 /** Records play up to this long, then fade (a 78 side runs about three minutes). */
@@ -187,8 +188,25 @@ export class BoothScene extends Phaser.Scene {
     spoken: number;
     words: boolean;
     stopDrone: () => void;
+    /**
+     * The climax: the card the DJ can read over it, whether SPACE was pressed (for good),
+     * whether the dial is held hard against it now, and the DJ's read once it's countered.
+     */
+    climax: {
+      counter: string;
+      title: string;
+      script: string;
+      countered: boolean;
+      holding: boolean;
+      speech: Speech | null;
+      done: boolean;
+      t: number;
+      spoken: number;
+      words: boolean;
+    } | null;
   } | null = null;
   private overrideLog: { id: string; card: string | null; seconds: number; held: number }[] = [];
+  private climaxLog: NonNullable<ShowPerformance['climax']> | null = null;
   private needlePanel: NeedlePanel | null = null;
   /** The tonearm swinging in over a record that's up next. */
   private needle: { slot: number; card: RecordCard; t: number; sweep: number } | null = null;
@@ -276,6 +294,7 @@ export class BoothScene extends Phaser.Scene {
     this.intrusionsFired = new Set();
     this.override = null;
     this.overrideLog = [];
+    this.climaxLog = null;
     this.needlePanel = null;
     this.needle = null;
     this.drops = Array(SHOW_SLOTS).fill(null);
@@ -693,6 +712,11 @@ export class BoothScene extends Phaser.Scene {
 
   private pressCue(): void {
     if (this.phase !== 'live') return;
+    // While the climax has the frequency, SPACE talks over it (once; after that it cues as usual).
+    if (!this.board && this.override?.climax && !this.override.climax.countered) {
+      this.counterClimax();
+      return;
+    }
     if (this.board) {
       // SPACE leaves the switchboard, but not in the first second (no accidental hang-ups).
       if (this.time.now - this.board.opened > 1000) this.closeBoard();
@@ -820,7 +844,8 @@ export class BoothScene extends Phaser.Scene {
       if (e.kind === 'switchboard') this.boardQueue.push(e);
       else if (e.kind === 'tube') this.pendingTubes.push(e);
       else if (e.kind === 'morse') {
-        if (this.morse) this.morseQueue.push(e);
+        // A signal waits for the one keying now, and for the climax to let go of the frequency.
+        if (this.morse || this.override?.climax) this.morseQueue.push(e);
         else this.startMorse(e);
       }
     }
@@ -1260,8 +1285,12 @@ export class BoothScene extends Phaser.Scene {
     this.carrierVoice = null;
     audio.override(true);
     audio.setOtherGain(1);
+    const counter = def.kind === 'climax' ? run.night.cards.find((k) => k.id === def.counter) : undefined;
     const o: NonNullable<BoothScene['override']> = {
       def, card, script, t: 0, heldT: 0, strength: 1, speech: null, spoken: 0, words: false, stopDrone: audio.otherStationDrone(),
+      climax: counter && counter.kind !== 'record'
+        ? { counter: counter.id, title: counter.title, script: counter.script, countered: false, holding: false, speech: null, done: false, t: 0, spoken: 0, words: false }
+        : null,
     };
     if (script) {
       o.speech = speak(script, {
@@ -1278,7 +1307,31 @@ export class BoothScene extends Phaser.Scene {
     this.tweens.add({ targets: this.ghostLight, intensity: 1.1, duration: 1200 });
     this.tweens.add({ targets: this.ghostTint, alpha: 0.09, duration: 1200 });
     this.hud?.showOverride('1260 · ' + run.night.otherStation.stamp, script);
+    if (o.climax) this.hud?.showClimax(o.climax.title, () => this.counterClimax());
     markPhase(def.kind === 'climax' ? 'climax' : 'override');
+  }
+
+  /** SPACE (or COUNTER) during the climax: the DJ reads the counter card over it, both voices at once. */
+  private counterClimax(): void {
+    const o = this.override;
+    const c = o?.climax;
+    if (!o || !c || c.countered || this.phase !== 'live') return;
+    c.countered = true;
+    c.holding = false;
+    audio.sfx('click');
+    audio.setOtherGain(1);
+    // Past the override duck: the station's own item stays down under both of them.
+    c.speech = speak(c.script, {
+      person: 'dj',
+      channel: 'over',
+      onWord: (ch) => {
+        c.spoken = ch;
+        c.words = true;
+      },
+    });
+    c.speech.done.then(() => (c.done = true));
+    this.hud?.showCounter('COUNTER · ' + c.title, c.script);
+    markPhase('climax-counter');
   }
 
   /** The second carrier's bleed and an override's clock, every frame. `input` is the player's hand on the dial. */
@@ -1298,13 +1351,37 @@ export class BoothScene extends Phaser.Scene {
     const o = this.override;
     if (!o) return;
     o.t += dt;
-    if (Math.abs(input) >= 1) o.heldT += dt;
     o.strength = strength;
-    const spoken = o.words || !o.speech ? o.spoken : Math.min(1, o.t / Math.max(0.5, o.speech.estimate)) * o.script.length;
-    this.hud?.overrideSpoken(spoken);
     // ?fast runs it at a third of the time; the dawn still counts its full seconds.
     const scale = DEBUG.fast ? 1 / 3 : 1;
+    const c = o.climax;
+    if (c) {
+      // ?auto&counter talks over it a second in.
+      if (DEBUG.auto && DEBUG.counter && !c.countered && o.t >= 1) this.counterClimax();
+      // Holding it hard (until SPACE commits the counter): its voice drops and the town hears static.
+      c.holding = !c.countered && Math.abs(input) >= 1;
+      if (c.holding) o.heldT += dt;
+      if (!c.countered) audio.setOtherGain(c.holding ? 0.15 : 1);
+      if (c.countered) {
+        c.t += dt;
+        this.hud?.overrideSpoken(c.words || !c.speech ? c.spoken : Math.min(1, c.t / Math.max(0.5, c.speech.estimate)) * c.script.length);
+      } else {
+        this.hud?.overrideSpoken(o.words || !o.speech ? o.spoken : Math.min(1, o.t / Math.max(0.5, o.speech.estimate)) * o.script.length);
+      }
+      this.hud?.climaxState(c.countered ? 'counter' : c.holding ? 'hold' : 'carry', o.heldT / o.t, c.countered);
+      // It runs its full length (holding doesn't shorten it); talked over, until the DJ is done too.
+      if (o.t >= o.def.seconds * scale && (!c.countered || c.done)) this.endOverride();
+      return;
+    }
+    if (Math.abs(input) >= 1) o.heldT += dt;
+    const spoken = o.words || !o.speech ? o.spoken : Math.min(1, o.t / Math.max(0.5, o.speech.estimate)) * o.script.length;
+    this.hud?.overrideSpoken(spoken);
     if (o.t >= overrideSeconds(o.def.seconds, o.heldT / o.t, strength) * scale) this.endOverride();
+  }
+
+  /** Whether the dial is being held hard against the climax right now (the town hears static). */
+  private jamming(): boolean {
+    return !!this.override?.climax?.holding;
   }
 
   /** It lets go of the frequency (its time ran out, or the show ended under it). */
@@ -1316,18 +1393,34 @@ export class BoothScene extends Phaser.Scene {
     o.stopDrone();
     audio.override(false);
     const held = o.t > 0 ? o.heldT / o.t : 0;
-    this.overrideLog.push({ id: o.def.id, card: o.card, seconds: overrideSeconds(o.def.seconds, held, o.strength), held });
+    const c = o.climax;
+    if (c) {
+      c.speech?.cancel();
+      audio.setOtherGain(this.carrier ? this.bleedNow : 1);
+      const result = climaxResult(held, c.countered);
+      this.climaxLog = { id: o.def.id, result, held, card: o.card, ...(c.countered ? { counter: c.counter } : {}) };
+      exposeDebug('climax', this.climaxLog);
+      this.hud?.endClimax();
+      markPhase(`climax-${result}`);
+      // A signal that came due under it keys now.
+      if (!this.morse && this.morseQueue.length) {
+        this.time.delayedCall(1500, () => {
+          const next = this.morseQueue.shift();
+          if (next && this.phase === 'live' && !this.morse) this.startMorse(next);
+        });
+      }
+    } else this.overrideLog.push({ id: o.def.id, card: o.card, seconds: overrideSeconds(o.def.seconds, held, o.strength), held });
     this.tweens.killTweensOf([this.ghostLight, this.ghostTint]);
     this.tweens.add({ targets: this.ghostLight, intensity: 0, duration: 1500 });
     this.tweens.add({ targets: this.ghostTint, alpha: 0, duration: 1500 });
     this.hud?.endOverride();
     if (this.carrier) this.startCarrierVoice();
-    markPhase('override-end');
+    if (!c) markPhase('override-end');
   }
 
   /** What the gauge shows besides your own carrier. */
-  private dialIntrusion(): 'carrier' | 'override' | null {
-    return this.override ? 'override' : this.carrier ? 'carrier' : null;
+  private dialIntrusion(): DialIntrusion {
+    return this.override ? (this.override.climax ? 'climax' : 'override') : this.carrier ? 'carrier' : null;
   }
 
   // ───────────────────────────── Storm ─────────────────────────────
@@ -1412,6 +1505,7 @@ export class BoothScene extends Phaser.Scene {
       morse: this.morseResults,
       bleed: this.bleedSum.map((s, i) => (this.bleedTime[i] > 0 ? s / this.bleedTime[i] : 0)),
       overrides: this.overrideLog,
+      ...(this.climaxLog ? { climax: this.climaxLog } : {}),
       confided: this.confidedTonight,
       hedged: [...this.hedgedSlots].filter((i) => i < aired.length).map((i) => this.cards[i].id),
       swaps: this.swaps,
@@ -1469,9 +1563,10 @@ export class BoothScene extends Phaser.Scene {
       if (this.hud?.pointerTune) input = this.hud.pointerTune;
       const carrier = this.idx >= 0 && this.idx < SHOW_SLOTS ? carrierForSlot(run.night, this.idx) : null;
       if (carrier !== this.carrier) this.setCarrier(carrier);
-      // ?auto holds 1260 (?drift: toward 1250 in storms) and leans on the dial through an override.
+      // ?auto holds 1260 (?drift: toward 1250 in storms) and leans on the dial through an override
+      // and the climax (?counter: it talks over the climax instead, hands off the dial).
       if (DEBUG.auto) input = Math.max(-1, Math.min(1, ((DEBUG.drift && this.storm ? AUTO_DRIFT : 0) - this.tuning.error) * 12));
-      if (DEBUG.auto && this.override) input = 1;
+      if (DEBUG.auto && this.override) input = DEBUG.counter && this.override.climax ? 0 : 1;
       this.itemEvents();
       this.intrusionCheck();
       this.tubeCheck();
@@ -1480,8 +1575,11 @@ export class BoothScene extends Phaser.Scene {
       // While it has the frequency the dial won't turn; pushing on it is holding against it.
       this.quality = this.tuning.step(dt, this.override ? 0 : input, wind) * strength;
       this.otherTick(dt, input, strength);
+      // Held against the climax: neither station gets through, and the slot's signal pays for it.
+      if (this.jamming()) this.quality *= JAM_SIGNAL;
       this.hud?.setTransmitter(this.storm || !!this.dialIntrusion() || Math.abs(this.tuning.error) > TUNING.deadZone * 1.5, this.storm, this.dialIntrusion());
-      audio.setTuning(this.tuning.error);
+      // Jamming it, the static comes up as if the dial were far off.
+      audio.setTuning(this.jamming() ? Math.max(Math.abs(this.tuning.error), 0.85) : this.tuning.error);
       this.recentQ += (this.quality - this.recentQ) * Math.min(1, dt * 0.8);
       if (this.signalSlot !== null && this.signalSlot < SHOW_SLOTS) {
         this.sigSum[this.signalSlot] += this.quality * dt;

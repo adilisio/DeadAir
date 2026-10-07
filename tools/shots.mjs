@@ -51,6 +51,14 @@ async function campaignEnd(page) {
   console.log('     START OVER: back to Night 1');
 }
 
+/** After a climax shot: wait for the climax to end, and check how it went. */
+const climaxEnds = (result) => async (page) => {
+  await seen(page, `climax-${result}`, 120000);
+  const got = await page.evaluate(() => window.__deadair?.data.climax?.result);
+  if (got !== result) throw new Error(`the climax ended ${got}, not ${result}`);
+  console.log(`     climax: ${got}`);
+};
+
 /**
  * Each shot: open url (after putting `storage` in localStorage), run `drive` if any, wait until
  * the game reports `phase`, then capture (and run `after`, which may take more shots).
@@ -96,8 +104,13 @@ const SHOTS = [
     { name: `${n}0-night${n}-prep`, query: `?mute&scene=booth&night=${n}&auto&fast`, phase: 'prep-filled', settle: 800 },
     { name: `${n}1-night${n}-switchboard`, query: `?mute&scene=booth&night=${n}&auto&fast`, phase: 'switchboard', settle: 700, timeout: 90000 },
     ...(n === 4 ? [{ name: '41a-night4-override', query: '?mute&scene=booth&night=4&auto&fast', phase: 'override', settle: 1500, timeout: 120000 }] : []),
-    ...(n === 6 ? [{ name: '61a-night6-climax', query: '?mute&scene=booth&night=6&auto&fast', phase: 'climax', settle: 1500, timeout: 240000 }] : []),
+    // The climax: ?auto holds the dial through it (jammed); ?counter talks over it instead.
+    ...(n === 6 ? [
+      { name: '61a-night6-climax', query: '?mute&scene=booth&night=6&auto&fast', phase: 'climax', settle: 1500, timeout: 240000, after: climaxEnds('jammed') },
+      { name: '61b-night6-counter', query: '?mute&scene=booth&night=6&auto&fast&counter', phase: 'climax-counter', settle: 1200, timeout: 240000, after: climaxEnds('countered') },
+    ] : []),
     { name: `${n}2-night${n}-dawn`, query: `?mute&scene=booth&night=${n}&auto&fast`, phase: 'dawn-page-1', settle: 3600, timeout: 300000 },
+    ...(n === 6 ? [{ name: '62-night6-dawn-counter', query: '?mute&scene=booth&night=6&auto&fast&counter', phase: 'dawn-page-1', settle: 3600, timeout: 300000 }] : []),
     { name: `${n}3-night${n}-letter`, query: `?mute&scene=booth&night=${n}&auto&fast`, phase: 'dawn-letter', settle: 1200, timeout: 360000 },
   ]),
 ];

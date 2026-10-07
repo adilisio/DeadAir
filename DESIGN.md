@@ -242,6 +242,15 @@ seconds) don't wait for sign-off: it takes the frequency, the program drops unde
 the needle pins to 1250 while it reads an unaired card; holding the dial hard against it
 (on a healthy tube) lets it go up to 40% sooner, and the town acts on what it read.
 
+**The climax** (the last night, kind `climax`): at the storm's height it broadcasts into
+your show, an order to the town, and this time you choose. **Hold** the dial hard against
+it (A / D at full) through at least three quarters of it and 1260 is dead air for those
+seconds: the town hears neither of you, and your own signal pays for it (hold some and let
+go, and it gets through anyway). **Carry**: do nothing, and it goes out like an override.
+**Counter**: SPACE (or COUNTER) and the DJ reads the night's `counter` card over it, both
+voices at once; each reaches half the town (`climaxResult`, flags `n6_jammed` /
+`n6_carried` / `n6_countered` / `n6_failed`).
+
 ### Rules of the broadcast (resolver)
 
 Pure TypeScript in `src/sim/`, fully unit-tested. In short:

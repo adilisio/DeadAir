@@ -16,7 +16,7 @@ import { generateScore, rng } from './pressings';
 import { renderScore } from './render';
 
 /** How a voice reaches the listener. See playVoice. */
-export type VoiceChannel = 'air' | 'phone' | 'handset' | 'other';
+export type VoiceChannel = 'air' | 'phone' | 'handset' | 'other' | 'over';
 
 export interface VoiceHandle {
   stop(): void;
@@ -354,6 +354,8 @@ class AudioEngine {
    * - phone: a caller on air: telephone band (300-3400 Hz) and a harder clip, then the chain.
    * - handset: a caller heard off air on the handset: the phone sound straight to the room.
    * - other: the Other Station: slowed, narrower, with a short doubled echo, then the chain.
+   * - over: the DJ on air while the Other Station has the frequency (talking over it at the
+   *   climax): like air, but past the override duck.
    * Voice files are loudness-normalized like the records (-18 LUFS). Channel gains aim to
    * put a voice about level with a record's singer after the chain's drive and compressor:
    * air 0.85 (a voice alone is denser than a full band), phone 0.7 (its clipper already
@@ -388,6 +390,10 @@ class AudioEngine {
       case 'phone':
         out.gain.value = 0.7;
         phone().connect(out).connect(this.voiceBus);
+        break;
+      case 'over':
+        out.gain.value = 0.85;
+        src.connect(out).connect(this.signal);
         break;
       case 'handset':
         // Off air, on the handset: no radio chain, no static.

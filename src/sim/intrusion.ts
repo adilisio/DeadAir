@@ -1,10 +1,11 @@
 // The Other Station during the show. A night can put a second carrier on the dial for
-// some slots (`carrier`), or have it take the frequency for a while (`override`, and
-// Night 6's `climax`, which runs like an override for now). Pure: the scene asks when,
-// how loud and for how long; the resolver says what the town heard.
+// some slots (`carrier`), or have it take the frequency for a while (`override`). The
+// last night's `climax` takes it too, and the player decides: hold the dial against it,
+// let it through, or talk over it. Pure: the scene asks when, how loud and for how long;
+// the resolver says what the town heard.
 
 import type { ItemKind } from './events';
-import type { Intrusion, NightDef } from './types';
+import type { ClimaxResult, Intrusion, NightDef } from './types';
 
 /** Where the second carrier sits on the dial (tuning error units; about 1250 on the gauge). */
 export const OTHER_OFFSET = -0.55;
@@ -16,9 +17,16 @@ export const OTHER_HEARD = 0.35;
 export const HOLD_RELIEF = 0.4;
 /** Held at least this much of an override counts as leaning on the dial (a dawn line). */
 export const HARD_HOLD = 0.6;
+/** Held at least this much of the climax (at full input) jams it. */
+export const CLIMAX_HOLD = 0.75;
+/** Held less than this much of the climax is a touch on the dial, not an attempt: it was let through. */
+export const CLIMAX_TRIED = 0.1;
+/** While the dial is held against the climax the town hears static: the station's signal counts at this. */
+export const JAM_SIGNAL = 0.5;
 
 export type CarrierIntrusion = Extract<Intrusion, { kind: 'carrier' }>;
 export type TimedIntrusion = Exclude<Intrusion, CarrierIntrusion>;
+export type ClimaxIntrusion = Extract<Intrusion, { kind: 'climax' }>;
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
@@ -62,6 +70,17 @@ export function intrusionsDue(night: NightDef, fired: ReadonlySet<string>, slot:
  */
 export function overrideSeconds(seconds: number, held: number, tubeStrength: number): number {
   return seconds * (1 - HOLD_RELIEF * clamp01(held) * clamp01(tubeStrength));
+}
+
+/**
+ * The climax's outcome. Talking over it (SPACE) wins whatever the dial did; else holding at
+ * least CLIMAX_HOLD of it jams it; holding some (CLIMAX_TRIED or more) and letting go fails;
+ * less than that is letting it through.
+ */
+export function climaxResult(held: number, countered: boolean): ClimaxResult {
+  if (countered) return 'countered';
+  if (held >= CLIMAX_HOLD) return 'jammed';
+  return held >= CLIMAX_TRIED ? 'failed' : 'carried';
 }
 
 /**

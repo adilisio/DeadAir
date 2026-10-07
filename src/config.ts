@@ -12,6 +12,8 @@ export const DEBUG = {
   auto: params.has('auto'),
   /** With ?auto: in storms, hold the dial at -0.4 (toward 1250) instead of on 1260. */
   drift: params.has('drift'),
+  /** With ?auto: talk over the last night's climax (SPACE) instead of holding the dial against it. */
+  counter: params.has('counter'),
   /** Mutes all audio output (screenshots, CI). */
   mute: params.has('mute'),
   /** Skip bloom, CRT curve and vignette (slow GPUs, debugging). */

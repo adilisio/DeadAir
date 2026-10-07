@@ -50,6 +50,9 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
      seconds later (the delay): **X** dumps a caller who says something that mustn't go
      out, and a quick dump keeps it off the air. What you dump may come back.
      **SPACE** goes back to the show.
+   - On the last night, at the worst of the storm, the other one takes the frequency and
+     you choose: **hold A / D** against it the whole time to jam it, let it through, or
+     press **SPACE** (or COUNTER) to talk over it.
    - In the small hours something taps under the static. Read the dots and dashes off the
      tape against the chart and **type the letters** before it fades. Wrong guesses cost time.
 3. **Sign-off.** Then leave the set on for a minute.
@@ -68,6 +71,7 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
 | `?fast` | Short records and talk: a whole night in about a minute |
 | `?auto` | The game plays itself (for testing) |
 | `?drift` | With `?auto`: hold the dial toward 1250 in storms instead of on 1260 |
+| `?counter` | With `?auto`: talk over the last night's climax instead of holding the dial |
 | `?scene=booth` / `?scene=dawn` | Skip straight to a scene |
 | `?night=N` | Start at night N (1-6), as if the earlier nights went like their `?auto` shows |
 

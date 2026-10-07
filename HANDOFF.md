@@ -71,6 +71,8 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
   Packet G (campaign wiring): 317 tests, 48 shots (adds `16-campaign`, which plays Night 1
   to the last dawn and START OVER and also saves `16a`/`16b`, and prep / switchboard /
   dawn / letter for Nights 3-6, `41a-night4-override`, `61a-night6-climax`).
+  Packet K (the climax): adds `61b-night6-counter` and `62-night6-dawn-counter`
+  (`?counter`); `61a` / `61b` also check the climax ended `jammed` / `countered`.
 - Runs: `src/run.ts` holds the run (night index, town, result); `startNight`, `finishNight`
   (keeps the result and saves), `nextNight` (saves), `resetRun`, `townBefore(n)` for
   `?night=N`, and the save: `saveRun` / `loadRun` / `savedRun` / `clearSave` on
@@ -132,9 +134,14 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
     over some slots; `bleed(error, tubeStrength)` is how much of it comes through yours,
     `carrierForSlot`. `override` / `climax`: `intrusionsDue` (same timing rules as
     `eventsDue`), `overrideSeconds` (holding the dial shortens it), `overrideCard`, and the
-    show clock (`clockText`). The resolver's `otherStationLive` turns `perf.bleed` and
-    `perf.overrides` into cards the town heard on 1260 (`NightResult.otherAired`, flags
-    `other_heard` and `other_aired_<card>`, lines that lead the ledger).
+    show clock (`clockText`). The climax: `climaxResult(held, countered)` (SPACE wins;
+    `CLIMAX_HOLD` 0.75 held jams it; `CLIMAX_TRIED` 0.1 or more and less than that fails;
+    else carried), `JAM_SIGNAL`; the scene logs `perf.climax`. The resolver's
+    `otherStationLive` turns `perf.bleed`, `perf.overrides` and `perf.climax` (unless
+    jammed; countered at half signal) into cards the town heard on 1260
+    (`NightResult.otherAired`, flags `other_heard` and `other_aired_<card>`, lines that
+    lead the ledger, the climax's first: flag `n<number>_<result>`, a countered counter card
+    counts as aired at half audience).
   - `desk.ts` (desk cards, live swaps) and `classifieds.ts` (what chits buy at dawn).
 - `src/data/night1.ts` — Night 1's 13 cards, its events (`n1_board` with three lines,
   `n1_tube`, `n1_morse`, `n1_storm`), the Other Station config, and the `?auto` / `?scene=dawn`
@@ -166,7 +173,8 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
   `fx.ts`: post effects and `splitCameras` (UI on a clean second camera).
 - `src/ui/` — `RundownBuilder` (prep), `LiveHud` (teleprompter with a reveal mode for
   callers and an override mode that keeps the station's own item behind it, a tuning gauge
-  shown in storms, with two carriers or under an override, cue box with THE DESK button,
+  shown in storms, with two carriers or under an override, the climax's HOLD / LET IT
+  THROUGH / COUNTER strip over the gauge, cue box with THE DESK button,
   running-order chips), one panel per task (`NeedlePanel`, `TubePanel`, `Switchboard`,
   `MorsePanel`), `DeskPanel` (live swaps), `widgets`.
 - Live controls: A/D tune (storms; held hard through an override, shortens it), SPACE cue /
@@ -236,10 +244,9 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
 3. **M2: One Day** — town walk, map with a travel event, one ruin run; outputs are cards
    and records for the night. See `DESIGN.md`.
 4. **Play Nights 3-6 by hand.** They have only run on `?auto`. Things to judge: Night 5's
-   "go dark" card and what fills the silence, Night 6's climax (it still behaves like an
-   override; Night 6's dawn lines for `n6_jammed` / `n6_countered` / `n6_carried` wait on
-   the HOLD / CARRY / COUNTER mechanic, which isn't built), and whether the crates (up to
-   15 cards) read well.
+   "go dark" card and what fills the silence, Night 6's climax (HOLD / CARRY / COUNTER:
+   does 45 seconds feel right, is holding three quarters of it fair), and whether the
+   crates (up to 15 cards) read well.
 
 ## Known uncertainties
 
