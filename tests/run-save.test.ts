@@ -40,7 +40,7 @@ describe('saving the run', () => {
     expect(atDawn?.town.flags).toEqual(expect.arrayContaining(['n1_teddy_found', 'n1_shanty_found', 'grace_aired']));
 
     nextNight();
-    expect(savedRun()).toEqual({ index: 1, town: run.town });
+    expect(savedRun()).toEqual({ index: 1, town: run.town, hints: [] });
 
     // A fresh page: back to Night 1, then continue.
     resetRun();

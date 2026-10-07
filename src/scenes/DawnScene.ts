@@ -19,8 +19,9 @@ import { audio } from '../audio/engine';
 const PAPER = { x: 236, y: 14, w: 392, h: 332 };
 const INK = '#2a2420';
 const INK_DIM = '#6b5f50';
-// Rumors are what people are saying that may be wrong; for now they read like neutral lines.
-const TONE: Record<DawnLine['tone'], string> = { good: '#2f6b2a', bad: '#8c2a1e', neutral: INK, eerie: '#1f6b47', rumor: INK };
+// Rumors are what people are saying that may be wrong: dim ink, and a ~ for a bullet.
+const TONE: Record<DawnLine['tone'], string> = { good: '#2f6b2a', bad: '#8c2a1e', neutral: INK, eerie: '#1f6b47', rumor: INK_DIM };
+const BULLET: Record<DawnLine['tone'], string> = { good: '+', bad: '-', neutral: '·', eerie: '·', rumor: '~' };
 
 export class DawnScene extends Phaser.Scene {
   private page = 0;
@@ -189,7 +190,7 @@ export class DawnScene extends Phaser.Scene {
       c.add(label(this, x, y, n === 0 ? 'WHAT PEOPLE ARE SAYING' : 'WHAT PEOPLE ARE SAYING (CONT.)', { size: 20, color: INK }));
       y += 28;
       page.forEach((line, i) => {
-        const bullet = label(this, x, y, line.tone === 'good' ? '+' : line.tone === 'bad' ? '-' : '·', { size: 16, color: TONE[line.tone] });
+        const bullet = label(this, x, y, BULLET[line.tone], { size: 16, color: TONE[line.tone] });
         const t = label(this, x + 14, y, line.text, { size: 16, color: TONE[line.tone], wrap: PAPER.w - 52 });
         c.add([bullet, t]);
         bullet.setAlpha(0);

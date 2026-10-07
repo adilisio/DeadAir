@@ -8,11 +8,15 @@
 //   runs and the teleprompter still scrolls.
 // - A line with no file (new or edited text, no index, audio not unlocked): the browser's
 //   speechSynthesis, which plays straight to the speakers (no radio filter).
+//
+// Pause: pauseSpeech() holds the browser voice and every wait in this file (they run on
+// pauseClock, sim/pausable.ts); the engine's suspend() holds the files.
 
 import { DEBUG } from '../config';
 import { exposeDebug } from '../debugHook';
 import { NIGHTS } from '../data/nights';
 import { PEOPLE, type PersonId } from '../data/people';
+import { pauseClock, type PauseTimer } from '../sim/pausable';
 import type { NightDef } from '../sim/types';
 import { audio, type VoiceChannel, type VoiceHandle } from './engine';
 import { charsSpokenAt, parseVoiceIndex, splitIntoKnown, voiceIdFor, voiceLines, type VoiceIndex } from './lines';
@@ -54,6 +58,13 @@ function pickVoice(): SpeechSynthesisVoice | null {
     if (v) return v;
   }
   return en[0] ?? voices[0] ?? null;
+}
+
+/** Pause or resume everything speaking that the audio graph does not hold: the browser voice and the timed waits. */
+export function pauseSpeech(on: boolean): void {
+  pauseClock.setPaused(on);
+  if (on) synth?.pause();
+  else synth?.resume();
 }
 
 // Voices load asynchronously in Chrome.
@@ -187,8 +198,8 @@ export function speak(text: string, opts: SpeakOptions = {}): Speech {
     handle = audio.playVoice(buffer, channel);
     exposeDebug('voicePlays', ++plays);
     const seconds = buffer.duration * stretch;
-    const start = performance.now();
-    timer = setInterval(() => opts.onWord?.(charsSpokenAt((performance.now() - start) / 1000, seconds, text)), 100);
+    const start = pauseClock.now();
+    timer = setInterval(() => opts.onWord?.(charsSpokenAt((pauseClock.now() - start) / 1000, seconds, text)), 100);
     await handle.ended;
     clearInterval(timer);
   })();
@@ -217,7 +228,7 @@ export function speak(text: string, opts: SpeakOptions = {}): Speech {
 export function loopOther(text: string, gap = 4): { stop(): void } {
   let stopped = false;
   let handle: VoiceHandle | null = null;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timer: PauseTimer | undefined;
   if (!DEBUG.fast && !DEBUG.mute) {
     void (async () => {
       await loadVoiceIndex();
@@ -234,14 +245,14 @@ export function loopOther(text: string, gap = 4): { stop(): void } {
         exposeDebug('voicePlays', ++plays);
         await handle.ended;
         if (stopped) break;
-        await new Promise<void>((r) => (timer = setTimeout(r, gap * 1000)));
+        await new Promise<void>((r) => (timer = pauseClock.timeout(r, gap * 1000)));
       }
     })();
   }
   return {
     stop: () => {
       stopped = true;
-      clearTimeout(timer);
+      timer?.clear();
       handle?.stop();
     },
   };
@@ -249,13 +260,13 @@ export function loopOther(text: string, gap = 4): { stop(): void } {
 
 /** No voice at all: wait a reading-speed delay. */
 function timed(estimate: number): Speech {
-  let timer: ReturnType<typeof setTimeout>;
+  let timer: PauseTimer;
   let resolve!: () => void;
   const done = new Promise<void>((r) => {
     resolve = r;
-    timer = setTimeout(r, estimate * 1000);
+    timer = pauseClock.timeout(r, estimate * 1000);
   });
-  return { done, estimate, browserVoice: false, cancel: () => (clearTimeout(timer), resolve()) };
+  return { done, estimate, browserVoice: false, cancel: () => (timer.clear(), resolve()) };
 }
 
 /** The browser's voice, sentence by sentence (Chrome cuts off long utterances). */
@@ -277,10 +288,9 @@ function speakSynth(text: string, opts: SpeakOptions, pitch: number, rate: numbe
         u.rate = rate;
         u.pitch = pitch;
         u.onboundary = (e) => opts.onWord?.(start + e.charIndex);
-        u.onend = () => resolve();
-        u.onerror = () => resolve();
         // Safety net if the engine never fires onend.
-        setTimeout(resolve, (readingSeconds(sentence, rate) + 4) * 1000);
+        const net = pauseClock.timeout(resolve, (readingSeconds(sentence, rate) + 4) * 1000);
+        u.onend = u.onerror = () => (net.clear(), resolve());
         synth.speak(u);
       });
     }

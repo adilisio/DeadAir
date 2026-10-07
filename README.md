@@ -59,6 +59,29 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
    Each night remembers the ones before it. There are six nights; the last dawn prints a
    headline for how it all went, and START OVER begins a new run.
 
+## Controls
+
+| Key | What it does |
+| --- | --- |
+| **SPACE** | Cue the next talk item; drop the needle on a record; leave the switchboard |
+| **H** | Cue the next story hedged (when it has a hedged read) |
+| **TAB** | Open or close the desk (or click THE DESK in the cue box) |
+| **1-9** | On the desk: put that card on next. On the switchboard: 1 / 2 / 3 listen in on a line |
+| **ENTER** | Put the line you are listening to on air |
+| **X** | Dump the caller on air |
+| **A / D** or **left / right** | Hold the dial on 1260 in a storm, or against the Other Station (the TRANSMITTER gauge takes clicks too) |
+| **Q / W / E** | Seat a spare tube |
+| **letters** | Copy the Morse signal from the chart |
+| **ESC** | Close the desk if it is open; otherwise pause the show (and go on again). The small PAUSE label, top right, does the same |
+
+Pausing freezes the show: voices, music, timers and dead air all stop. The pause screen has
+three volume sliders (music, voice, static), also in the corner of the title screen. Prep and
+the dawn ledger do not pause.
+
+The first time each booth task turns up in a run (the needle, a blown tube, the switchboard,
+Morse, a storm, the desk, a hedged read, the Other Station taking the dial) a one-line hint
+shows for six seconds by the cue box. A continued run does not repeat them.
+
 ## Settings (URL switches)
 
 | Add to the URL | Effect |
@@ -72,6 +95,10 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
 | `?night=N` | Start at night N (1-6), as if the earlier nights went like their `?auto` shows |
 
 Combine them with `&`, e.g. http://localhost:5173/?scene=booth&fast
+
+The volume sliders are saved in this browser (`localStorage['deadair.volume']`), 80 / 90 / 60
+for music, voice and static until moved. A run is saved too (`deadair.save`): after each dawn
+the title offers `continue: night N`.
 
 ## Develop
 

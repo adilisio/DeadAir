@@ -18,3 +18,17 @@ const game = new Phaser.Game({
   scene: [BootScene, TitleScene, BoothScene, DawnScene],
 });
 exposeDebug('game', game);
+
+// Keys go to the game: the canvas can take focus, and a click on it takes it (so keys still
+// work after clicking elsewhere on the page, or in the frame of an embedding site).
+game.events.once(Phaser.Core.Events.READY, () => {
+  const canvas = game.canvas;
+  canvas.tabIndex = 0;
+  canvas.style.outline = 'none';
+  const focus = () => {
+    window.focus();
+    canvas.focus({ preventScroll: true });
+  };
+  canvas.addEventListener('pointerdown', focus);
+  focus();
+});

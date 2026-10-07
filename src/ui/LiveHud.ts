@@ -2,6 +2,7 @@
 // The booth tasks (turntable, tubes, switchboard) have their own panels.
 // Laid out to keep the ON AIR sign, tubes, dial, phone and turntable in view.
 import Phaser from 'phaser';
+import { W } from '../config';
 import { UI } from '../art/palette';
 import type { Card } from '../sim/types';
 import { OTHER_OFFSET } from '../sim/intrusion';
@@ -15,6 +16,8 @@ const CUE = { x: 464, y: 290, w: 164, h: 64 };
 const TUNE = { x: 232, y: 236, w: 220, h: 50 };
 const CHIPS = { x: 14, y: 52, w: 42, h: 15 };
 const EERIE = 0x8aff9a;
+/** First-time hints sit above the cue box, right of the transmitter gauge. */
+const HINT = { x: 628, y: 287, w: 168 };
 
 /** What else is on the dial: a second carrier, or the Other Station holding the frequency. */
 export type DialIntrusion = 'carrier' | 'override' | null;
@@ -41,6 +44,8 @@ export class LiveHud {
   private cueGfx: Phaser.GameObjects.Graphics;
   private deskBtn: Button;
   private deskHandler: () => void = () => {};
+  private pauseHandler: () => void = () => {};
+  private hintText: Phaser.GameObjects.Text;
   /** The slot of a card that ends the show, once it airs: the chips after it go dark. */
   private endAt: number | null = null;
   /** Pointer held on the tuning gauge: -1 left half, 1 right half. */
@@ -79,6 +84,16 @@ export class LiveHud {
     this.deskBtn = button(scene, CUE.x + CUE.w - 66, CUE.y + 4, 60, 14, 'THE DESK', () => this.deskHandler(), { size: 13 });
     this.deskBtn.container.setVisible(false);
     add(this.deskBtn.container);
+
+    // First-time hint: dim, above the cue box, empty until a task shows up for the first time.
+    this.hintText = add(label(scene, HINT.x, HINT.y, '', { size: 14, color: UI.dim, wrap: HINT.w, align: 'right' }).setOrigin(1, 1).setStroke('#07070c', 3));
+
+    // Top right: a small PAUSE label (ESC does the same).
+    const pause = add(label(scene, W - 8, 5, 'PAUSE', { size: 16, color: UI.dim }).setOrigin(1, 0));
+    const pauseZone = add(scene.add.zone(W - 8 - 24, 5 + 8, 56, 18).setInteractive({ useHandCursor: true }));
+    pauseZone.on('pointerover', () => pause.setColor(UI.hot));
+    pauseZone.on('pointerout', () => pause.setColor(UI.dim));
+    pauseZone.on('pointerdown', () => this.pauseHandler());
 
     // Tuning gauge: only shown while the transmitter needs a hand (storms).
     const tune: Phaser.GameObjects.GameObject[] = [panel(scene, TUNE.x, TUNE.y, TUNE.w, TUNE.h)];
@@ -124,6 +139,16 @@ export class LiveHud {
     this.clockText.setText(text);
     this.deadText.setX(this.clockText.x + this.clockText.width + 14);
     this.deadText.setText(deadAir > 0.05 ? `dead air ${deadAir.toFixed(1)}s` : '');
+  }
+
+  /** What the PAUSE label does. */
+  setPauseHandler(onPause: () => void): void {
+    this.pauseHandler = onPause;
+  }
+
+  /** A first-time hint above the cue box (empty text clears it). */
+  setHint(text: string): void {
+    this.hintText.setText(text);
   }
 
   /** What THE DESK button in the cue box does. */

@@ -14,10 +14,12 @@ export interface SavedRun {
   index: number;
   /** The town before that night. */
   town: TownState;
+  /** First-time hints already shown this run (ui/hints.ts), so a continued run does not repeat them. */
+  hints: string[];
 }
 
 export function serializeRun(run: SavedRun): string {
-  return JSON.stringify({ version: SAVE_VERSION, index: run.index, town: run.town });
+  return JSON.stringify({ version: SAVE_VERSION, index: run.index, town: run.town, hints: run.hints });
 }
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
@@ -54,5 +56,7 @@ export function parseRun(s: string | null | undefined): SavedRun | null {
       if (typeof v === 'number' && Number.isInteger(v) && v >= 0) town.spares[t] = v;
     }
   }
-  return { index, town };
+  // Hints (added after version 1 shipped): a save without them has shown none.
+  const hints = Array.isArray(data.hints) ? [...new Set(data.hints.filter((h): h is string => typeof h === 'string'))] : [];
+  return { index, town, hints };
 }

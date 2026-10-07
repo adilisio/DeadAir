@@ -5,10 +5,11 @@ import { BOOTH } from '../art/booth';
 import { hex, P, UI } from '../art/palette';
 import { applyScreenLook, glow, splitCameras } from './fx';
 import { audio, type RecordHandle, type VoiceChannel } from '../audio/engine';
-import { loopOther, prefetchVoices, speak, type Speech } from '../audio/voice';
+import { loopOther, pauseSpeech, prefetchVoices, speak, type Speech } from '../audio/voice';
+import { pauseClock, type PauseTimer } from '../sim/pausable';
 import type { PersonId } from '../data/people';
 import { rng } from '../audio/pressings';
-import { finishNight, run } from '../run';
+import { finishNight, markHint, run } from '../run';
 import { pickOtherStationCard, resolveNight, segmentOfSlot } from '../sim/resolver';
 import { OTHER_OFFSET, bleed, carrierForSlot, intrusionsDue, overrideCard, overrideSeconds, type CarrierIntrusion, type TimedIntrusion } from '../sim/intrusion';
 import { eventsDue } from '../sim/events';
@@ -42,6 +43,8 @@ import { RundownBuilder, SEGMENT_LABEL } from '../ui/RundownBuilder';
 import { resolveRecord } from '../data/records';
 
 import { LiveHud, kindHeader } from '../ui/LiveHud';
+import { HINTS, HINT_ORDER, HINT_SECONDS, type HintId } from '../ui/hints';
+import { PauseOverlay } from '../ui/PauseOverlay';
 
 const S = ART_SCALE;
 /** Records play up to this long, then fade (a 78 side runs about three minutes). */
@@ -222,6 +225,13 @@ export class BoothScene extends Phaser.Scene {
   private endsAt: number | null = null;
   private rainGfx!: Phaser.GameObjects.Graphics;
   private flash!: Phaser.GameObjects.Rectangle;
+  /** The live show is paused (ESC or the PAUSE label): see setPaused. */
+  private paused = false;
+  private pausedAt = 0;
+  private pauseOverlay: PauseOverlay | null = null;
+  /** First-time hints waiting their turn, and whether one is on screen. */
+  private hintQueue: HintId[] = [];
+  private hintShowing = false;
   private ui: <T extends Phaser.GameObjects.GameObject>(o: T) => T = (o) => o;
   private fade: (out: boolean, ms: number, done?: () => void) => void = () => {};
 
@@ -295,6 +305,15 @@ export class BoothScene extends Phaser.Scene {
     this.autoDeskDone = false;
     this.endedEarly = false;
     this.endsAt = null;
+    // Scenes are reused: never start out paused.
+    this.paused = false;
+    this.pauseOverlay = null;
+    this.time.paused = false;
+    pauseSpeech(false);
+    audio.resume();
+    exposeDebug('paused', false);
+    this.hintQueue = [];
+    this.hintShowing = false;
     audio.setFault(0);
   }
 
@@ -313,17 +332,25 @@ export class BoothScene extends Phaser.Scene {
       space: kb.addKey(K.SPACE),
       q: kb.addKey(K.Q), w: kb.addKey(K.W), e: kb.addKey(K.E),
     };
-    this.keys.space.on('down', () => this.pressCue());
-    (['q', 'w', 'e'] as const).forEach((k, i) => this.keys[k].on('down', () => this.pickTube(i)));
-    [K.ONE, K.TWO, K.THREE].forEach((code, i) => kb.addKey(code).on('down', () => this.selectLine(i)));
-    kb.addKey(K.ENTER).on('down', () => this.putOnAir());
-    kb.addKey(K.X).on('down', () => this.dumpCall());
-    kb.on('keydown', (e: KeyboardEvent) => this.typeMorse(e.key));
+    // Nothing but ESC does anything while the show is paused.
+    const unpaused = (fn: () => void) => () => {
+      if (!this.paused) fn();
+    };
+    this.keys.space.on('down', unpaused(() => this.pressCue()));
+    (['q', 'w', 'e'] as const).forEach((k, i) => this.keys[k].on('down', unpaused(() => this.pickTube(i))));
+    [K.ONE, K.TWO, K.THREE].forEach((code, i) => kb.addKey(code).on('down', unpaused(() => this.selectLine(i))));
+    kb.addKey(K.ENTER).on('down', unpaused(() => this.putOnAir()));
+    kb.addKey(K.X).on('down', unpaused(() => this.dumpCall()));
+    kb.on('keydown', (e: KeyboardEvent) => !this.paused && this.typeMorse(e.key));
     // The desk: TAB opens and closes it (captured, so the browser keeps focus), 1-9 pick.
-    kb.addKey(K.TAB).on('down', () => this.toggleDesk());
-    kb.addKey(K.ESC).on('down', () => this.closeDesk());
-    [K.ONE, K.TWO, K.THREE, K.FOUR, K.FIVE, K.SIX, K.SEVEN, K.EIGHT, K.NINE].forEach((code, i) => kb.addKey(code).on('down', () => this.pickDesk(i)));
-    kb.addKey(K.H).on('down', () => this.pressHedge());
+    kb.addKey(K.TAB).on('down', unpaused(() => this.toggleDesk()));
+    // ESC puts the desk away if it is open; otherwise it pauses the show (and ends the pause).
+    kb.addKey(K.ESC).on('down', () => {
+      if (this.deskPanel && !this.paused) this.closeDesk();
+      else this.setPaused(!this.paused);
+    });
+    [K.ONE, K.TWO, K.THREE, K.FOUR, K.FIVE, K.SIX, K.SEVEN, K.EIGHT, K.NINE].forEach((code, i) => kb.addKey(code).on('down', unpaused(() => this.pickDesk(i))));
+    kb.addKey(K.H).on('down', unpaused(() => this.pressHedge()));
 
     // At prep nothing has aired: cards waiting on tonight's show turn up on the desk live.
     const prepNight = { ...run.night, cards: run.night.cards.filter((c) => gateOpen(c.gate, run.town.flags, { town: run.town, airedTonight: [], confidedTonight: [] })) };
@@ -490,6 +517,7 @@ export class BoothScene extends Phaser.Scene {
     this.hud = new LiveHud(this, this.cards, this.ui);
     this.hud.setOrder(-1, 0);
     this.hud.setDeskHandler(() => this.toggleDesk());
+    this.hud.setPauseHandler(() => this.setPaused(true));
     this.needlePanel = new NeedlePanel(this, this.ui);
     audio.unlock();
     prefetchVoices(run.night);
@@ -589,6 +617,7 @@ export class BoothScene extends Phaser.Scene {
   private startNeedle(slot: number, card: RecordCard): void {
     this.needle = { slot, card, t: 0, sweep: sweepFor(this.needleRand) };
     this.needlePanel?.show();
+    this.hint('needle');
     this.hud?.setTeleprompter(`REC · ${card.title}`, 'The arm swings in over the record...', UI.dim);
     this.hud?.setSpoken(0);
     markPhase('needle');
@@ -801,6 +830,7 @@ export class BoothScene extends Phaser.Scene {
   /** Keep the desk honest: it closes when the moment passes, and the cue box offers it. */
   private deskTick(): void {
     const available = this.deskAvailable();
+    if (available) this.hint('desk');
     if (this.deskPanel && (!available || this.deskSlot !== this.idx + 1)) this.closeDesk();
     this.hud?.setDesk(available, !!this.deskPanel);
   }
@@ -861,6 +891,7 @@ export class BoothScene extends Phaser.Scene {
       back: () => this.closeBoard(),
     }, this.ui);
     this.stopRing = audio.ring();
+    this.hint('switchboard');
     if (!during) this.hud?.setTeleprompter('', '');
     markPhase('switchboard');
     markPhase(`switchboard:${event.id}`);
@@ -894,13 +925,13 @@ export class BoothScene extends Phaser.Scene {
   private listenIn(b: ActiveBoard, i: number): Playback {
     const line = b.lines[i];
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let timer: PauseTimer | undefined;
     let current = speak(line.preview, { person: line.person, channel: 'handset' });
     const done = current.done.then(() => {
       const confide = line.confide;
       if (cancelled || !confide) return;
       return new Promise<void>((resolve) => {
-        timer = setTimeout(() => {
+        timer = pauseClock.timeout(() => {
           if (cancelled) return resolve();
           b.confided[i] = true;
           const flag = `t_${confide.flag}`;
@@ -916,7 +947,7 @@ export class BoothScene extends Phaser.Scene {
       done,
       cancel: () => {
         cancelled = true;
-        clearTimeout(timer);
+        timer?.clear();
         current.cancel();
       },
     };
@@ -933,7 +964,7 @@ export class BoothScene extends Phaser.Scene {
     let copy: Speech | null = null;
     let resolve!: () => void;
     const done = new Promise<void>((r) => (resolve = r));
-    const timer = setTimeout(() => {
+    const timer = pauseClock.timeout(() => {
       if (cancelled || handset.browserVoice) return resolve();
       copy = speak(line.script, { person: line.person, channel: 'phone' });
       void copy.done.then(resolve);
@@ -942,7 +973,7 @@ export class BoothScene extends Phaser.Scene {
       done,
       cancel: () => {
         cancelled = true;
-        clearTimeout(timer);
+        timer.clear();
         copy?.cancel();
         resolve();
       },
@@ -1116,6 +1147,7 @@ export class BoothScene extends Phaser.Scene {
     this.tubeHandled = false;
     this.tubeLog.push({ id: def.id, fault: this.tube });
     this.tubePanel = new TubePanel(this, this.tube, (i) => this.pickTube(i), this.ui);
+    this.hint('tube');
     audio.sfx('pop');
     const t = BOOTH.tubes[def.socket];
     const spark = glow(this, t.x * S, t.y * S, 40, 0xfff1c2, 1);
@@ -1167,6 +1199,7 @@ export class BoothScene extends Phaser.Scene {
     const chart = chartFor(copy.word, rng(def.word.length * 31));
     const panel = new MorsePanel(this, copy.word.length, chart, this.ui);
     this.morse = { event: def, copy, chart, t: 0, left: DEBUG.fast ? 14 : def.seconds, panel, autoT: 1.5 };
+    this.hint('morse');
     markPhase('morse');
   }
 
@@ -1336,6 +1369,7 @@ export class BoothScene extends Phaser.Scene {
     this.storm = on;
     audio.setRain(on ? 1 : 0);
     if (on) {
+      this.hint('storm');
       markPhase('storm');
       // The first strike knocks the carrier off frequency.
       this.bolt(Math.random() < 0.5 ? -0.4 : 0.4);
@@ -1379,6 +1413,8 @@ export class BoothScene extends Phaser.Scene {
     if (this.phase !== 'live') return;
     this.closeDesk();
     this.hud?.setDesk(false);
+    this.hintQueue = [];
+    this.hud?.setHint('');
     if (this.storm) this.setStorm(false);
     this.endOverride();
     if (this.carrier) this.setCarrier(null);
@@ -1453,9 +1489,89 @@ export class BoothScene extends Phaser.Scene {
     });
   }
 
+  // ───────────────────────────── Pause ─────────────────────────────
+
+  /**
+   * Pause or go on. Everything that keeps time stops: the audio graph (suspend freezes
+   * every buffer source), the browser voice, the pause-aware timers (sim/pausable.ts),
+   * Phaser's clock and tweens, and `update`. Only the live show pauses (not prep or dawn).
+   * Phaser's `time.now` keeps running, so the timestamps the show compares it with are
+   * moved forward by the time spent paused when it goes on.
+   */
+  private setPaused(on: boolean): void {
+    if (on === this.paused) return;
+    if (on && this.phase !== 'live' && this.phase !== 'other') return;
+    this.paused = on;
+    if (on) {
+      this.pausedAt = this.time.now;
+      if (this.hud) this.hud.pointerTune = 0;
+      this.time.paused = true;
+      this.tweens.pauseAll();
+      audio.suspend();
+      pauseSpeech(true);
+      this.pauseOverlay = new PauseOverlay(this, this.ui, () => this.setPaused(false));
+    } else {
+      const gap = this.time.now - this.pausedAt;
+      this.itemStart += gap;
+      this.speechStart += gap;
+      this.nextBolt += gap;
+      if (this.waitingSince !== null) this.waitingSince += gap;
+      if (this.board) {
+        this.board.opened += gap;
+        this.board.listenedAt += gap;
+      }
+      this.pauseOverlay?.destroy();
+      this.pauseOverlay = null;
+      this.time.paused = false;
+      this.tweens.resumeAll();
+      audio.resume();
+      pauseSpeech(false);
+    }
+    exposeDebug('paused', on);
+    markPhase(on ? 'paused' : 'resumed');
+  }
+
+  // ───────────────────────────── Hints ─────────────────────────────
+
+  /** A booth task has turned up: say how it works the first time it does this run. */
+  private hint(id: HintId): void {
+    if (run.hints.includes(id) || this.hintQueue.includes(id)) return;
+    this.hintQueue.push(id);
+  }
+
+  /** Whether a waiting hint still fits the moment: one that has gone stale is dropped, unseen, and shows the next time. */
+  private hintFits(id: HintId): boolean {
+    switch (id) {
+      case 'needle': return !!this.needle;
+      case 'tube': return !!this.tube && !this.tubeHandled;
+      case 'switchboard': return !!this.board;
+      case 'morse': return !!this.morse;
+      case 'storm': return this.storm;
+      case 'override': return !!this.override;
+      case 'desk': return this.deskAvailable() && !this.recordNext() && !(this.tube && !this.tubeHandled) && !this.morse;
+      case 'hedge': return this.hedgeable(this.idx + 1) && !this.board && !this.needle;
+    }
+  }
+
+  /** One hint at a time, six seconds each (a pause holds the clock), the most urgent first. */
+  private hintTick(): void {
+    if (this.hintShowing || !this.hintQueue.length) return;
+    this.hintQueue.sort((a, b) => HINT_ORDER.indexOf(a) - HINT_ORDER.indexOf(b));
+    const id = this.hintQueue.shift()!;
+    if (!this.hintFits(id) || !markHint(id)) return;
+    this.hintShowing = true;
+    this.hud?.setHint(HINTS[id]);
+    markPhase(`hint:${id}`);
+    this.time.delayedCall(HINT_SECONDS * 1000, () => {
+      this.hud?.setHint('');
+      this.hintShowing = false;
+    });
+  }
+
   // ───────────────────────────── Frame ─────────────────────────────
 
   update(_t: number, dtMs: number): void {
+    if (this.paused) return;
     const dt = Math.min(0.1, dtMs / 1000);
 
     if (this.phase === 'live') {
@@ -1493,6 +1609,9 @@ export class BoothScene extends Phaser.Scene {
       // Cueing and dead air; the desk.
       this.deskTick();
       const hedge = this.hedgeable(this.idx + 1);
+      if (hedge && !this.board && !this.needle && (this.waitingSince !== null || (this.playing && this.remaining() <= CUE_WINDOW))) this.hint('hedge');
+      if (this.override) this.hint('override');
+      this.hintTick();
       if (this.board) {
         this.boardTick(dt);
         this.hud?.setCue('hidden', '');

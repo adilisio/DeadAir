@@ -9,12 +9,20 @@ import { buy } from './sim/classifieds';
 import { TUBE_TYPES } from './sim/tube';
 import type { Classified, NightDef, NightResult, ShowPerformance, TownState } from './sim/types';
 
-export const run: { index: number; night: NightDef; town: TownState; result: NightResult | null } = {
+export const run: { index: number; night: NightDef; town: TownState; result: NightResult | null; hints: string[] } = {
   index: 0,
   night: openNight(NIGHTS[0], STARTING_STATE),
   town: cloneState(STARTING_STATE),
   result: null,
+  hints: [],
 };
+
+/** Note that a first-time hint has been shown this run. False if it already had been. Saved with the next save. */
+export function markHint(id: string): boolean {
+  if (run.hints.includes(id)) return false;
+  run.hints.push(id);
+  return true;
+}
 
 /** Begin night `index` (0-based) for this town. */
 export function startNight(index: number, town: TownState): void {
@@ -31,7 +39,7 @@ export function hasNextNight(): boolean {
 /** The night's over: keep the result, and save so a crash at dawn doesn't lose it. */
 export function finishNight(result: NightResult): void {
   run.result = result;
-  if (hasNextNight()) writeSave({ index: run.index + 1, town: result.after });
+  if (hasNextNight()) writeSave({ index: run.index + 1, town: result.after, hints: run.hints });
   else clearSave();
 }
 
@@ -44,7 +52,7 @@ export function buyClassified(c: Classified): boolean {
   const after = buy(run.result.after, c);
   if (!after) return false;
   run.result = { ...run.result, after };
-  if (hasNextNight()) writeSave({ index: run.index + 1, town: after });
+  if (hasNextNight()) writeSave({ index: run.index + 1, town: after, hints: run.hints });
   return true;
 }
 
@@ -56,6 +64,7 @@ export function nextNight(): void {
 }
 
 export function resetRun(): void {
+  run.hints = [];
   startNight(0, STARTING_STATE);
 }
 
@@ -81,7 +90,7 @@ function writeSave(saved: SavedRun): void {
 
 /** Save the run as it stands: the night about to be played and the town before it. */
 export function saveRun(): void {
-  writeSave({ index: run.index, town: run.town });
+  writeSave({ index: run.index, town: run.town, hints: run.hints });
 }
 
 /** The saved run, if there is a usable one. */
@@ -101,6 +110,7 @@ export function loadRun(): boolean {
   const saved = savedRun();
   if (!saved) return false;
   startNight(saved.index, saved.town);
+  run.hints = [...saved.hints];
   return true;
 }
 
