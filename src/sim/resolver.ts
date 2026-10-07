@@ -27,7 +27,7 @@ import { TUBE, TUBE_TYPES, fullDrawer, type TubeType } from './tube';
 import { callResult, dumpedSentence, isReachCheck, requestResult } from './calls';
 import { airedWhenBoardOpens, eventsOf } from './events';
 import { gateOpen, linesOpenNow } from './nights';
-import { HARD_HOLD, OTHER_HEARD, clockText, intrusionsOf } from './intrusion';
+import { HARD_HOLD, OTHER_HEARD, clockText, intrusionsOf, type ClimaxIntrusion } from './intrusion';
 import type { PersonId } from '../data/people';
 
 /** Who listens when. `total` scales town-wide effects; `share` scales each faction's. */
@@ -324,12 +324,25 @@ export interface LiveRead {
   signal: number;
   /** Overrides: when it came, how long it was meant to run, how long it ran, how much of it the dial was held. */
   override?: { frac: number; planned: number; seconds: number; held: number };
+  /** The climax (carried, failed or countered: a jam reads nothing). */
+  climax?: NonNullable<ShowPerformance['climax']>;
 }
+
+/** The climax that ran tonight, with its definition, if the performance names one the night has. */
+function climaxRan(night: NightDef, perf: ShowPerformance): { def: ClimaxIntrusion; ran: NonNullable<ShowPerformance['climax']> } | null {
+  const ran = perf.climax;
+  const def = ran && intrusionsOf(night).find((i): i is ClimaxIntrusion => i.kind === 'climax' && i.id === ran.id);
+  return ran && def ? { def, ran } : null;
+}
+
+/** Talked over, the town heard both at once: each reaches as if at half signal. */
+export const COUNTER_SIGNAL = 0.5;
 
 /**
  * What the Other Station read during the show, in the night's order. A carrier counts
  * when its average bleed reached OTHER_HEARD, and reads what the sign-off would; an
- * override (or climax) that ran reads the card the scene says it read.
+ * override that ran reads the card the scene says it read. So does the climax, unless it
+ * was jammed; talked over, it reached half the town.
  */
 export function otherStationLive(night: NightDef, perf: ShowPerformance): LiveRead[] {
   const talk = new Set(night.cards.filter(isTalk).map((c) => c.id));
@@ -339,6 +352,15 @@ export function otherStationLive(night: NightDef, perf: ShowPerformance): LiveRe
       if (!i.slots.length) continue;
       const avg = i.slots.reduce((s, slot) => s + Math.max(0, Math.min(1, perf.bleed?.[slot] ?? 0)), 0) / i.slots.length;
       if (avg >= OTHER_HEARD) out.push({ id: i.id, kind: i.kind, card: pickOtherStationCard(night, perf.rundown), slot: i.slots[0], signal: avg });
+      continue;
+    }
+    if (i.kind === 'climax') {
+      const cx = perf.climax?.id === i.id ? perf.climax : undefined;
+      if (!cx || cx.result === 'jammed') continue;
+      out.push({
+        id: i.id, kind: i.kind, card: cx.card && talk.has(cx.card) ? cx.card : null, slot: i.at.slot,
+        signal: cx.result === 'countered' ? COUNTER_SIGNAL : 1, climax: cx,
+      });
       continue;
     }
     const ran = perf.overrides?.find((o) => o.id === i.id);
@@ -423,11 +445,15 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   // What the Other Station read during the show (applied below). The town heard those.
   const live = otherStationLive(night, perf);
   const otherAired = [...new Set(live.flatMap((r) => (r.card ? [r.card] : [])))];
+  // The climax, and the card the DJ read over it if it was talked over.
+  const climax = climaxRan(night, perf);
+  const counterCard = climax?.ran.result === 'countered' ? byId.get(climax.def.counter) : undefined;
+  const counter = counterCard && isTalk(counterCard) ? counterCard : undefined;
 
   // Cards with a reach check that never aired.
   const aired = new Set(perf.rundown);
   for (const card of night.cards) {
-    if (!aired.has(card.id) && !otherAired.includes(card.id) && isTalk(card) && card.reach) {
+    if (!aired.has(card.id) && card.id !== counter?.id && !otherAired.includes(card.id) && isTalk(card) && card.reach) {
       applyOutcome(state, card.reach.unaired ?? card.reach.fail, lines);
     }
   }
@@ -566,35 +592,58 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   }
 
   // The Other Station, live: what it read, the town took as yours (nobody paid for it).
-  // These lines lead the ledger: it's what the town is talking about.
+  // These lines lead the ledger: it's what the town is talking about. The climax leads them.
   const liveLines: DawnLine[] = [];
+  const climaxLines: DawnLine[] = [];
   const readLive = new Set<string>();
   for (const r of live) {
     if (r.kind === 'carrier') addFlag(state, 'other_heard');
     const card = r.card ? byId.get(r.card) : undefined;
+    const out = r.climax ? climaxLines : liveLines;
+    if (r.climax) {
+      if (r.climax.result === 'carried') out.push({ text: `At ${clockText(r.slot, climax?.def.at.frac ?? 0)} the Lamp gave Dock Street an order. You let it.`, tone: 'eerie' });
+      else if (r.climax.result === 'failed') out.push({ text: 'You leaned on the dial and it got through anyway.', tone: 'bad' });
+      else if (climax) {
+        out.push({ text: `For ${climax.def.seconds} seconds there were two of you on twelve-sixty, saying opposite things. Dock Street had to pick.`, tone: 'eerie' });
+        // The DJ's counter at the climax's slot, heard by half the town (once: not again if it was in the show).
+        if (counter && !aired.has(counter.id)) {
+          const segment = segmentOfSlot(r.slot);
+          applyEffects(state, counter.effects, audienceScale(segment, COUNTER_SIGNAL, factor));
+          if (counter.reach) applyOutcome(state, reaches(counter.reach, segment, COUNTER_SIGNAL * signalAt(r.slot)) ? counter.reach.success : counter.reach.fail, out);
+        }
+      }
+    }
     if (card && isTalk(card)) {
       if (r.override) {
         const on = show[r.slot];
         const what = on ? `${on.kind === 'record' ? 'playing' : 'reading'} "${on.title}"` : 'signing off';
-        liveLines.push({ text: `At ${clockText(r.slot, r.override.frac)} the Lamp read "${card.title}". You were ${what} at the time.`, tone: 'eerie' });
-      } else {
-        liveLines.push({ text: `Half of Dock Street heard you read "${card.title}" in the storm. You didn't read it.`, tone: 'eerie' });
+        out.push({ text: `At ${clockText(r.slot, r.override.frac)} the Lamp read "${card.title}". You were ${what} at the time.`, tone: 'eerie' });
+      } else if (!r.climax) {
+        out.push({ text: `Half of Dock Street heard you read "${card.title}" in the storm. You didn't read it.`, tone: 'eerie' });
       }
       if (!readLive.has(card.id)) {
         readLive.add(card.id);
         const segment = segmentOfSlot(r.slot);
         const { chits: _unpaid, ...fx } = card.effects;
         applyEffects(state, fx, audienceScale(segment, r.signal, factor));
-        if (card.reach && !aired.has(card.id)) applyOutcome(state, reaches(card.reach, segment, r.signal) ? card.reach.success : card.reach.fail, liveLines);
+        if (card.reach && !aired.has(card.id)) applyOutcome(state, reaches(card.reach, segment, r.signal) ? card.reach.success : card.reach.fail, out);
         addFlag(state, `other_aired_${card.id}`);
       }
     }
     if (r.override && r.override.held >= HARD_HOLD) {
       const early = Math.round(r.override.planned - r.override.seconds);
-      if (early >= 1) liveLines.push({ text: `You leaned on the dial through it and it let go ${early} seconds early.`, tone: 'neutral' });
+      if (early >= 1) out.push({ text: `You leaned on the dial through it and it let go ${early} seconds early.`, tone: 'neutral' });
     }
   }
-  lines.unshift(...liveLines);
+  if (climax) {
+    addFlag(state, `n${night.number}_${climax.ran.result}`);
+    if (counter) addFlag(state, `aired_${counter.id}`);
+    if (climax.ran.result === 'jammed') {
+      const held = Math.round(climax.def.seconds * Math.max(0, Math.min(1, climax.ran.held)));
+      climaxLines.push({ text: `For ${held} seconds you held the carrier with both hands and twelve-sixty was dead air. Then you came back.`, tone: 'eerie' });
+    }
+  }
+  lines.unshift(...climaxLines, ...liveLines);
 
   // After sign-off: what it reads, in the DJ's voice. With nothing left unsaid, only who and when.
   const os = night.otherStation;

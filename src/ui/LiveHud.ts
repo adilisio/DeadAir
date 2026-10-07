@@ -4,7 +4,7 @@
 import Phaser from 'phaser';
 import { UI } from '../art/palette';
 import type { Card } from '../sim/types';
-import { OTHER_OFFSET } from '../sim/intrusion';
+import { CLIMAX_HOLD, OTHER_OFFSET } from '../sim/intrusion';
 import { KIND_TAG } from './RundownBuilder';
 import { bar, button, label, panel, type Button } from './widgets';
 
@@ -13,11 +13,16 @@ export type CueState = 'hidden' | 'waiting' | 'open' | 'cued' | 'cuedHedged' | '
 const TP = { x: 12, y: 290, w: 446, h: 64 };
 const CUE = { x: 464, y: 290, w: 164, h: 64 };
 const TUNE = { x: 232, y: 236, w: 220, h: 50 };
+/** The climax's three choices, in a strip over the tuning gauge (wider: the counter's title is long). */
+const CHOICE = { x: 232, y: 192, w: 306, h: 42 };
 const CHIPS = { x: 14, y: 52, w: 42, h: 15 };
 const EERIE = 0x8aff9a;
 
-/** What else is on the dial: a second carrier, or the Other Station holding the frequency. */
-export type DialIntrusion = 'carrier' | 'override' | null;
+/** What else is on the dial: a second carrier, or the Other Station holding the frequency (an override, or the climax). */
+export type DialIntrusion = 'carrier' | 'override' | 'climax' | null;
+
+/** Which of the climax's choices the player is making: holding the dial, letting it through, or talking over it. */
+export type ClimaxChoice = 'hold' | 'carry' | 'counter';
 
 export class LiveHud {
   readonly root: Phaser.GameObjects.Container;
@@ -45,12 +50,16 @@ export class LiveHud {
   private endAt: number | null = null;
   /** Pointer held on the tuning gauge: -1 left half, 1 right half. */
   pointerTune = 0;
+  /** The climax's choices strip, while it runs. */
+  private choice: { root: Phaser.GameObjects.Container; lines: Phaser.GameObjects.Text[]; gfx: Phaser.GameObjects.Graphics; counter: Button } | null = null;
+  private uiLayer: <T extends Phaser.GameObjects.GameObject>(o: T) => T;
 
   constructor(
     private scene: Phaser.Scene,
     private cards: Card[],
     uiLayer: <T extends Phaser.GameObjects.GameObject>(o: T) => T = (o) => o,
   ) {
+    this.uiLayer = uiLayer;
     const parts: Phaser.GameObjects.GameObject[] = [];
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => (parts.push(o), o);
 
@@ -102,7 +111,8 @@ export class LiveHud {
 
   /** Show or hide the transmitter gauge; a storm, a second carrier or an override changes its title. */
   setTransmitter(show: boolean, storm: boolean, other: DialIntrusion = null): void {
-    if (other === 'override') this.tuneTitle.setText('HOLD THE DIAL').setColor(UI.bad);
+    if (other === 'climax') this.tuneTitle.setText('THE OTHER ONE').setColor(UI.eerie);
+    else if (other === 'override') this.tuneTitle.setText('HOLD THE DIAL').setColor(UI.bad);
     else if (other === 'carrier') this.tuneTitle.setText('TWO CARRIERS').setColor(UI.eerie);
     else this.tuneTitle.setText(storm ? 'STORM - TRANSMITTER' : 'TRANSMITTER').setColor(storm ? UI.bad : UI.amber);
     if (show === this.tuneShown) return;
@@ -209,6 +219,60 @@ export class LiveHud {
     if (this.behind) this.light(chars);
   }
 
+  /** Talking over the Other Station: the teleprompter shows what the DJ is reading (its own item still waits behind). */
+  showCounter(header: string, text: string): void {
+    if (!this.behind) return;
+    this.showPrompt(header, text, UI.text, false);
+    this.tpHeader.setColor(UI.amber);
+  }
+
+  /**
+   * The climax's choices over the tuning gauge: hold the dial, let it through, or talk over
+   * it with the counter card (SPACE, or the COUNTER button, which calls `onCounter`).
+   */
+  showClimax(counterTitle: string, onCounter: () => void): void {
+    this.endClimax();
+    const s = this.scene;
+    const lines = [
+      'HOLD THE DIAL - jam it',
+      'LET IT THROUGH',
+      `SPACE - talk over it: "${counterTitle}"`,
+    ].map((t, k) => label(s, CHOICE.x + 8, CHOICE.y + 2 + k * 13, t, { size: 12, color: UI.dim }));
+    const gfx = s.add.graphics();
+    const counter = button(s, CHOICE.x + CHOICE.w - 58, CHOICE.y + 28, 52, 12, 'COUNTER', onCounter, { size: 12, color: EERIE, textColor: UI.eerie });
+    const root = this.uiLayer(s.add.container(0, 0, [panel(s, CHOICE.x, CHOICE.y, CHOICE.w, CHOICE.h), gfx, ...lines, counter.container]).setDepth(101));
+    this.choice = { root, lines, gfx, counter };
+  }
+
+  /**
+   * Light the choice being made. `held`: the fraction of the climax so far the dial was held
+   * (a small bar on the HOLD line, ticked where it would jam). `committed`: talked over, for good.
+   */
+  climaxState(active: ClimaxChoice, held: number, committed: boolean): void {
+    const c = this.choice;
+    if (!c) return;
+    const order: ClimaxChoice[] = ['hold', 'carry', 'counter'];
+    c.lines.forEach((t, k) => {
+      const on = order[k] === active;
+      t.setColor(on ? (active === 'counter' ? UI.eerie : active === 'hold' ? UI.hot : UI.text) : UI.dim).setAlpha(on ? 1 : committed ? 0.35 : 0.7);
+    });
+    c.counter.setEnabled(!committed);
+    const g = c.gfx;
+    g.clear();
+    const bx = CHOICE.x + CHOICE.w - 58, by = CHOICE.y + 7, bw = 52;
+    g.fillStyle(0x000000, 0.6);
+    g.fillRect(bx, by, bw, 4);
+    g.fillStyle(held >= CLIMAX_HOLD ? 0x9be37a : 0xffb347, committed ? 0.35 : 0.9);
+    g.fillRect(bx, by, Math.round(bw * Math.max(0, Math.min(1, held))), 4);
+    g.fillStyle(0xffffff, 0.8);
+    g.fillRect(bx + Math.round(bw * CLIMAX_HOLD), by - 1, 1, 6);
+  }
+
+  endClimax(): void {
+    this.choice?.root.destroy(true);
+    this.choice = null;
+  }
+
   /** Give the teleprompter back to whatever the station has on now. */
   endOverride(): void {
     const b = this.behind;
@@ -246,10 +310,11 @@ export class LiveHud {
     if (other) {
       g.fillStyle(EERIE, 0.18);
       g.fillRect(at(OTHER_OFFSET) - 5, y, 10, 12);
-      g.fillStyle(EERIE, other === 'override' ? 0.9 : 0.45);
-      g.fillRect(at(OTHER_OFFSET + (other === 'override' ? (Math.random() - 0.5) * 0.02 : 0)) - 1, y - 3, 2, 18);
+      const pinned = other === 'override' || other === 'climax';
+      g.fillStyle(EERIE, pinned ? 0.9 : 0.45);
+      g.fillRect(at(OTHER_OFFSET + (pinned ? (Math.random() - 0.5) * 0.02 : 0)) - 1, y - 3, 2, 18);
     }
-    g.fillStyle(live ? 0xff5040 : 0x777777, other === 'override' ? 0.35 : 1);
+    g.fillStyle(live ? 0xff5040 : 0x777777, other === 'override' || other === 'climax' ? 0.35 : 1);
     g.fillRect(at(error) - 1, y - 3, 2, 18);
     const qColor = quality > 0.8 ? 0x9be37a : quality > 0.5 ? 0xffb347 : 0xff7a6b;
     bar(g, x0, TUNE.y + 44, w, 3, quality, qColor);
@@ -286,6 +351,7 @@ export class LiveHud {
   }
 
   destroy(): void {
+    this.endClimax();
     this.root.destroy(true);
   }
 }

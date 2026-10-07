@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
+  CLIMAX_HOLD,
+  CLIMAX_TRIED,
   HARD_HOLD,
   OTHER_HEARD,
   OTHER_OFFSET,
   bleed,
   carrierForSlot,
+  climaxResult,
   clockText,
   formatClock,
   intrusionsDue,
@@ -15,6 +18,7 @@ import {
 import { STARTING_STATE, otherStationLive, resolveNight } from '../src/sim/resolver';
 import { NIGHT_1 } from '../src/data/night1';
 import { NIGHT_2 } from '../src/data/night2';
+import { NIGHT_6 } from '../src/data/night6';
 import type { Intrusion, NightDef, ShowPerformance } from '../src/sim/types';
 
 const withIntrusions = (base: NightDef, intrusions: Intrusion[]): NightDef => ({
@@ -228,9 +232,131 @@ describe('resolver: overrides', () => {
     expect(two.lines.filter((l) => l.tone === 'eerie')).toHaveLength(2);
   });
 
-  it('a climax resolves like an override', () => {
+  it('a climax is not an override: an overrides entry with its id reads nothing', () => {
     const c = withIntrusions(NIGHT_1, [{ kind: 'climax', id: 'cl', at: { slot: 5 }, seconds: 30, card: 'warn_ice', counter: 'news_infirmary' }]);
     const r = resolveNight(c, STARTING_STATE, perf(rundown, { overrides: [{ id: 'cl', card: 'warn_ice', seconds: 30, held: 0 }] }));
-    expect(r.otherAired).toEqual(['warn_ice']);
+    expect(r.otherAired).toEqual([]);
+  });
+});
+
+describe('climaxResult', () => {
+  it('SPACE wins: a counter is a counter, held or not', () => {
+    expect(climaxResult(0, true)).toBe('countered');
+    expect(climaxResult(1, true)).toBe('countered');
+  });
+
+  it(`held at least ${CLIMAX_HOLD} of it jams it`, () => {
+    expect(climaxResult(CLIMAX_HOLD, false)).toBe('jammed');
+    expect(climaxResult(1, false)).toBe('jammed');
+  });
+
+  it('held a while and let go: it got through anyway', () => {
+    expect(climaxResult(CLIMAX_HOLD - 0.01, false)).toBe('failed');
+    expect(climaxResult(CLIMAX_TRIED, false)).toBe('failed');
+  });
+
+  it('a touch on the dial, or nothing, lets it through', () => {
+    expect(climaxResult(0, false)).toBe('carried');
+    expect(climaxResult(CLIMAX_TRIED - 0.01, false)).toBe('carried');
+  });
+});
+
+describe('resolver: the climax', () => {
+  // Neither Dock Street warning airs; the climax reads the breakwater and the counter is the hill.
+  const show = ['news_tonight', 'rec_harris2', 'warn_cut_line', 'rec_sweetheart2', 'news_last', 'rec_cradle2'];
+  type Result = 'jammed' | 'carried' | 'countered' | 'failed';
+  const climax = (result: Result, held = 0) => ({
+    id: 'n6_climax', result, held, card: 'warn_evac_breakwater', ...(result === 'countered' ? { counter: 'warn_evac_chapel' } : {}),
+  });
+  const cx = (result: Result, held = 0, rundown = show, opts: Partial<ShowPerformance> = {}) =>
+    resolveNight(NIGHT_6, STARTING_STATE, perf(rundown, { climax: climax(result, held), ...opts }));
+  const texts = (r: ReturnType<typeof resolveNight>) => r.lines.map((l) => l.text);
+
+  it('carried: its card goes out as an override would, with its own line', () => {
+    const r = cx('carried');
+    expect(r.otherAired).toEqual(['warn_evac_breakwater']);
+    expect(r.after.flags).toEqual(expect.arrayContaining(['n6_carried', 'other_aired_warn_evac_breakwater', 'n6_went_down', 'n6_evac_unaired']));
+    expect(r.after.flags).not.toContain('aired_warn_evac_chapel');
+    expect(r.lines[0]).toEqual({ text: 'At 1:04 AM the Lamp gave Dock Street an order. You let it.', tone: 'eerie' });
+    expect(texts(r).some((t) => /the Lamp read/.test(t))).toBe(false);
+    expect(texts(r)).toContain("At the worst moment the other one took the frequency and you let it. It said what you hadn't. Dock Street did what it said.");
+  });
+
+  it('failed: the same, but the ledger knows you tried', () => {
+    const r = cx('failed', 0.5);
+    const carried = cx('carried');
+    expect(r.otherAired).toEqual(['warn_evac_breakwater']);
+    expect(r.after.flags).toContain('n6_failed');
+    expect(r.after.flags).not.toContain('n6_carried');
+    expect(r.lines).toContainEqual({ text: 'You leaned on the dial and it got through anyway.', tone: 'bad' });
+    expect(r.after.safety).toBe(carried.after.safety);
+  });
+
+  it('jammed: nothing read, dead air for the seconds held', () => {
+    const r = cx('jammed', 0.8);
+    expect(r.otherAired).toEqual([]);
+    expect(r.after.flags).toContain('n6_jammed');
+    expect(r.after.flags).not.toContain('other_aired_warn_evac_breakwater');
+    expect(r.after.flags).toEqual(expect.arrayContaining(['n6_evac_unaired', 'n6_breakwater_unaired']));
+    expect(r.lines[0]).toEqual({ text: 'For 36 seconds you held the carrier with both hands and twelve-sixty was dead air. Then you came back.', tone: 'eerie' });
+    expect(texts(r).some((t) => t.startsWith('For forty seconds in the worst of it'))).toBe(true);
+    expect(otherStationLive(NIGHT_6, perf(show, { climax: climax('jammed', 0.8) }))).toEqual([]);
+  });
+
+  it('countered: both go out at half, and the counter counts as yours', () => {
+    const r = cx('countered');
+    expect(r.otherAired).toEqual(['warn_evac_breakwater']);
+    expect(r.after.flags).toEqual(expect.arrayContaining([
+      'n6_countered', 'aired_warn_evac_chapel', 'other_aired_warn_evac_breakwater', 'n6_went_up', 'n6_went_down', 'n6_dock_split',
+    ]));
+    expect(r.after.flags).not.toContain('n6_evac_unaired');
+    expect(r.after.flags).not.toContain('other_aired_warn_evac_chapel');
+    expect(r.lines[0]).toEqual({ text: 'For 45 seconds there were two of you on twelve-sixty, saying opposite things. Dock Street had to pick.', tone: 'eerie' });
+    expect(texts(r).some((t) => t.startsWith('For forty seconds there were two Lamps'))).toBe(true);
+    const live = otherStationLive(NIGHT_6, perf(show, { climax: climax('countered') }));
+    expect(live.map((l) => [l.card, l.signal])).toEqual([['warn_evac_breakwater', 0.5]]);
+  });
+
+  it('countered: the counter reaches at half the slot signal', () => {
+    // Slot 4 in static: half of a weak signal does not move Dock Street up the hill.
+    const r = cx('countered', 0, show, { signal: [1, 1, 1, 1, 0.6, 1] });
+    expect(r.after.flags).toContain('n6_evac_unheard');
+    expect(r.after.flags).not.toContain('n6_went_up');
+  });
+
+  it('countered with the counter already in the rundown: it applies once', () => {
+    const withHill = ['news_tonight', 'rec_harris2', 'warn_cut_line', 'rec_sweetheart2', 'warn_evac_chapel', 'rec_cradle2'];
+    const r = cx('countered', 0, withHill);
+    expect(r.after.flags).toContain('n6_countered');
+    expect(r.lines.filter((l) => /Dock Street went up Church Road/.test(l.text))).toHaveLength(1);
+    // Only the breakwater at half differs from a jam.
+    const jammed = cx('jammed', 0.9, withHill);
+    const bw = NIGHT_6.cards.find((c) => c.id === 'warn_evac_breakwater');
+    expect(bw && bw.kind === 'warning' && bw.effects.safety).toBe(-8);
+    expect(r.after.safety).toBeLessThan(jammed.after.safety);
+  });
+
+  it('a climax that never ran, or an id the night lacks, reads nothing and sets no flag', () => {
+    const r = resolveNight(NIGHT_6, STARTING_STATE, perf(show));
+    expect(r.after.flags.filter((f) => /^n6_(jammed|carried|countered|failed)$/.test(f))).toEqual([]);
+    const other = resolveNight(NIGHT_6, STARTING_STATE, perf(show, { climax: { ...climax('carried'), id: 'nope' } }));
+    expect(other.otherAired).toEqual([]);
+    expect(other.after.flags).not.toContain('n6_carried');
+  });
+
+  it('its lines lead the ledger, ahead of an earlier override (which read the same card: it applies once)', () => {
+    const early = { overrides: [{ id: 'n6_override', card: 'warn_evac_breakwater', seconds: 20, held: 0 }] };
+    const r = cx('countered', 0, show, early);
+    expect(r.lines[0].text).toMatch(/^For 45 seconds there were two of you/);
+    expect(r.lines[1].text).toMatch(/^Dock Street went up Church Road/);
+    expect(texts(r)).toContain('At 9:45 PM the Lamp read "Dock Street: to the boats". You were playing "It Had to Be You" at the time.');
+    expect(texts(r).filter((t) => /^Dock Street went down to the breakwater/.test(t))).toHaveLength(1);
+    const carried = cx('carried', 0, show, early);
+    expect(carried.lines[0].text).toBe('At 1:04 AM the Lamp gave Dock Street an order. You let it.');
+    expect(carried.after.safety).toBe(resolveNight(NIGHT_6, STARTING_STATE, perf(show, early)).after.safety);
+  });
+
+  it('the after-sign-off read is unchanged', () => {
+    expect(cx('countered').otherStation.cards).toEqual(resolveNight(NIGHT_6, STARTING_STATE, perf(show)).otherStation.cards);
   });
 });
