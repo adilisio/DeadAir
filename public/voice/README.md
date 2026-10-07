@@ -36,3 +36,10 @@ Record a line, save it as `<id>.mp3` here (find the id with `npm run voices -- -
 your file under any name and point that line's `file` at it in `index.json`; set
 `seconds` to its length. The game uses whatever the index points to, and `npm run voices`
 leaves existing files alone unless you pass `--force`.
+
+## Auditioning the DJ
+
+`npm run voices -- --audition` renders Night 1's sign-on in a dozen voices into `audition/`
+(voices no caller uses), with an `index.html` to play them: with the dev server running, open
+http://localhost:5173/voice/audition/. Put the winner's name in `src/data/people.ts` (the `dj`
+line) and run `npm run voices -- --only dj --force`.

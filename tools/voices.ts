@@ -4,6 +4,9 @@
 //   npm run voices -- --list        -> print what would be rendered, then exit
 //   npm run voices -- --only grace  -> only lines whose person id or text matches the regex
 //   npm run voices -- --force       -> re-render even if a file exists
+//   npm run voices -- --audition    -> render Night 1's sign-on in a dozen voices to
+//                                      public/voice/audition/ (open its index.html from the
+//                                      dev server to pick the DJ's voice), then exit
 //
 // One voice per person (src/data/people.ts). Each line's id hashes the voice and the words
 // (src/audio/lines.ts), so editing a script renders just that line again. With ffmpeg on the
@@ -27,6 +30,7 @@ const MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const args = process.argv.slice(2);
 const force = args.includes('--force');
 const list = args.includes('--list');
+const audition = args.includes('--audition');
 const onlyAt = args.indexOf('--only');
 const only = onlyAt >= 0 ? new RegExp(args[onlyAt + 1] ?? '', 'i') : null;
 
@@ -51,7 +55,7 @@ if (list) {
   for (const l of todo) console.log(`${l.id}  ${l.person.padEnd(7)} ${l.text.length > 90 ? l.text.slice(0, 87) + '...' : l.text}`);
   process.exit(0);
 }
-if (!todo.length) process.exit(0);
+if (!todo.length && !audition) process.exit(0);
 
 const hasFfmpeg = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
 if (!hasFfmpeg) console.log('ffmpeg not found: keeping WAV files (bigger, unnormalized).');
@@ -67,6 +71,59 @@ const tts = await KokoroTTS.from_pretrained(MODEL, { dtype: 'fp32', device: 'cpu
 console.log(`Model loaded in ${((Date.now() - t0) / 1000).toFixed(1)} s.`);
 
 type Voice = Parameters<typeof tts.generate>[1] extends { voice?: infer V } | undefined ? V : never;
+
+if (audition) {
+  // The DJ's audition: the sign-on and the top of a story, in voices no caller uses (the
+  // current pick first, at its speed and at 1.0). Pick one, set it in src/data/people.ts,
+  // run `npm run voices -- --only dj --force`.
+  const dir = join(OUT, 'audition');
+  mkdirSync(dir, { recursive: true });
+  const taken = new Set(Object.values(PEOPLE).filter((p) => p.id !== 'dj').map((p) => p.voice.kokoro));
+  const dj = PEOPLE.dj.voice;
+  const candidates = ['am_michael', 'bm_george', 'bm_lewis', 'bm_daniel', 'bm_fable', 'am_adam', 'af_heart', 'af_bella', 'af_nova', 'af_river', 'bf_emma', 'bf_isabella', 'bf_alice']
+    .filter((v) => v === dj.kokoro || !taken.has(v));
+  const night = NIGHTS[0];
+  const story = night.cards.find((c) => c.kind === 'news' && 'script' in c);
+  const text = `${night.signOn} ${story && 'script' in story ? story.script.split('. ').slice(0, 2).join('. ') + '.' : ''}`;
+  const takes: { voice: string; speed: number; file: string }[] = [];
+  for (const voice of candidates) {
+    for (const speed of voice === dj.kokoro ? [dj.rate, 1.0] : [1.0]) {
+      const file = `${voice}-${speed.toFixed(2)}.mp3`;
+      takes.push({ voice, speed, file });
+      if (existsSync(join(dir, file)) && !force) continue;
+      const t1 = Date.now();
+      const parts: Float32Array[] = [];
+      let rate = 24000;
+      for (const part of chunks(text)) {
+        const a = await tts.generate(part, { voice: voice as Voice, speed });
+        rate = a.sampling_rate;
+        parts.push(a.audio, new Float32Array(Math.round(rate * 0.12)));
+      }
+      const samples = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+      let o = 0;
+      for (const p of parts) {
+        samples.set(p, o);
+        o += p.length;
+      }
+      const tmp = join(tmpdir(), `deadair-audition-${voice}.wav`);
+      writeFileSync(tmp, wav(samples, rate));
+      if (hasFfmpeg) {
+        spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', tmp, '-af', 'loudnorm=I=-18:TP=-2:LRA=11', '-ac', '1', '-ar', '22050', '-b:a', '32k', join(dir, file)], { stdio: ['ignore', 'ignore', 'inherit'] });
+      } else copyFileSync(tmp, join(dir, file.replace(/\.mp3$/, '.wav')));
+      rmSync(tmp, { force: true });
+      console.log(`${voice} @ ${speed}  ${((Date.now() - t1) / 1000).toFixed(1)} s`);
+    }
+  }
+  const rows = takes.map((t) => `<li><b>${t.voice}</b> at ${t.speed.toFixed(2)}${t.voice === dj.kokoro && t.speed === dj.rate ? ' (in the game now)' : ''}<br><audio controls preload="none" src="${t.file}"></audio></li>`).join('\n');
+  writeFileSync(join(dir, 'index.html'), `<!doctype html><meta charset="utf-8"><title>Dead Air: the DJ's audition</title>
+<style>body{font:16px/1.4 system-ui;max-width:720px;margin:2em auto;padding:0 1em;background:#0b0b10;color:#f2e3c4}li{margin:1em 0}audio{width:100%}code{color:#ffb347}</style>
+<h1>The DJ's audition</h1>
+<p>Each take is Night 1's sign-on and the top of a story, dry (no radio chain). Pick one, put its name in
+<code>src/data/people.ts</code> (the <code>dj</code> line, <code>kokoro</code> and <code>rate</code>), then run <code>npm run voices -- --only dj --force</code>.</p>
+<ul>${rows}</ul>\n`);
+  console.log(`Audition: ${takes.length} takes in ${dir}. Open http://localhost:5173/voice/audition/ with the dev server running.`);
+  process.exit(0);
+}
 
 /** Kokoro reads at most ~510 phonemes at a time; long scripts go in sentence groups. */
 function chunks(text: string): string[] {
