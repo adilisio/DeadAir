@@ -318,6 +318,7 @@ Pure TypeScript in `src/sim/`, fully unit-tested. In short:
 
 ## Open questions
 
-- Final names: the DJ. (Settled: Port Vesper, the Lamp, Netters, Chapel, Linemen.)
+- Names: all settled (Port Vesper, the Lamp, Netters, Chapel, Linemen). The DJ has no name;
+  the player is "You" (owner, 2026-10-07).
 - What the Other Station is (decide by M3; reveal late).
 - How long a full playthrough is (target: 7 nights, ~2 hours?).

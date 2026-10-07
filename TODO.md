@@ -67,9 +67,10 @@ problem. What is left is polish, none of it blocking.
       is ready)
 
 ## Owner
-- Final name for the DJ
-- The DJ's voice until you record: `am_michael` (one line in `src/data/people.ts`)
-- Optional: record your own lines; drop them in `public/voice/` by id (see its README)
+- Settled (2026-10-07): the DJ has no name; the player is "You", the voice of the Lamp. The
+  Other Station has no name either and is not explained.
+- The DJ's voice is `am_michael` (one line in `src/data/people.ts`). Recording your own lines
+  is "maybe someday": drop them in `public/voice/` by id (see its README)
 - Push when a session couldn't
 
 ## Done

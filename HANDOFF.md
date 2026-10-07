@@ -47,7 +47,7 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
 | Music | Real public-domain 78s (US recordings published before 1926; songs before 1931). |
 | Voices | Kokoro TTS rendered offline to files, one voice per person (`src/data/people.ts`), played through the radio chain; browser TTS only as a fallback. Owner may record lines (they drop into `public/voice/`). |
 | Daytime | **Cut** (PLAN.md, 2026-10-06). The station is the game; dawn carries the between-nights. |
-| Still open | The DJ's name. What the Other Station is (owner decides; don't explain it in content). |
+| Still open | What the Other Station is (owner decides; don't explain it in content). The DJ has no name: the player is "You" (settled 2026-10-07). |
 
 ## Owner's playtest of M1 (their words, condensed)
 
