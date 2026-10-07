@@ -25,7 +25,8 @@ export interface Effects {
   trust?: Partial<Record<FactionId, number>>;
 }
 
-export type Tone = 'good' | 'bad' | 'neutral' | 'eerie';
+/** `rumor`: what people are saying that may be wrong (dim ink at dawn). */
+export type Tone = 'good' | 'bad' | 'neutral' | 'eerie' | 'rumor';
 
 export interface DawnLine {
   text: string;
@@ -34,7 +35,7 @@ export interface DawnLine {
   rule?: 'breather' | 'panic' | 'adFatigue' | 'dedication' | 'needles' | 'tube' | 'swap';
 }
 
-/** What happens when a reach check resolves. `effects` are applied unscaled. */
+/** What happens when a reach check resolves. `effects` are applied unscaled. An empty `line` adds nothing to the dawn. */
 export interface Outcome {
   flag: string;
   effects: Effects;
@@ -101,6 +102,10 @@ interface TalkCardBase extends CardBase {
   /** The faction this item serves, for the dedication rule. */
   helps?: FactionId;
   reach?: ReachCheck;
+  /** Cards sharing a group are alternatives: only one of them can air in a show. */
+  group?: string;
+  /** The show ends when this card finishes: it is the sign-off, and the slots after it go unaired. */
+  endsShow?: boolean;
 }
 
 export interface NewsCard extends TalkCardBase {
@@ -187,6 +192,8 @@ export interface EventTrigger {
 export interface SwitchboardEvent {
   kind: 'switchboard';
   id: string;
+  /** Only happens when the town's flags and stats allow it (checked when the night opens). */
+  gate?: Gate;
   at: EventTrigger;
   lines: CallLine[];
 }
@@ -195,6 +202,7 @@ export interface SwitchboardEvent {
 export interface TubeEvent {
   kind: 'tube';
   id: string;
+  gate?: Gate;
   at: EventTrigger;
   /** Which socket (0..4, V1..V5). */
   socket: number;
@@ -204,6 +212,7 @@ export interface TubeEvent {
 export interface MorseEvent {
   kind: 'morse';
   id: string;
+  gate?: Gate;
   at: EventTrigger;
   word: string;
   /** How long it keys before fading out. */
@@ -218,8 +227,11 @@ export interface MorseEvent {
 export interface StormEvent {
   kind: 'storm';
   id: string;
+  gate?: Gate;
   /** Slots the storm covers (0-based). */
   slots: number[];
+  /** How hard it blows: a multiple of STORM_WIND (default 1). */
+  wind?: number;
   /** Dawn report when the signal held through it, or didn't. */
   held: { line: string; effects: Effects };
   lost: { line: string; effects: Effects };
@@ -231,12 +243,36 @@ export type NightEvent = SwitchboardEvent | TubeEvent | MorseEvent | StormEvent;
 /**
  * The Other Station during the show. A `carrier` sits on the dial during its slots; an
  * `override` takes the frequency for `seconds` from `at`; a `climax` is Night 6's (for now
- * it runs like an override). Ids share the night's event id space. See src/sim/intrusion.ts.
+ * it runs like an override; with no `card`, it reads the first unaired preferred card).
+ * Ids share the night's event id space. A `gate` is checked when the night opens.
+ * See src/sim/intrusion.ts.
  */
 export type Intrusion =
-  | { kind: 'carrier'; id: string; slots: number[] } // a second carrier on the dial during these slots
-  | { kind: 'override'; id: string; at: EventTrigger; seconds: number; card?: string } // it takes the frequency for a while
-  | { kind: 'climax'; id: string; at: EventTrigger; seconds: number; card: string; counter: string }; // Night 6 (data shape only; behaves like override for now)
+  | { kind: 'carrier'; id: string; gate?: Gate; slots: number[] } // a second carrier on the dial during these slots
+  | { kind: 'override'; id: string; gate?: Gate; at: EventTrigger; seconds: number; card?: string } // it takes the frequency for a while
+  | { kind: 'climax'; id: string; gate?: Gate; at: EventTrigger; seconds: number; card?: string; counter: string }; // Night 6 (behaves like override for now)
+
+/** A line the dawn adds after everything else, when its gate is open against the town after the night. */
+export interface DawnLineDef {
+  gate: Gate;
+  line: string;
+  tone: Tone;
+  effects?: Effects;
+  /** Set when the line is added (later dawn lines, and later nights, can gate on it). */
+  flag?: string;
+}
+
+/** A letter on the ledger's last page. `{quote}` is what the Other Station said. */
+export interface Letter {
+  body: string;
+  from: string;
+}
+
+/** The morning paper's headline. */
+export interface Headline {
+  text: string;
+  sub: string;
+}
 
 export interface NightDef {
   id: string;
@@ -256,9 +292,21 @@ export interface NightDef {
     intrusions?: Intrusion[];
     /** It also reads back, finished, every sentence you dumped tonight (before the card). */
     readsDumped?: boolean;
+    /** It reads the unaired cards of this group (the answers you didn't give), before the preferred card. */
+    readsGroup?: string;
+    /** If the show ended early, it fills the silence: up to three unaired preferred cards. */
+    fillsSilence?: boolean;
+    /** It reads every unaired preferred card (up to four). */
+    readsAll?: boolean;
   };
   /** The listener's letter on the ledger's last page. `{quote}` is what the Other Station said. */
-  letter: { body: string; from: string };
+  letter: Letter;
+  /** Letters that replace `letter` when their gate is open after the night (the first open one wins). */
+  letters?: (Letter & { gate: Gate })[];
+  /** The morning paper's headline: the first whose gate is open after the night. */
+  headlines?: (Headline & { gate: Gate })[];
+  /** Lines added at dawn, in order, after everything else, gated on the town after the night. */
+  dawnLines?: DawnLineDef[];
   /** Rundowns for ?auto (a sensible show) and ?scene=dawn (a messy one). Must use ungated cards. */
   rundowns: { auto: string[]; demo: string[] };
   /** Small ads in the morning paper: what the station's chits can buy at dawn. */
@@ -328,6 +376,11 @@ export interface ShowPerformance {
   hedged?: string[];
   /** Live swaps off the desk, in order: at `slot`, card `in` went on instead of `out`. */
   swaps?: { slot: number; out: string; in: string }[];
+  /**
+   * A card that ends the show aired: `rundown` is what aired (it ends with that card) and
+   * may be shorter than the show. The slots after it went unaired, by choice.
+   */
+  endedEarly?: boolean;
 }
 
 export interface NightResult {
@@ -341,7 +394,13 @@ export interface NightResult {
     script: string;
     /** The sentence of every dumped call, in call order (read back when the night `readsDumped`). */
     dumped: { person: PersonId; text: string }[];
+    /** Every card it read after sign-off, in order (`cardId` is the first, or null). */
+    cards: string[];
   };
+  /** The letter on the ledger's last page. */
+  letter: Letter;
+  /** The morning paper's headline, if the night has one open. */
+  headline?: Headline;
 }
 
 /** Display names (placeholders, see DESIGN.md). */

@@ -9,7 +9,9 @@ import { resolveNight, STARTING_STATE } from '../src/sim/resolver';
 import { charsSpokenAt, hash16, parseVoiceIndex, splitIntoKnown, voiceIdFor, voiceLines, callerLines } from '../src/audio/lines';
 
 const all = voiceLines(NIGHTS);
-const has = (person: string, text: string) => all.some((l) => l.person === person && l.text === text.trim());
+// A set, not a scan: six nights of callers, checked at every character of every script.
+const known = new Set(all.map((l) => `${l.person}|${l.text}`));
+const has = (person: string, text: string) => known.has(`${person}|${text.trim()}`);
 
 describe('voiceLines', () => {
   it('collects every spoken line of every night', () => {

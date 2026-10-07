@@ -12,8 +12,27 @@ import { encode } from '../src/sim/morse';
 
 const allLines = (night: NightDef) => eventsOf(night, 'switchboard').flatMap((b) => b.lines);
 
+/** Every gate checked when the night opens: cards, callers, events and the Other Station's intrusions. */
 function gates(night: NightDef): Gate[] {
-  return [...night.cards.map((c) => c.gate), ...allLines(night).map((l) => l.gate)].filter((g): g is Gate => !!g);
+  return [
+    ...night.cards.map((c) => c.gate),
+    ...allLines(night).map((l) => l.gate),
+    ...night.events.map((e) => e.gate),
+    ...(night.otherStation.intrusions ?? []).map((i) => i.gate),
+  ].filter((g): g is Gate => !!g);
+}
+
+/**
+ * Flags no town can hold together, so the openings below skip those combinations. Each
+ * set is exclusive by construction (say so next to it).
+ */
+const EXCLUSIVE: string[][] = [
+  // Night 4's boat: its dawn lines gate on n4_search / n4_position so exactly one fires.
+  ['n4_boat_home', 'n4_boat_late', 'n4_boat_lost'],
+];
+
+function possible(flags: string[]): boolean {
+  return EXCLUSIVE.every((set) => set.filter((f) => flags.includes(f)).length <= 1);
 }
 
 /** Every flag any gate in this night mentions. */
@@ -62,7 +81,7 @@ function withStat(town: TownState, stat: StatName, v: number): TownState {
  * for each combination of tonight-gated cards aired or not and confidences heard or not.
  */
 function everyOpening(night: NightDef): { where: string; open: NightDef; boards: { id: string; aired: string[]; lines: string[] }[] }[] {
-  let towns: { where: string; town: TownState }[] = subsets(gateFlags(night)).map((flags) => ({
+  let towns: { where: string; town: TownState }[] = subsets(gateFlags(night)).filter(possible).map((flags) => ({
     where: flags.join(',') || 'no flags',
     town: { ...cloneState(STARTING_STATE), flags },
   }));
@@ -114,6 +133,34 @@ describe.each(NIGHTS.map((n) => [n.number, n] as const))('night %i content', (_n
     const open = openNight(night, cloneState(STARTING_STATE));
     expect(validateRundown(open, night.rundowns.auto)).toBeNull();
     expect(validateRundown(open, night.rundowns.demo)).toBeNull();
+    // ?auto plays a whole show: nothing in it ends the show early.
+    for (const id of night.rundowns.auto) {
+      const c = night.cards.find((k) => k.id === id);
+      expect(c && c.kind !== 'record' && c.endsShow, id).toBeFalsy();
+    }
+  });
+
+  it('keeps groups to talk cards, at least two to a group', () => {
+    const groups = new Map<string, string[]>();
+    for (const c of night.cards) {
+      if (c.kind === 'record' || !c.group) continue;
+      groups.set(c.group, [...(groups.get(c.group) ?? []), c.id]);
+    }
+    for (const [g, ids] of groups) expect(ids.length, g).toBeGreaterThanOrEqual(2);
+    if (night.otherStation.readsGroup) expect(groups.has(night.otherStation.readsGroup)).toBe(true);
+  });
+
+  it('has letters, headlines and dawn lines with words in them', () => {
+    for (const l of night.letters ?? []) {
+      expect(l.body.length).toBeGreaterThan(40);
+      expect(l.from.length).toBeGreaterThan(0);
+    }
+    for (const h of night.headlines ?? []) {
+      expect(h.text.length, h.text).toBeGreaterThan(0);
+      expect(h.text.length, h.text).toBeLessThanOrEqual(32); // one line of masthead type
+      expect(h.sub.length, h.text).toBeGreaterThan(0);
+    }
+    for (const d of night.dawnLines ?? []) expect(d.line.length).toBeGreaterThan(10);
   });
 
   it('fills the crate and every board whatever happened before', () => {
@@ -124,6 +171,11 @@ describe.each(NIGHTS.map((n) => [n.number, n] as const))('night %i content', (_n
       expect(open.cards.length, where).toBeLessThanOrEqual(15); // what the prep crate can show
       expect(open.otherStation.prefer.length, where).toBeGreaterThan(0);
       expect(boards.length, where).toBeGreaterThan(0);
+      // Gated events: whichever open, no two signals key at the same moment.
+      const morse = eventsOf(open, 'morse').map((m) => `${m.at.slot}/${m.at.frac ?? 0}`);
+      expect(new Set(morse).size, `${where}: Morse ${morse.join(' ')}`).toBe(morse.length);
+      const intrusions = (open.otherStation.intrusions ?? []).filter((i) => i.kind !== 'carrier');
+      expect(new Set(intrusions.map((i) => i.id)).size, where).toBe(intrusions.length);
       for (const b of boards) {
         const at = `${where}; ${b.id} after [${b.aired.join(',')}]`;
         expect(b.lines.length, at).toBeGreaterThanOrEqual(2);
@@ -261,10 +313,18 @@ describe('every opening', () => {
 });
 
 describe('the run', () => {
-  it('numbers nights in order and plays every record at most once across them', () => {
+  it('numbers nights in order and plays a record at most once a night, never two nights running', () => {
     expect(NIGHTS.map((n) => n.number)).toEqual(NIGHTS.map((_n, i) => i + 1));
-    const recs = NIGHTS.flatMap((n) => n.cards.flatMap((c) => (c.kind === 'record' ? [c.recordId] : [])));
-    expect(new Set(recs).size).toBe(recs.length);
+    const recs = NIGHTS.map((n) => n.cards.flatMap((c) => (c.kind === 'record' ? [c.recordId] : [])));
+    recs.forEach((r, i) => {
+      expect(new Set(r).size, `night ${i + 1}`).toBe(r.length);
+      if (i > 0) expect(r.filter((id) => recs[i - 1].includes(id)), `nights ${i} and ${i + 1}`).toEqual([]);
+    });
+  });
+
+  it('gives every night its own id (flags like <id>_other_silent use it)', () => {
+    const nightIds = NIGHTS.map((n) => n.id);
+    expect(new Set(nightIds).size).toBe(nightIds.length);
   });
 });
 

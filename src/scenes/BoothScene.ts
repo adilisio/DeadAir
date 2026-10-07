@@ -216,6 +216,10 @@ export class BoothScene extends Phaser.Scene {
   private hedgeNext = false;
   private hedgedSlots = new Set<number>();
   private autoDeskDone = false;
+  /** A card that ends the show aired: the show stopped after it, with no sign-off. */
+  private endedEarly = false;
+  /** The slot of a card that ends the show, once it begins: nothing after it is next. */
+  private endsAt: number | null = null;
   private rainGfx!: Phaser.GameObjects.Graphics;
   private flash!: Phaser.GameObjects.Rectangle;
   private ui: <T extends Phaser.GameObjects.GameObject>(o: T) => T = (o) => o;
@@ -289,6 +293,8 @@ export class BoothScene extends Phaser.Scene {
     this.hedgeNext = false;
     this.hedgedSlots = new Set();
     this.autoDeskDone = false;
+    this.endedEarly = false;
+    this.endsAt = null;
     audio.setFault(0);
   }
 
@@ -320,7 +326,7 @@ export class BoothScene extends Phaser.Scene {
     kb.addKey(K.H).on('down', () => this.pressHedge());
 
     // At prep nothing has aired: cards waiting on tonight's show turn up on the desk live.
-    const prepNight = { ...run.night, cards: run.night.cards.filter((c) => gateOpen(c.gate, run.town.flags, { town: run.town, airedTonight: [] })) };
+    const prepNight = { ...run.night, cards: run.night.cards.filter((c) => gateOpen(c.gate, run.town.flags, { town: run.town, airedTonight: [], confidedTonight: [] })) };
     this.builder = new RundownBuilder(this, prepNight, run.town, (ids) => this.startShow(ids), (ids) => {
       // Render records in the background as soon as they're picked.
       for (const id of ids) {
@@ -330,6 +336,8 @@ export class BoothScene extends Phaser.Scene {
     });
     this.ui(this.builder.root);
     markPhase('prep');
+    markPhase(`prep-night-${run.night.number}`);
+    exposeDebug('nightOnAir', run.night.number);
 
     if (DEBUG.auto) {
       this.time.delayedCall(500, () => {
@@ -555,8 +563,14 @@ export class BoothScene extends Phaser.Scene {
     }
     this.idx = i;
     this.signalSlot = i;
-    this.hud?.setOrder(i, i);
     const card = this.cards[i];
+    if (card.kind !== 'record' && card.endsShow) {
+      // This one is the sign-off: the chips after it go dark as it airs.
+      this.endsAt = i;
+      this.hud?.setEndAt(i);
+      markPhase('ends-show');
+    }
+    this.hud?.setOrder(i, i);
     this.airedTonight.push(card.id);
     // A hedged read: the unconfirmed script goes out instead.
     const hedged = this.hedgeNext && card.kind === 'news' && !!card.hedge;
@@ -650,15 +664,27 @@ export class BoothScene extends Phaser.Scene {
       this.endShow();
       return;
     }
+    const current = this.idx >= 0 ? this.cards[this.idx] : undefined;
+    if (current && current.kind !== 'record' && current.endsShow) {
+      // It was the sign-off. The rest of the show stays unaired, by choice.
+      this.endedEarly = true;
+      this.endShow();
+      return;
+    }
     const next = this.idx + 1;
     // Records don't need cueing: the arm swings in on its own and the player drops it.
     if (this.cued || DEBUG.auto || this.recordNext()) this.time.delayedCall(250, () => this.beginItem(next));
     else this.waitingSince = this.time.now;
   }
 
+  /** Whether slot `n` will still air (not past a card that ends the show). */
+  private stillAirs(n: number): boolean {
+    return n >= 0 && n < SHOW_SLOTS && (this.endsAt === null || n <= this.endsAt);
+  }
+
   private recordNext(): boolean {
     const n = this.idx + 1;
-    return n < SHOW_SLOTS && this.cards[n].kind === 'record';
+    return this.stillAirs(n) && this.cards[n].kind === 'record';
   }
 
   private remaining(): number {
@@ -692,7 +718,7 @@ export class BoothScene extends Phaser.Scene {
 
   /** Whether item `slot` is news with a hedged script. */
   private hedgeable(slot: number): boolean {
-    const card = slot >= 0 && slot < SHOW_SLOTS ? this.cards[slot] : undefined;
+    const card = this.stillAirs(slot) ? this.cards[slot] : undefined;
     return card?.kind === 'news' && !!card.hedge;
   }
 
@@ -724,7 +750,7 @@ export class BoothScene extends Phaser.Scene {
   private deskAvailable(): boolean {
     if (this.phase !== 'live' || this.board || this.needle) return false;
     const next = this.idx + 1;
-    if (next < 0 || next >= SHOW_SLOTS) return false;
+    if (!this.stillAirs(next)) return false;
     if (this.waitingSince !== null) return true;
     if (!this.playing) return false;
     if (this.idx >= 0 && this.cards[this.idx].kind === 'record') return true;
@@ -740,7 +766,7 @@ export class BoothScene extends Phaser.Scene {
     if (this.deskPanel || !this.deskAvailable()) return;
     const slot = this.idx + 1;
     // Re-checked every time: a card can be waiting on something that's aired since.
-    const cards = deskCards(run.night, this.cards.map((c) => c.id), run.town, this.airedTonight);
+    const cards = deskCards(run.night, this.cards.map((c) => c.id), run.town, this.airedTonight, { confidedTonight: this.confidedTonight, slot });
     this.deskSlot = slot;
     this.deskPanel = new DeskPanel(this, cards, this.cards[slot].title, run.town, (i) => this.pickDesk(i), this.ui);
     audio.sfx('click');
@@ -781,6 +807,7 @@ export class BoothScene extends Phaser.Scene {
 
   private nextTitle(): string {
     const n = this.idx + 1;
+    if (this.endsAt !== null && n > this.endsAt) return 'nothing: the Lamp goes dark';
     return n >= SHOW_SLOTS ? 'sign-off' : this.cards[n].title;
   }
 
@@ -1367,9 +1394,11 @@ export class BoothScene extends Phaser.Scene {
     this.tweens.add({ targets: this.lampLight, intensity: 1.2, duration: 1500 });
 
     const signal = this.sigSum.map((s, i) => (this.sigTime[i] > 0 ? s / this.sigTime[i] : 1));
-    // The running order as it aired, swaps and all.
+    // The running order as it aired, swaps and all (up to the card that ended it, if one did).
+    const aired = this.endedEarly ? this.cards.slice(0, this.idx + 1) : this.cards;
     const result = resolveNight(run.night, run.town, {
-      rundown: this.cards.map((c) => c.id),
+      rundown: aired.map((c) => c.id),
+      ...(this.endedEarly ? { endedEarly: true } : {}),
       signal,
       deadAirSeconds: this.deadAir,
       calls: this.calls,
@@ -1384,7 +1413,7 @@ export class BoothScene extends Phaser.Scene {
       bleed: this.bleedSum.map((s, i) => (this.bleedTime[i] > 0 ? s / this.bleedTime[i] : 0)),
       overrides: this.overrideLog,
       confided: this.confidedTonight,
-      hedged: [...this.hedgedSlots].map((i) => this.cards[i].id),
+      hedged: [...this.hedgedSlots].filter((i) => i < aired.length).map((i) => this.cards[i].id),
       swaps: this.swaps,
     });
     finishNight(result);
@@ -1474,6 +1503,9 @@ export class BoothScene extends Phaser.Scene {
         const silent = (this.time.now - this.waitingSince) / 1000;
         if (silent > DEAD_AIR_GRACE) this.deadAir += dt;
         this.hud?.setCue(silent > DEAD_AIR_GRACE ? 'dead' : 'open', this.nextTitle(), Math.max(0, silent - DEAD_AIR_GRACE), hedge);
+      } else if (this.playing && this.endsAt !== null && this.idx >= this.endsAt) {
+        // The card that ends the show is on: nothing to cue.
+        this.hud?.setCue('last', this.nextTitle());
       } else if (this.playing) {
         const rem = this.remaining();
         if (this.recordNext()) this.hud?.setCue('needleNext', this.nextTitle());

@@ -26,7 +26,7 @@ import { STORM_HELD, STORM_LOST, stormSignal } from './storm';
 import { TUBE, TUBE_TYPES, fullDrawer, type TubeType } from './tube';
 import { callResult, dumpedSentence, isReachCheck, requestResult } from './calls';
 import { airedWhenBoardOpens, eventsOf } from './events';
-import { linesOpenNow } from './nights';
+import { gateOpen, linesOpenNow } from './nights';
 import { HARD_HOLD, OTHER_HEARD, clockText, intrusionsOf } from './intrusion';
 import type { PersonId } from '../data/people';
 
@@ -236,27 +236,80 @@ function withArticle(t: TubeType): string {
   return `${t.startsWith('8') ? 'an' : 'a'} ${t}`;
 }
 
+/** A dawn line, unless it has no words (an outcome can be silent and still count). */
+function pushLine(lines: DawnLine[], text: string, tone: DawnLine['tone']): void {
+  if (text) lines.push({ text, tone });
+}
+
 function applyOutcome(state: TownState, o: Outcome, lines: DawnLine[]): void {
   applyEffects(state, o.effects);
   addFlag(state, o.flag);
-  lines.push({ text: o.line, tone: o.tone });
+  pushLine(lines, o.line, o.tone);
 }
 
-export function validateRundown(night: NightDef, rundown: string[]): string | null {
-  if (rundown.length !== SHOW_SLOTS) return `The show needs ${SHOW_SLOTS} items.`;
-  const ids = new Set(night.cards.map((c) => c.id));
-  for (const id of rundown) if (!ids.has(id)) return `Unknown card: ${id}`;
+/**
+ * Whether a running order can air: six known cards, each once, one per group. A show that
+ * `endedEarly` is what aired before a card that ends the show: one to six items, ending on it.
+ */
+export function validateRundown(night: NightDef, rundown: string[], endedEarly = false): string | null {
+  const sized = endedEarly ? rundown.length >= 1 && rundown.length <= SHOW_SLOTS : rundown.length === SHOW_SLOTS;
+  if (!sized) return `The show needs ${SHOW_SLOTS} items.`;
+  const byId = new Map(night.cards.map((c) => [c.id, c] as const));
+  for (const id of rundown) if (!byId.has(id)) return `Unknown card: ${id}`;
   if (new Set(rundown).size !== rundown.length) return 'A card can only air once.';
+  const groups = rundown.flatMap((id) => {
+    const c = byId.get(id)!;
+    return isTalk(c) && c.group ? [c.group] : [];
+  });
+  if (new Set(groups).size !== groups.length) return 'Only one of those can air.';
+  if (endedEarly) {
+    const last = byId.get(rundown[rundown.length - 1])!;
+    if (!isTalk(last) || !last.endsShow) return 'A show that ended early ends on the card that ends the show.';
+  }
   return null;
 }
 
-/** Which card the Other Station reads back: the first preferred card left out of the show. */
-export function pickOtherStationCard(night: NightDef, rundown: string[]): string | null {
+/** Most cards the Other Station reads after sign-off: three filling a silence, four when it reads all (else one). */
+export const OTHER_READS = { fillsSilence: 3, readsAll: 4 } as const;
+
+/**
+ * Every card the Other Station reads after sign-off, in order: the unaired cards of its
+ * group (`readsGroup`), then the preferred cards left out of the show (the first one; up
+ * to three when it `fillsSilence` and the show ended early; up to four when it `readsAll`),
+ * or, with none of those left, any talk card left out. Empty when nothing was left unsaid.
+ */
+export function otherStationReads(night: NightDef, rundown: readonly string[], endedEarly = false): string[] {
   const aired = new Set(rundown);
-  const preferred = night.otherStation.prefer.find((id) => !aired.has(id));
-  if (preferred) return preferred;
-  const anyTalk = night.cards.find((c) => isTalk(c) && !aired.has(c.id));
-  return anyTalk?.id ?? null;
+  const os = night.otherStation;
+  const byId = new Map(night.cards.map((c) => [c.id, c] as const));
+  const out: string[] = [];
+  if (os.readsGroup) for (const c of night.cards) if (isTalk(c) && c.group === os.readsGroup && !aired.has(c.id)) out.push(c.id);
+  const left = (id: string) => !aired.has(id) && !out.includes(id);
+  const preferred = os.prefer.filter((id) => {
+    const c = byId.get(id);
+    return left(id) && !!c && isTalk(c);
+  });
+  const many = os.readsAll ? OTHER_READS.readsAll : os.fillsSilence && endedEarly ? OTHER_READS.fillsSilence : 1;
+  if (preferred.length) out.push(...preferred.slice(0, many));
+  else {
+    const anyTalk = night.cards.find((c) => isTalk(c) && left(c.id));
+    if (anyTalk) out.push(anyTalk.id);
+  }
+  return out;
+}
+
+/** The card the Other Station reads back first (the letter quotes it): see `otherStationReads`. */
+export function pickOtherStationCard(night: NightDef, rundown: readonly string[], endedEarly = false): string | null {
+  return otherStationReads(night, rundown, endedEarly)[0] ?? null;
+}
+
+/**
+ * Whether a board rang in a show that ended early after `aired` items: due before the last
+ * item began, or during an earlier one. One due during the last item (talk) would have
+ * waited for it to end, and the show ended instead.
+ */
+function rangBeforeTheEnd(at: { slot: number; frac?: number }, aired: number): boolean {
+  return at.slot < aired - 1 || (at.slot === aired - 1 && !((at.frac ?? 0) > 0));
 }
 
 /** Something the Other Station read on 1260 while the show was on. */
@@ -299,7 +352,8 @@ export function otherStationLive(night: NightDef, perf: ShowPerformance): LiveRe
 }
 
 export function resolveNight(night: NightDef, start: TownState, perf: ShowPerformance): NightResult {
-  const problem = validateRundown(night, perf.rundown);
+  const endedEarly = !!perf.endedEarly;
+  const problem = validateRundown(night, perf.rundown, endedEarly);
   if (problem) throw new Error(problem);
 
   const byId = new Map(night.cards.map((c) => [c.id, c] as const));
@@ -360,6 +414,12 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     }
   });
 
+  // Every card that went out, and how: later nights (and tonight's dawn lines) gate on these.
+  for (const card of show) {
+    addFlag(state, `aired_${card.id}`);
+    if (hedged.has(card.id)) addFlag(state, `hedged_${card.id}`);
+  }
+
   // What the Other Station read during the show (applied below). The town heard those.
   const live = otherStationLive(night, perf);
   const otherAired = [...new Set(live.flatMap((r) => (r.card ? [r.card] : [])))];
@@ -388,6 +448,8 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   const confided = perf.confided ?? [];
   for (const board of eventsOf(night, 'switchboard')) {
     const slot = board.at.slot;
+    // After a show that ended early, the boards due later never rang.
+    if (endedEarly && !rangBeforeTheEnd(board.at, show.length)) continue;
     for (const line of linesOpenNow(board, start, airedWhenBoardOpens(board, perf.rundown), confided)) {
       const result = callResult(line, perf.calls.find((c) => c.line === line.id));
       let outcome: Outcome | undefined;
@@ -480,13 +542,16 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   }
   const avgSignal = show.reduce((sum, _c, i) => sum + signalAt(i), 0) / show.length;
   applyEffects(state, { listeners: (avgSignal - RULES.signalListenerPivot) * RULES.signalListenerScale });
-  const storms = eventsOf(night, 'storm');
+  // Storms over the slots that aired (a show that ended early was dark for the rest).
+  const storms = eventsOf(night, 'storm')
+    .map((s) => (endedEarly ? { ...s, slots: s.slots.filter((slot) => slot < show.length) } : s))
+    .filter((s) => s.slots.length);
   for (const storm of storms) {
     const held = stormSignal(storm, show.map((_c, i) => signalAt(i)));
     const report = held >= STORM_HELD ? storm.held : held < STORM_LOST ? storm.lost : null;
     if (report) {
       applyEffects(state, report.effects);
-      lines.push({ text: report.line, tone: report === storm.held ? 'good' : 'bad' });
+      pushLine(lines, report.line, report === storm.held ? 'good' : 'bad');
     }
   }
   if (avgSignal < 0.6) lines.push({ text: 'Half the town heard more static than show.', tone: 'bad' });
@@ -496,7 +561,7 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   for (const card of show) {
     if (card.kind === 'news' && card.truth === 'false' && card.unravel && !hedged.has(card.id)) {
       applyEffects(state, { credibility: card.unravel.credibility });
-      lines.push({ text: card.unravel.line, tone: 'bad' });
+      pushLine(lines, card.unravel.line, 'bad');
     }
   }
 
@@ -531,15 +596,36 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
   }
   lines.unshift(...liveLines);
 
+  // After sign-off: what it reads, in the DJ's voice. With nothing left unsaid, only who and when.
+  const os = night.otherStation;
+  const reads = otherStationReads(night, perf.rundown, endedEarly);
+  const reread = os.readsDumped ? dumped.map((d) => d.text) : [];
+  const bodies = reads.map((id) => byId.get(id)).flatMap((c) => (c && isTalk(c) ? [c.script] : []));
+  const silent = !reads.length && !reread.length;
+  if (silent) addFlag(state, `${night.id}_other_silent`);
+  const script = (silent ? [os.intro, os.stamp] : [os.intro, os.stamp, ...reread, ...bodies, os.outro]).filter(Boolean).join(' ');
+
+  // The night's own dawn lines, last, in order, against the town as it now stands.
+  for (const d of night.dawnLines ?? []) {
+    if (!gateOpen(d.gate, state.flags, { town: state })) continue;
+    if (d.effects) applyEffects(state, d.effects);
+    if (d.flag) addFlag(state, d.flag);
+    pushLine(lines, d.line, d.tone);
+  }
+
   clampState(state);
 
-  const otherId = pickOtherStationCard(night, perf.rundown);
-  const otherCard = otherId ? byId.get(otherId) : undefined;
-  const body = otherCard && isTalk(otherCard) ? otherCard.script : '';
-  const reread = night.otherStation.readsDumped ? dumped.map((d) => d.text) : [];
-  const script = [night.otherStation.intro, night.otherStation.stamp, ...reread, body, night.otherStation.outro]
-    .filter(Boolean)
-    .join(' ');
+  const after = { town: state };
+  const letter = (night.letters ?? []).find((l) => gateOpen(l.gate, state.flags, after));
+  const headline = (night.headlines ?? []).find((h) => gateOpen(h.gate, state.flags, after));
 
-  return { before: cloneState(start), after: state, lines, otherStation: { cardId: otherId, script, dumped }, otherAired };
+  return {
+    before: cloneState(start),
+    after: state,
+    lines,
+    otherStation: { cardId: reads[0] ?? null, script, dumped, cards: reads },
+    otherAired,
+    letter: letter ? { body: letter.body, from: letter.from } : { ...night.letter },
+    ...(headline ? { headline: { text: headline.text, sub: headline.sub } } : {}),
+  };
 }

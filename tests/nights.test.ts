@@ -5,6 +5,7 @@ import { STARTING_STATE, cloneState, resolveNight } from '../src/sim/resolver';
 import { NIGHT_1 } from '../src/data/night1';
 import { NIGHT_2 } from '../src/data/night2';
 import { hasNextNight, nextNight, resetRun, run, startNight, townBefore } from '../src/run';
+import { NIGHTS } from '../src/data/nights';
 import type { CallLine, NightDef, SwitchboardEvent, TownState } from '../src/sim/types';
 
 const town = (flags: string[] = [], over: Partial<TownState> = {}): TownState => ({ ...cloneState(STARTING_STATE), flags, ...over });
@@ -136,7 +137,7 @@ describe('the run', () => {
     // Night 1's choices opened Night 2's content.
     expect(run.night.cards.map((c) => c.id)).toContain('news_wozniak');
     expect(lines(run.town.flags)).toContain('call_grace_thanks');
-    expect(hasNextNight()).toBe(false);
+    expect(hasNextNight()).toBe(true); // Night 3 follows
     resetRun();
     expect(run.index).toBe(0);
     expect(run.town).toEqual(STARTING_STATE);
@@ -148,6 +149,24 @@ describe('the run', () => {
     expect(townBefore(0)).toEqual(STARTING_STATE);
     startNight(1, t);
     expect(run.night.number).toBe(2);
+    resetRun();
+  });
+
+  it('builds a sane town for every ?night=N, the drawer running down as the ?auto shows use it', () => {
+    let spares = Infinity;
+    NIGHTS.forEach((_n, i) => {
+      const t = townBefore(i);
+      for (const v of [t.morale, t.safety, t.credibility, ...Object.values(t.trust)]) expect(v >= 0 && v <= 100, `night ${i + 1}`).toBe(true);
+      expect(t.listeners, `night ${i + 1}`).toBeGreaterThan(0);
+      const left = Object.values(t.spares).reduce((a, b) => a + b, 0);
+      for (const v of Object.values(t.spares)) expect(v, `night ${i + 1}`).toBeGreaterThanOrEqual(0);
+      expect(left).toBeLessThanOrEqual(spares);
+      spares = left;
+      startNight(i, t);
+      expect(run.night.number).toBe(i + 1);
+    });
+    // ?night=6 comes after Night 5's auto show: the answer it gave is in the town.
+    expect(townBefore(5).flags).toEqual(expect.arrayContaining(['n5_answer_deny', 'aired_ans_deny', 'n5_stayed_on']));
     resetRun();
   });
 });

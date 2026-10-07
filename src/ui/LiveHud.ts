@@ -8,7 +8,7 @@ import { OTHER_OFFSET } from '../sim/intrusion';
 import { KIND_TAG } from './RundownBuilder';
 import { bar, button, label, panel, type Button } from './widgets';
 
-export type CueState = 'hidden' | 'waiting' | 'open' | 'cued' | 'cuedHedged' | 'dead' | 'needleNext' | 'needle';
+export type CueState = 'hidden' | 'waiting' | 'open' | 'cued' | 'cuedHedged' | 'dead' | 'needleNext' | 'needle' | 'last';
 
 const TP = { x: 12, y: 290, w: 446, h: 64 };
 const CUE = { x: 464, y: 290, w: 164, h: 64 };
@@ -41,6 +41,8 @@ export class LiveHud {
   private cueGfx: Phaser.GameObjects.Graphics;
   private deskBtn: Button;
   private deskHandler: () => void = () => {};
+  /** The slot of a card that ends the show, once it airs: the chips after it go dark. */
+  private endAt: number | null = null;
   /** Pointer held on the tuning gauge: -1 left half, 1 right half. */
   pointerTune = 0;
 
@@ -142,17 +144,23 @@ export class LiveHud {
     });
   }
 
+  /** A card that ends the show is airing in `slot`: nothing after it will. */
+  setEndAt(slot: number | null): void {
+    this.endAt = slot;
+  }
+
   setOrder(current: number, done: number): void {
     const g = this.chipGfx;
     g.clear();
     this.cards.forEach((_c, i) => {
       const x = CHIPS.x + i * (CHIPS.w + 3);
       const isCur = i === current;
-      g.fillStyle(0x0a0b12, i < done && !isCur ? 0.5 : 0.85);
+      const gone = this.endAt !== null && i > this.endAt;
+      g.fillStyle(0x0a0b12, gone ? 0.25 : i < done && !isCur ? 0.5 : 0.85);
       g.fillRect(x, CHIPS.y, CHIPS.w, CHIPS.h);
-      g.lineStyle(1, isCur ? 0xffe08a : 0xffb347, isCur ? 1 : 0.3);
+      g.lineStyle(1, isCur ? 0xffe08a : 0xffb347, isCur ? 1 : gone ? 0.1 : 0.3);
       g.strokeRect(x + 0.5, CHIPS.y + 0.5, CHIPS.w - 1, CHIPS.h - 1);
-      this.chipText[i].setAlpha(i < done && !isCur ? 0.35 : 1);
+      this.chipText[i].setAlpha(gone ? 0.12 : i < done && !isCur ? 0.35 : 1);
     });
   }
 
@@ -264,8 +272,9 @@ export class LiveHud {
       dead: `DEAD AIR ${deadSeconds.toFixed(1)}s - SPACE${hedge ? '/H' : '!'}`,
       needleNext: 'record - the arm swings in',
       needle: 'SPACE - drop the needle',
+      last: 'the show ends here',
     }[state];
-    const color = { waiting: UI.dim, open: UI.hot, cued: UI.good, cuedHedged: UI.good, dead: UI.bad, needleNext: UI.dim, needle: UI.hot }[state];
+    const color = { waiting: UI.dim, open: UI.hot, cued: UI.good, cuedHedged: UI.good, dead: UI.bad, needleNext: UI.dim, needle: UI.hot, last: UI.dim }[state];
     this.cueNext.setText(nextTitle);
     this.cueHint.setText(hint).setColor(color);
     const pulse = state === 'dead' || state === 'open' || state === 'needle' ? 0.55 + 0.45 * Math.abs(Math.sin(this.scene.time.now / 160)) : 1;

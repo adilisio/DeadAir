@@ -19,7 +19,8 @@ import { audio } from '../audio/engine';
 const PAPER = { x: 236, y: 14, w: 392, h: 332 };
 const INK = '#2a2420';
 const INK_DIM = '#6b5f50';
-const TONE: Record<DawnLine['tone'], string> = { good: '#2f6b2a', bad: '#8c2a1e', neutral: INK, eerie: '#1f6b47' };
+// Rumors are what people are saying that may be wrong; for now they read like neutral lines.
+const TONE: Record<DawnLine['tone'], string> = { good: '#2f6b2a', bad: '#8c2a1e', neutral: INK, eerie: '#1f6b47', rumor: INK };
 
 export class DawnScene extends Phaser.Scene {
   private page = 0;
@@ -76,7 +77,9 @@ export class DawnScene extends Phaser.Scene {
     audio.setStatic(0.02);
     this.showPage(0);
     markPhase('dawn');
-    if (DEBUG.auto) this.time.addEvent({ delay: 4000, repeat: 6, callback: () => this.turn(1) });
+    markPhase(`dawn-night-${run.night.number}`);
+    // ?auto turns every page, however many the night's stories fill.
+    if (DEBUG.auto) this.time.addEvent({ delay: 4000, repeat: this.pages.length - 2, callback: () => this.turn(1) });
   }
 
   private turn(d: number): void {
@@ -98,11 +101,36 @@ export class DawnScene extends Phaser.Scene {
   }
 
   private pageNumbers(c: Phaser.GameObjects.Container): void {
-    const { before, after } = this.result;
+    const { before, after, headline } = this.result;
     const x = PAPER.x + 20;
     let y = PAPER.y + 66;
+    const g = this.add.graphics();
+    c.add(g);
+    // Spacing for the meters; a headline above them pushes them down and closer together.
+    let rowH = 20;
+    let rowSize = 16;
+    let gapHead = 26;
+    let gapTrust = 24;
+    let gapSpares = 22;
+    if (headline) {
+      markPhase('dawn-headline');
+      const mid = PAPER.x + PAPER.w / 2;
+      const text = label(this, mid, y - 4, headline.text, { size: 22, color: INK, align: 'center' }).setOrigin(0.5, 0);
+      const sub = label(this, mid, text.y + text.height - 2, headline.sub, { size: 14, color: INK, align: 'center', wrap: PAPER.w - 48 }).setOrigin(0.5, 0);
+      c.add([text, sub]);
+      y = sub.y + sub.height + 5;
+      g.fillStyle(hex(INK), 1);
+      g.fillRect(PAPER.x + 12, y, PAPER.w - 24, 1);
+      y += 6;
+      gapHead = 22;
+      gapTrust = 20;
+      gapSpares = 18;
+      const bottom = PAPER.y + PAPER.h - 34;
+      rowH = Math.max(13, Math.min(20, Math.floor((bottom - y - gapHead - gapTrust - gapSpares) / 8)));
+      rowSize = rowH < 16 ? 15 : 16;
+    }
     c.add(label(this, x, y, 'HOW THE TOWN WOKE UP', { size: 20, color: INK }));
-    y += 26;
+    y += gapHead;
     const rows: [string, number, number, number][] = [
       ['Morale', before.morale, after.morale, 100],
       ['Safety', before.safety, after.safety, 100],
@@ -110,26 +138,25 @@ export class DawnScene extends Phaser.Scene {
       ['Listeners', before.listeners, after.listeners, 250],
       ['Chits in the jar', before.chits, after.chits, 50],
     ];
-    const g = this.add.graphics();
-    c.add(g);
+    const bar = Math.round((rowSize - 4) / 2);
     const drawRow = (name: string, b: number, a: number, max: number, color: number) => {
-      c.add(label(this, x, y, name, { size: 16, color: INK }));
+      c.add(label(this, x, y, name, { size: rowSize, color: INK }));
       g.fillStyle(hex(P.paperDim), 1);
-      g.fillRect(x + 150, y + 6, 150, 6);
+      g.fillRect(x + 150, y + bar, 150, 6);
       g.fillStyle(color, 1);
-      g.fillRect(x + 150, y + 6, Math.round(150 * Math.min(1, a / max)), 6);
+      g.fillRect(x + 150, y + bar, Math.round(150 * Math.min(1, a / max)), 6);
       const d = a - b;
-      c.add(label(this, x + 310, y, `${a}`, { size: 16, color: INK }));
-      c.add(label(this, x + 340, y, d === 0 ? '·' : `${d > 0 ? '+' : ''}${d}`, { size: 16, color: d > 0 ? TONE.good : d < 0 ? TONE.bad : INK_DIM }));
-      y += 20;
+      c.add(label(this, x + 310, y, `${a}`, { size: rowSize, color: INK }));
+      c.add(label(this, x + 340, y, d === 0 ? '·' : `${d > 0 ? '+' : ''}${d}`, { size: rowSize, color: d > 0 ? TONE.good : d < 0 ? TONE.bad : INK_DIM }));
+      y += rowH;
     };
     for (const [name, b, a, max] of rows) drawRow(name, b, a, max, hex(INK));
     // The drawer, one line.
     const spares = TUBE_TYPES.map((t) => `${t} x${after.spares[t] ?? 0}`).join('  ');
     c.add(label(this, x, y, `SPARES  ${spares}`, { size: 15, color: INK_DIM }));
-    y += 22;
+    y += gapSpares;
     c.add(label(this, x, y, 'WHO TRUSTS THE LAMP', { size: 20, color: INK }));
-    y += 24;
+    y += gapTrust;
     const fColor = { netters: 0x2b7f92, chapel: 0x6f4f9a, linemen: 0xa4501f };
     for (const f of FACTIONS) drawRow(`The ${FACTION_NAMES[f]}`, before.trust[f], after.trust[f], 100, fColor[f]);
   }
@@ -206,6 +233,7 @@ export class DawnScene extends Phaser.Scene {
 
   private pageOther(c: Phaser.GameObjects.Container): void {
     markPhase('dawn-letter');
+    markPhase(`dawn-letter-night-${run.night.number}`);
     const x = PAPER.x + 20;
     let y = PAPER.y + 66;
     c.add(label(this, x, y, 'LETTERS', { size: 20, color: INK }));
@@ -217,17 +245,20 @@ export class DawnScene extends Phaser.Scene {
       if (quote && (quote + ' ' + sentence).length > 110) break;
       quote = quote ? `${quote} ${sentence}` : sentence;
     }
-    const letter = label(this, x, y, letterText(run.night, quote), { size: 16, color: INK, wrap: PAPER.w - 40 });
+    // The night's result chose the letter (some nights have more than one to choose from).
+    const chosen = this.result.letter ?? run.night.letter;
+    const letter = label(this, x, y, letterText(chosen, quote), { size: 16, color: INK, wrap: PAPER.w - 40 });
+    // A long letter sets smaller, to leave room for the signature and the last line.
+    for (let size = 15; size >= 13 && y + letter.height > PAPER.y + PAPER.h - 84; size--) letter.setFontSize(size);
     c.add(letter);
     y += letter.height + 4;
-    c.add(label(this, PAPER.x + PAPER.w - 20, y, `- ${run.night.letter.from}`, { size: 16, color: INK_DIM, align: 'right' }).setOrigin(1, 0));
-    y += 34;
+    c.add(label(this, PAPER.x + PAPER.w - 20, y, `- ${chosen.from}`, { size: 16, color: INK_DIM, align: 'right' }).setOrigin(1, 0));
+    y += 28;
     const n = NIGHT_WORDS[run.night.number] ?? String(run.night.number);
     if (hasNextNight()) {
       c.add(label(this, x, y, `End of Night ${n}. The Lamp signs on again tonight.`, { size: 16, color: TONE.eerie }));
     } else {
-      c.add(label(this, x, y, `End of Night ${n}. Thanks for listening.`, { size: 16, color: TONE.eerie }));
-      c.add(label(this, x, y + 18, `That's every night there is for now. Days, the rest of the week and the rest of Port Vesper are coming.`, { size: 14, color: INK_DIM, wrap: PAPER.w - 40 }));
+      c.add(label(this, x, y, `End of Night ${n}. That's the whole story.`, { size: 16, color: TONE.eerie }));
     }
   }
 

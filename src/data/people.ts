@@ -6,7 +6,8 @@
 import type { FactionId } from '../sim/types';
 
 export type PersonId =
-  | 'dj' | 'grace' | 'anon' | 'lottie' | 'sparky' | 'bill' | 'agnes' | 'pruitt' | 'doc' | 'amos' | 'teddy' | 'walt';
+  | 'dj' | 'grace' | 'anon' | 'lottie' | 'sparky' | 'bill' | 'agnes' | 'pruitt' | 'doc' | 'amos' | 'teddy' | 'walt'
+  | 'ewa' | 'marta' | 'harbor';
 
 export interface Person {
   id: PersonId;
@@ -37,6 +38,9 @@ export const PEOPLE: Record<PersonId, Person> = {
   amos: { id: 'amos', name: 'Brother Amos', faction: 'chapel', who: 'Keeps the Chapel bees.', voice: { kokoro: 'am_liam', rate: 0.9, pitch: 0.95 } },
   teddy: { id: 'teddy', name: 'Teddy Okafor', who: 'Fourteen. Wants to be a Lineman. Learned Morse from them.', voice: { kokoro: 'am_puck', rate: 1.0, pitch: 1.4 } },
   walt: { id: 'walt', name: 'Walt Kowalczyk', faction: 'linemen', who: "Lottie's Walt. Netter-born, Lineman by trade, night crew. Says as little as he can.", voice: { kokoro: 'am_adam', rate: 0.95, pitch: 0.9 } },
+  ewa: { id: 'ewa', name: 'Ewa Kaminski', faction: 'netters', who: 'Kaminski boat; fast, sure.', voice: { kokoro: 'af_nicole', rate: 1.05, pitch: 1.3 } },
+  marta: { id: 'marta', name: 'Marta Ostrowski', faction: 'netters', who: "Henryk's widow, Jan's mother.", voice: { kokoro: 'af_jessica', rate: 0.95, pitch: 1.15 } },
+  harbor: { id: 'harbor', name: 'Casimir Nowak', who: 'The harbor master. Gives orders.', voice: { kokoro: 'am_echo', rate: 1.0, pitch: 0.85 } },
 };
 
 export function person(id: PersonId): Person {

@@ -24,7 +24,8 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
 
 1. **Prep.** Pick six cards off the desk into three segments. Hover a card to read it and
    see who it's for; the bars next to each segment show who's listening then. News tells
-   you where a story came from, not whether it's true.
+   you where a story came from, not whether it's true. Some cards are alternatives (pick one
+   and the others grey out), and a card marked ENDS THE SHOW is your sign-off when it airs.
 2. **Live.** Your show plays: records, news, warnings, ads, all read on air.
    - When a storm hits, **hold A / D** (or the arrow keys, or press on the TRANSMITTER
      gauge) to keep the signal on 1260. Static means fewer people heard you.
@@ -55,7 +56,8 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
 4. **Dawn.** The town's paper tells you what your show did. The notices page has
    classifieds: spend chits on a spare tube for the drawer, or a record for a later night.
 5. **The next night.** The town carries over: its mood, who trusts you, and what happened.
-   Night 2 remembers Night 1. There are two nights so far.
+   Each night remembers the ones before it. There are six nights; the last dawn prints a
+   headline for how it all went, and START OVER begins a new run.
 
 ## Settings (URL switches)
 
@@ -67,7 +69,7 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
 | `?auto` | The game plays itself (for testing) |
 | `?drift` | With `?auto`: hold the dial toward 1250 in storms instead of on 1260 |
 | `?scene=booth` / `?scene=dawn` | Skip straight to a scene |
-| `?night=2` | Start at Night 2, as if Night 1 went well |
+| `?night=N` | Start at night N (1-6), as if the earlier nights went like their `?auto` shows |
 
 Combine them with `&`, e.g. http://localhost:5173/?scene=booth&fast
 

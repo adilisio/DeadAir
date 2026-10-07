@@ -167,13 +167,16 @@ caller) carries from each dawn into the next night, and the run is saved at each
 when the next night begins (`localStorage`, versioned). The title offers "continue:
 night N".
 
-A night's cards and switchboard lines can carry a **gate**: flags (`requires` /
-`unless`), stat thresholds (`when`: `morale`, `safety`, `credibility`, `listeners`,
-`chits`, `trust.<faction>`, min and max inclusive), and for callers and desk cards, what
-has aired so far tonight (`tonight: { aired, notAired }`). Before prep the night is opened
-against the town, so the desk and the boards hold only what's in play (a card waiting on
-tonight stays off the prep screen); when a board rings or the desk opens live, it is
-checked again against what has aired by then.
+A night's cards, switchboard lines, events (boards, tubes, Morse, storms) and the Other
+Station's intrusions can carry a **gate**: flags (`requires` / `unless`), stat thresholds
+(`when`: `morale`, `safety`, `credibility`, `listeners`, `chits`, `trust.<faction>`, min
+and max inclusive), and for callers and desk cards, what has aired so far tonight
+(`tonight: { aired, notAired }`) and what callers have confided off air (`tonight.flags`).
+Before prep the night is opened against the town, so the desk, the boards and the booth
+tasks hold only what's in play (a card waiting on tonight stays off the prep screen); when
+a board rings or the desk opens live, it is checked again against what has aired by then.
+Every card that airs sets `aired_<card>` (and `hedged_<card>` when read hedged), so later
+nights can gate on exactly what went out.
 
 **People remember.** Every caller is a person (`src/data/people.ts`). At dawn the
 resolver counts each of their calls as aired, cut, dumped or ignored (a late dump counts
@@ -189,6 +192,42 @@ and Morse (from Teddy) late with a second board ringing over the late record (Lo
 Walt's birthday song; Pruitt calls, bitten or grateful, and Walt if Lottie got on last
 night), the storm in the small hours, right on top of the squall warning. Night 2's Other
 Station also reads back what you dumped.
+
+The campaign runs six nights (`src/data/night1.ts` to `night6.ts`):
+
+- **Night 3, Two Lamps.** People quote things the Lamp never said. The Chapel says the
+  new line killed its bees; a man at the Linemen's yard says the Chapel is hoarding sulfa.
+  The man with no name calls back, and if you keep listening off air he tells you the relay
+  hut at the point is flooding (only then does the warning reach your desk). Lottie wants
+  a song for Walt's fortieth. At two in the morning two lines ring at once, both urgent:
+  open water in the east bay, and Grace Okafor whose son is sleeping at that hut. In the
+  storm a second carrier sits on the dial. Teddy keys three letters from the point.
+- **Night 4, The Freeze.** The lake locked in four hours and a boat is out: whose depends
+  on who the earlier nights left on the water. Stay in, or search at first light? Doc
+  Hessler pays twelve chits to call his tonic a frostbite cure. Mid-show the frequency is
+  taken and a warning from your own desk goes out before you read it. If the hut was moved,
+  Teddy keys a direction; if it wasn't, the hut burns and the board and the Morse are the
+  only way to him. Two tubes. The dawn says whether the boat came home.
+- **Night 5, Silence.** Everyone wants the Lamp quieter. Sister Agnes calls for the first
+  time and asks you, in front of the town, to say what the voice after sign-off is. Three
+  cards answer (deny, claim, say nothing); only one can air, and the ones you don't pick get
+  read. The Linemen want the transmitter's circuit for their switch-on test: one card reads
+  the station off early, and the dark is not empty. Bill's knee says calm, the glass says
+  squall. The wind is harder; two overrides; something keys a word nobody at the point sent.
+  The man with no name gives his name.
+- **Night 6, Dead Air.** The switch-on at ten, the storm of the decade behind it, and the
+  ice coming over the breakwater around one. Three boards. Up the hill to the Chapel, or
+  down to the boats? Pull the live line before the water, or keep the lights? At the worst
+  moment the other voice takes the frequency to give an order of its own. After sign-off it
+  reads everything you left unsaid; if you left nothing, the dial is just open. The last
+  dawn prints a headline chosen from how the night, and the run, went.
+
+Nights 3-6 also use: **dawn lines** (lines a night adds last, gated on the town after the
+night, which can combine outcomes and set their own flags), **letters** (a night may have
+several; the first whose gate is open replaces its usual letter), **headlines** (the morning
+paper's masthead, first open one wins), **card groups** (alternatives: only one card of a
+group can air, the others grey out at prep), and **cards that end the show** (the card is the
+sign-off; the slots after it go unaired with no dead-air penalty).
 
 ### 3. Sign-off, the Other Station, and dawn
 

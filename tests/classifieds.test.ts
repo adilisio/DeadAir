@@ -54,11 +54,12 @@ describe('classifieds', () => {
     expect(gives(NIGHT_2)).toEqual([[8, { spare: '866' }], [5, { record: 'tiger_rag' }]]);
   });
 
-  it('every classified gives a real tube or record, costs something, and has a unique id', () => {
+  it('every classified gives a real tube or record, costs nothing or more, and has a unique id', () => {
     const all = NIGHTS.flatMap((n) => n.classifieds ?? []);
     expect(new Set(all.map((c) => c.id)).size).toBe(all.length);
     for (const c of all) {
-      expect(c.cost, c.id).toBeGreaterThan(0);
+      // A trade (cost 0) is allowed: Night 5's "Moonlight Bay" for a 5U4.
+      expect(c.cost, c.id).toBeGreaterThanOrEqual(0);
       expect(Number.isInteger(c.cost), c.id).toBe(true);
       expect(c.text.length, c.id).toBeGreaterThan(10);
       expect(!!c.gives.spare !== !!c.gives.record, `${c.id}: one thing each`).toBe(true);

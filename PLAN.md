@@ -312,6 +312,19 @@ build, shots, and a look at the PNGs. One commit per packet.
 A and B run in parallel first: A is the biggest jump in perceived quality and has no
 dependencies; B unblocks everything else. C and E are the story engines and come next.
 
+Done (2026-10-06):
+
+- [x] **A** Voice pipeline: Kokoro lines rendered offline, played through the radio chain (`7c09ac0`).
+- [x] **B** Events, people, gates, save/continue (`e47f33b`).
+- [x] **C** Switchboard v2: confides, requests, patience, the audible delay, dumps read back (`6095fa8`).
+- [x] **D** The desk: live swaps, hedged reads, sources, the spares drawer, classifieds (`1da99af`).
+- [x] **E** The Other Station live: two carriers in the storm, overrides mid-show (`c7be35f`).
+- [x] **F** Stats that matter: listeners scale the audience, trust shifts reach (`2aa73f4`).
+- [x] **G** Campaign wiring: Nights 3-6 (the content of H-K) in, with the rules they need (gated
+  events, dawn lines, letters, headlines, groups, ends-the-show, Other Station variants) and
+  their voices. The records fetch planned for G landed earlier (`79ba260`). Still open from
+  H-L: the climax's HOLD / CARRY / COUNTER, rumor ink at dawn, several letters a night.
+
 ## 14. Playtest gates (owner)
 
 Short, only questions a person can answer. Three gates.
