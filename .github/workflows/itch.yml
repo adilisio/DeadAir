@@ -1,0 +1,44 @@
+name: Publish to itch.io
+
+# Every push to main: install, test, build, then push dist/ to the itch page with butler.
+# Needs one repository secret: BUTLER_CREDENTIALS (an itch.io API key from
+# https://itch.io/user/settings/api-keys). Without it the publish step is skipped.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: itch-publish
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      ITCH_TARGET: adilisio/dead-air:html
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      - name: Install butler
+        run: |
+          curl -L -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d butler
+          chmod +x butler/butler
+          ./butler/butler -V
+
+      - name: Push build to itch.io
+        if: ${{ env.BUTLER_API_KEY != '' }}
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_CREDENTIALS }}
+        run: ./butler/butler push dist "$ITCH_TARGET" --userversion "${GITHUB_SHA::7}"
