@@ -19,13 +19,14 @@ What he found, and what it became:
 - "How long are the songs played?" → the record's time left sits in the teleprompter header.
 - The DJ's voice: "a big improvement, still a little robotic, not casual like a radio DJ" →
   `npm run voices -- --audition` renders the sign-on in a dozen unused voices with a page to
-  play them (see `public/voice/README.md`). **Owner picks.** The DJ's scripts are also written
-  formal; a casual rewrite pass (contractions, asides, the kettle) is a content job for after
-  the voice is picked, since every DJ line re-renders.
+  play them (see `public/voice/README.md`). **Decided (2026-10-07): keep `am_michael`,** the
+  best of the thirteen. What's left is the writing: the DJ's scripts are formal; a casual
+  rewrite pass (contractions, asides, the kettle) is a content job, every DJ line re-renders.
 - "The unknown station sounds exactly like the main narrator, just deeper" → by design (it is
-  the DJ's own files, slowed and doubled). **Owner question:** keep it as "your own voice,
-  wrong", push the processing further (slower, more echo, a second voice under it), or give
-  it a different person. Don't explain it in content either way.
+  the DJ's own files, slowed and doubled). **Decided (2026-10-07): it should sound like you,
+  pushed further.** The `other` channel now runs slower, with a detuned second copy a
+  beat behind, a slow drift on the pitch and a muffled room behind it (`playVoice` in
+  `src/audio/engine.ts`). Tune by ear; keep it intelligible. Don't explain it in content.
 
 Still to answer from the Gate 1 list (Night 2 not yet played): the off-air confide, the desk,
 the second carrier in the squall, the classifieds, "annoying rather than tense".

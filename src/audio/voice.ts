@@ -18,7 +18,7 @@ import { NIGHTS } from '../data/nights';
 import { PEOPLE, type PersonId } from '../data/people';
 import { pauseClock, type PauseTimer } from '../sim/pausable';
 import type { NightDef } from '../sim/types';
-import { audio, type VoiceChannel, type VoiceHandle } from './engine';
+import { audio, type VoiceChannel, type VoiceHandle, OTHER_RATE } from './engine';
 import { charsSpokenAt, parseVoiceIndex, splitIntoKnown, voiceIdFor, voiceLines, type VoiceIndex } from './lines';
 
 export interface SpeakOptions {
@@ -42,8 +42,6 @@ export interface Speech {
   readonly browserVoice: boolean;
 }
 
-/** The Other Station's playback rate (engine.ts), which stretches its lines. */
-const OTHER_RATE = 0.92;
 /** Silence between joined lines (the Other Station reads several in a row). */
 const JOIN_GAP = 0.35;
 

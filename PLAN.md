@@ -378,6 +378,7 @@ Short, only questions a person can answer. Three gates.
 
 1. **The DJ's Kokoro voice** until you record: default `am_michael` (warm, mid). Say if
    you'd rather a woman's voice or an older one; it's one line in the registry.
+   *Answered 2026-10-07: keep `am_michael`. The Other Station stays the DJ's own voice, pushed further.*
 2. **Night 6's setting event**: the grid switch-on (hopeful) or the storm evacuation
    (grim), or both colliding. Default: both, with the switch-on scheduled for the night
    the storm comes, because that's the night people stay up with their radios.

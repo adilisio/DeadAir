@@ -20,6 +20,12 @@ import { DEFAULT_VOLUME, VOLUME_KEY, clampVolume, parseVolume, serializeVolume, 
 import { generateScore, rng } from './pressings';
 import { renderScore } from './render';
 
+/**
+ * The Other Station's playback rate: the DJ's own files, slowed and deepened (voice.ts
+ * stretches its timing estimates by it).
+ */
+export const OTHER_RATE = 0.88;
+
 /** How a voice reaches the listener. See playVoice. */
 export type VoiceChannel = 'air' | 'phone' | 'handset' | 'other' | 'over';
 
@@ -408,7 +414,9 @@ class AudioEngine {
    * - air: the DJ on the radio chain (band-limit, drive, compressor, tuning, tube fault).
    * - phone: a caller on air: telephone band (300-3400 Hz) and a harder clip, then the chain.
    * - handset: a caller heard off air on the handset: the phone sound straight to the room.
-   * - other: the Other Station: slowed, narrower, with a short doubled echo, then the chain.
+   * - other: the Other Station: your own voice, pushed: slowed and deepened, a slow drift on
+   *   the pitch, a second copy a beat behind drifting against it, a short doubling and a
+   *   muffled room behind it, then the chain. Still a voice you can follow.
    * - over: the DJ on air while the Other Station has the frequency (talking over it at the
    *   climax): like air, but past the override duck.
    * Voice files are loudness-normalized like the records (-18 LUFS). Channel gains aim to
@@ -422,6 +430,8 @@ class AudioEngine {
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     const out = ctx.createGain();
+    /** Other sources a channel starts (the Other Station's twin and its drift), stopped with the voice. */
+    const extras: AudioScheduledSourceNode[] = [];
     const phone = (): AudioNode => {
       const hp = ctx.createBiquadFilter();
       hp.type = 'highpass';
@@ -456,18 +466,51 @@ class AudioEngine {
         phone().connect(out).connect(this.handsetBus);
         break;
       case 'other': {
-        src.playbackRate.value = 0.92;
+        src.playbackRate.value = OTHER_RATE;
+        // A slow drift on the pitch, about a quarter of a semitone either way.
+        const sway = (rate: AudioParam, hz: number) => {
+          const lfo = ctx.createOscillator();
+          lfo.frequency.value = hz;
+          const depth = ctx.createGain();
+          depth.gain.value = 0.012;
+          lfo.connect(depth).connect(rate);
+          lfo.start();
+          extras.push(lfo);
+        };
+        sway(src.playbackRate, 0.23);
+        // A second copy, a beat behind, drifting on its own clock: two of you, not quite together.
+        const twin = ctx.createBufferSource();
+        twin.buffer = buffer;
+        twin.playbackRate.value = OTHER_RATE;
+        sway(twin.playbackRate, 0.31);
+        const twinGain = ctx.createGain();
+        twinGain.gain.value = 0.3; // about -10 dB
+        twin.start(ctx.currentTime + 0.02 + 0.09);
+        extras.push(twin);
         const lp = ctx.createBiquadFilter();
         lp.type = 'lowpass';
-        lp.frequency.value = 2600;
+        lp.frequency.value = 2400;
+        // The short doubling it always had.
         const echo = ctx.createDelay(0.2);
         echo.delayTime.value = 0.035;
         const echoGain = ctx.createGain();
         echoGain.gain.value = 0.4; // about -8 dB
+        // A muffled room behind it: a 190 ms repeat that feeds back and dies in about a second.
+        const room = ctx.createDelay(0.5);
+        room.delayTime.value = 0.19;
+        const roomLp = ctx.createBiquadFilter();
+        roomLp.type = 'lowpass';
+        roomLp.frequency.value = 1400;
+        const roomGain = ctx.createGain();
+        roomGain.gain.value = 0.3;
         src.connect(lp);
+        twin.connect(twinGain).connect(lp);
         lp.connect(out);
         lp.connect(echo).connect(echoGain).connect(out);
-        out.gain.value = 0.95;
+        lp.connect(room).connect(roomLp).connect(roomGain);
+        roomGain.connect(out);
+        roomGain.connect(room);
+        out.gain.value = 0.9;
         // Its own level stage (setOtherGain), and past the override duck.
         out.connect(this.otherBus);
         break;
@@ -475,8 +518,20 @@ class AudioEngine {
     }
     let resolveEnded!: () => void;
     const ended = new Promise<void>((r) => (resolveEnded = r));
+    const stopExtras = (at: number) => {
+      for (const n of extras) {
+        try {
+          n.stop(at);
+        } catch {
+          // already stopped
+        }
+      }
+    };
     src.onended = () => {
-      out.disconnect();
+      // The room's tail has a moment to die before the output goes.
+      const tail = extras.length ? 1.2 : 0;
+      stopExtras(ctx.currentTime + tail);
+      setTimeout(() => out.disconnect(), tail * 1000);
       resolveEnded();
     };
     src.start(ctx.currentTime + 0.02);
@@ -490,6 +545,7 @@ class AudioEngine {
         out.gain.cancelScheduledValues(t);
         out.gain.setValueAtTime(out.gain.value, t);
         out.gain.linearRampToValueAtTime(0, t + 0.03);
+        stopExtras(t + 0.04);
         try {
           src.stop(t + 0.04);
         } catch {
