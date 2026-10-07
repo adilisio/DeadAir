@@ -18,7 +18,7 @@ The direction is `PLAN.md` (2026-10-06): six nights in the booth, no daytime mod
    Gate 2 to judge: a tube sputters in its socket (and you hear it) before it blows; a
    Morse signal keys under the static for a lead before the tape appears and the clock
    starts. If the surprise was better, `TUBE.warnSeconds` and `MORSE_TIMING.leadSeconds`
-   go to 0.
+   go to 0. **Gate 2 (2026-10-07): the warning stays.**
 9. Night 6: both colliding, "cool and stressful". 10. Chits stays. 11. "You" stays.
 12. The DJ's scripts "are good for now".
 
@@ -51,10 +51,9 @@ Still to answer from the Gate 1 list (Night 2 not yet played): the off-air confi
 the second carrier in the squall, the classifieds, "annoying rather than tense".
 
 ## Next — in PLAN.md order
-- [ ] Tune by ear after Gate 1: voice levels per channel (`playVoice` gains), the Other
-      Station's processing, phone band, static under voices
-- [ ] Gate 2 playtest (Nights 1–4), then Gate 3 (the full run); questions in PLAN.md §14 and
-      HANDOFF.md "What to do next"
+- [ ] Gate 3 playtest (the full run to the last dawn, then START OVER); questions in PLAN.md
+      §14 and HANDOFF.md "What to do next". Gate 2 (Nights 1–4) passed 2026-10-07 with
+      nothing to fix; the voice levels and the Other Station sounded right by ear.
 - [ ] Night 6 difficulty, after Gate 3: on `?auto` the storm (wind 1.6) plus two tubes
       blowing into an empty drawer leaves slots 4–6 at 0.4 / 0.3 / 0.0 signal, so the finale's
       warnings mostly miss. Headless frame rates make this worse; judge it by hand first.
@@ -102,3 +101,4 @@ the second carrier in the squall, the classifieds, "annoying rather than tense".
     `npm run probe`
 - 2026-10-07, before Gate 2: a beat of warning before a tube blows (the sputter) and before
   the Morse tape (the lead); a tube pick during the fumble is queued, not lost
+- 2026-10-07, Gate 2: Anthony played Nights 1–4. Nothing to fix; the warning beat stays

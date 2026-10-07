@@ -15,7 +15,8 @@ A-G, K and M are on `main`. Six nights play start to finish, save and continue, 
 line voiced. M0 and M1 were playtested by the owner; everything since (booth tasks, the
 switchboard, the desk, the Other Station live, Nights 3-6, the climax, pause and volume)
 has only been played by the `?auto` player and one scripted real-pace run of Night 1.
-Next is the owner's Gate 1 playtest; see "What to do next".
+Gates 1 and 2 passed on 2026-10-07 (what Gate 1 turned up and what it became is the top of
+`TODO.md`; Gate 2 found nothing to fix). Next is Gate 3, the full run; see "What to do next".
 
 **Content status:** the campaign is six nights (`src/data/night1.ts` to `night6.ts`,
 listed in order in `src/data/nights.ts`), all voiced. Nights 3-6 were written by the
@@ -243,12 +244,12 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
 
 ## What to do next (the playtest gates, PLAN.md section 14)
 
-1. **Gate 1: the owner plays Nights 1 and 2** with headphones, no switches. The questions
+1. **Gate 1 (done 2026-10-07): the owner plays Nights 1 and 2** with headphones, no switches. The questions
    to answer are the top of `TODO.md`. Nobody has heard the voices, the phone band, the
    Other Station's processing or the three-second dump delay; the owner's ear decides the
    levels (`playVoice` gains in `src/audio/engine.ts`, the sliders are only a scale on top).
    Tune what Gate 1 turns up before going on.
-2. **Gate 2: Nights 1-4.** Night 3 (Two Lamps: the first override, the town asking about
+2. **Gate 2 (done 2026-10-07, nothing to fix): Nights 1-4.** Night 3 (Two Lamps: the first override, the town asking about
    two a.m.), Night 4 (The Freeze: the relay hut fire, Teddy, the first long override). Judge
    whether the Other Station reading what you cut feels like a consequence or a trick.
 3. **Gate 3: the full run** to the last dawn, then START OVER. Night 5's "go dark" card and
