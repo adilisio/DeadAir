@@ -14,8 +14,11 @@ The direction is `PLAN.md` (2026-10-06): six nights in the booth, no daytime mod
    opened tonight, the cue box's waiting line reads "TAB - the desk: swap what's next".
 6. Noticed the second carrier: "surprising". 7. Bought from the notices; the why was clear.
 8. "The timing of the games can be a little surprising and the songs can feel a little long"
-   → records play 60 s (was 75). The tasks' arrivals: a Gate 2 question (a beat of warning
-   before a tube blows or the tape starts, or leave the surprise).
+   → records play 60 s (was 75). The tasks' arrivals: built as a beat of warning, for
+   Gate 2 to judge: a tube sputters in its socket (and you hear it) before it blows; a
+   Morse signal keys under the static for a lead before the tape appears and the clock
+   starts. If the surprise was better, `TUBE.warnSeconds` and `MORSE_TIMING.leadSeconds`
+   go to 0.
 9. Night 6: both colliding, "cool and stressful". 10. Chits stays. 11. "You" stays.
 12. The DJ's scripts "are good for now".
 
@@ -58,7 +61,6 @@ the second carrier in the squall, the classifieds, "annoying rather than tense".
 - [ ] `?night=N` towns are too rosy and too poor (every auto night goes perfectly: trust 100
       by Night 3; nobody buys classifieds, so the drawer is empty by Night 5). Make `townBefore`
       play earlier nights at signal 0.85 with one caller ignored and buy a spare a night.
-- [ ] Tube picks during the fumble are ignored; queue the pick or shorten the fumble
 - [ ] Known rough edges: the record glint stands in for a spinning label; `?fast` overrides
       run at a third of their length on screen; no dawn line uses tone `rumor` yet (the ink
       is ready)
@@ -98,3 +100,5 @@ the second carrier in the squall, the classifieds, "annoying rather than tense".
   - M: pause, volume sliders, first-time hints, rumor ink, title version (`4c77090`)
   - Night 6's Ridge Road line resolves once; the storm is judged on the dial, not the jam;
     `npm run probe`
+- 2026-10-07, before Gate 2: a beat of warning before a tube blows (the sputter) and before
+  the Morse tape (the lead); a tube pick during the fumble is queued, not lost

@@ -13,6 +13,8 @@ export const MORSE_TIMING = {
   unit: 0.16,
   /** Seconds knocked off the clock for each wrong letter (no guessing the alphabet). */
   wrongPenalty: 3,
+  /** The signal keys this long under the static before the tape appears and the clock starts. */
+  leadSeconds: 2.5,
   chartSize: 8,
 };
 

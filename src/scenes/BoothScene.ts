@@ -156,7 +156,8 @@ export class BoothScene extends Phaser.Scene {
   private board: ActiveBoard | null = null;
   private boardPanel: SwitchboardPanel | null = null;
   private calls: CallRecord[] = [];
-  private morse: { event: MorseEvent; copy: MorseCopy; chart: string[]; t: number; left: number; panel: MorsePanel; autoT: number } | null = null;
+  /** `lead`: seconds the signal keys unseen before the tape; `up`: the tape is up and the clock runs. */
+  private morse: { event: MorseEvent; copy: MorseCopy; chart: string[]; t: number; left: number; lead: number; up: boolean; panel: MorsePanel; autoT: number } | null = null;
   private morseQueue: MorseEvent[] = [];
   private morseResults: { id: string; result: 'decoded' | 'missed' }[] = [];
   private stopRing: (() => void) | null = null;
@@ -230,6 +231,8 @@ export class BoothScene extends Phaser.Scene {
   private tubePanel: TubePanel | null = null;
   /** Tube events due but waiting for an item to be playing (and the board to close). */
   private pendingTubes: TubeEvent[] = [];
+  /** The tube about to go: its socket sputters for a beat before the pop. */
+  private tubeWarn: { def: TubeEvent; left: number } | null = null;
   private tubeLog: { id: string; fault: TubeFault }[] = [];
   /** Tonight's spares drawer (the town's, less what's been seated tonight). */
   private drawer: Record<TubeType, number> = { ...run.town.spares };
@@ -321,6 +324,7 @@ export class BoothScene extends Phaser.Scene {
     this.tube = null;
     this.tubePanel = null;
     this.pendingTubes = [];
+    this.tubeWarn = null;
     this.tubeLog = [];
     this.drawer = { ...run.town.spares };
     this.bodge = 1;
@@ -496,13 +500,15 @@ export class BoothScene extends Phaser.Scene {
     // Tube flicker.
     const flick = 0.9 + Math.random() * 0.1;
     const cold = this.phase === 'other' || this.phase === 'done';
+    const sputter = this.tubeWarn ? (Math.random() < 0.35 ? 0.1 : 1.3) : 1;
     this.tubeGlows.forEach((t, i) => {
-      // A blown tube is dark; a fresh one flickers as it warms.
+      // A blown tube is dark; a fresh one flickers as it warms; one about to go sputters.
       const f = this.tube && i === this.tube.socket && !this.tube.fixed ? this.tube : null;
       const out = f ? (f.state === 'warming' ? (f.strength - 0.15) * (0.6 + 0.4 * Math.random()) : f.bodged ? 0.35 * (0.5 + 0.5 * Math.random()) : 0) : 1;
-      t.setAlpha((cold ? 0.3 : 0.85) * (0.92 + 0.08 * Math.sin(this.time.now / 70 + i * 2)) * flick * out);
+      const warn = this.tubeWarn && i === this.tubeWarn.def.socket ? sputter : 1;
+      t.setAlpha(Math.min(1, (cold ? 0.3 : 0.85) * (0.92 + 0.08 * Math.sin(this.time.now / 70 + i * 2)) * flick * out * warn));
     });
-    this.tubeLight.intensity = (cold ? 0.6 : 1.8) * flick;
+    this.tubeLight.intensity = (cold ? 0.6 : 1.8) * flick * (this.tubeWarn ? 0.85 + 0.15 * sputter : 1);
 
     // Record glint orbits the platter at 78 rpm while a record plays.
     if (this.record) {
@@ -1183,11 +1189,30 @@ export class BoothScene extends Phaser.Scene {
 
   // ───────────────────────────── Tube ─────────────────────────────
 
-  /** Blow the next due tube while an item plays, the board is closed and the last tube is dealt with. */
-  private tubeCheck(): void {
+  /**
+   * The next due tube goes while an item plays, the board is closed and the last tube is
+   * dealt with: first a beat of sputtering in its socket (the warning), then the pop.
+   */
+  private tubeCheck(dt: number): void {
+    if (this.tubeWarn) {
+      // The sputter runs only while the moment still fits, so the pop never lands on an open board.
+      if (this.board || !this.playing) return;
+      this.tubeWarn.left -= dt;
+      if (this.tubeWarn.left > 0) return;
+      const { def } = this.tubeWarn;
+      this.tubeWarn = null;
+      this.blowTube(def);
+      return;
+    }
     const def = this.pendingTubes[0];
     if (!def || this.board || !this.playing || (this.tube && !this.tubeHandled)) return;
     this.pendingTubes.shift();
+    this.tubeWarn = { def, left: DEBUG.fast ? 0.7 : TUBE.warnSeconds };
+    audio.sfx('sputter');
+    markPhase('tube-warn');
+  }
+
+  private blowTube(def: TubeEvent): void {
     this.tube = new TubeFault(def.socket, this.drawer, rng(1260 + def.socket));
     this.tubeHandled = false;
     this.tubeLog.push({ id: def.id, fault: this.tube });
@@ -1207,9 +1232,14 @@ export class BoothScene extends Phaser.Scene {
 
   private pickTube(i: number): void {
     if (this.phase !== 'live' || !this.tube) return;
-    const r = this.tube.pick(i);
+    this.tubeSound(this.tube.pick(i));
+  }
+
+  /** What a pick sounds like: a seat, a dud, or a spare set aside for when the hands are free. */
+  private tubeSound(r: ReturnType<TubeFault['pick']>): void {
     if (r === 'right' || r === 'bodged') audio.sfx('thunk');
     else if (r === 'wrong') audio.sfx('pop');
+    else if (r === 'queued') audio.sfx('click');
   }
 
   /**
@@ -1219,7 +1249,8 @@ export class BoothScene extends Phaser.Scene {
   private tubeTick(dt: number): number {
     const f = this.tube;
     if (!f || this.tubeHandled) return this.bodge;
-    f.step(dt);
+    const applied = f.step(dt);
+    if (applied) this.tubeSound(applied);
     this.tubePanel?.update();
     // A pick can settle the tube (a bodge) between frames, so this checks every frame until handled.
     if (f.settled) {
@@ -1239,19 +1270,20 @@ export class BoothScene extends Phaser.Scene {
 
   // ───────────────────────────── Morse ─────────────────────────────
 
+  /** The signal keys under the static for a lead first; then the tape appears and the clock starts. */
   private startMorse(def: MorseEvent): void {
     const copy = new MorseCopy(def.word);
     const chart = chartFor(copy.word, rng(def.word.length * 31));
-    const panel = new MorsePanel(this, copy.word.length, chart, this.ui);
-    this.morse = { event: def, copy, chart, t: 0, left: DEBUG.fast ? 14 : def.seconds, panel, autoT: 1.5 };
-    this.hint('morse');
-    markPhase('morse');
+    const lead = DEBUG.fast ? 0.8 : MORSE_TIMING.leadSeconds;
+    const panel = new MorsePanel(this, copy.word.length, chart, this.ui, lead * 1000);
+    this.morse = { event: def, copy, chart, t: 0, left: DEBUG.fast ? 14 : def.seconds, lead, up: false, panel, autoT: 1.5 };
+    markPhase('morse-lead');
   }
 
   private typeMorse(key: string): void {
     const m = this.morse;
     // Only letters on the chart are guesses; other keys (tuning, tubes) pass through.
-    if (this.phase !== 'live' || !m || key.length !== 1 || !m.chart.includes(key.toUpperCase())) return;
+    if (this.phase !== 'live' || !m || !m.up || key.length !== 1 || !m.chart.includes(key.toUpperCase())) return;
     const r = m.copy.type(key);
     if (r === 'wrong') {
       m.left -= MORSE_TIMING.wrongPenalty;
@@ -1262,9 +1294,16 @@ export class BoothScene extends Phaser.Scene {
   private morseTick(dt: number): void {
     const m = this.morse!;
     m.t += dt;
-    m.left -= dt;
     const k = keyState(m.copy.word, m.t);
     audio.morseKey(k.on);
+    if (!m.up) {
+      if (m.t < m.lead) return;
+      // The tape comes up: the clock and the hint start here.
+      m.up = true;
+      this.hint('morse');
+      markPhase('morse');
+    }
+    m.left -= dt;
     m.panel.update(k.on, k.tape, m.copy.typed, m.left);
     if (DEBUG.auto && (m.autoT -= dt) <= 0) {
       m.autoT = 0.8;
@@ -1706,7 +1745,7 @@ export class BoothScene extends Phaser.Scene {
       if (DEBUG.auto && this.override) input = DEBUG.counter && this.override.climax ? 0 : 1;
       this.itemEvents();
       this.intrusionCheck();
-      this.tubeCheck();
+      this.tubeCheck(dt);
       const strength = this.tubeTick(dt);
       audio.setFault(1 - strength);
       // While it has the frequency the dial won't turn; pushing on it is holding against it.

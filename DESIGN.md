@@ -108,9 +108,11 @@ The show plays in real time.
   drops it on the lead-in groove. Too early skates across the record on air (Listeners,
   Credibility, and the ledger names the record); too late skips the intro (a little
   Listeners). Every record clean gets a kind word at dawn.
-- **Swap a blown tube.** When a night's `tube` event comes due, a transmitter tube blows mid-item
+- **Swap a blown tube.** When a night's `tube` event comes due, a transmitter tube sputters
+  in its socket for a beat (`TUBE.warnSeconds`, with a fizz you can hear), then blows mid-item
   and the program drops to a whisper. Read which socket went dark, pick the matching spare
-  from up to three in the drawer; a dud costs a second of fumbling, the right one warms up
+  from up to three in the drawer; a dud costs a second of fumbling (a pick made during it is
+  queued and goes in when the fumble ends; the last pick wins), the right one warms up
   and the Lamp comes back. Lost seconds cost signal; the ledger praises a quick swap or
   reports a slow one. **The drawer is the town's** (`TownState.spares`, one of each to
   start) and a seated spare is gone for good. With no spare of the right type, the player
@@ -139,7 +141,8 @@ The show plays in real time.
   whole, and on nights where the Other Station `readsDumped` (Night 2 on) it reads it back
   after sign-off, finished, in your voice.
 - **Morse under the static.** A night's `morse` event keys a word over and over, faint,
-  for a set time. It can carry a `sender` (Night 2 on, Teddy at the relay hut). The panel shows a keying lamp, a tape of the current pass,
+  for a set time. It keys for a lead first (`MORSE_TIMING.leadSeconds`), heard and not seen;
+  then the tape appears and the clock starts. It can carry a `sender` (Night 2 on, Teddy at the relay hut). The panel shows a keying lamp, a tape of the current pass,
   and a chart of the word's letters among decoys; the player types the letters (a wrong
   one costs three seconds). Copied or faded, each has its own outcome at dawn.
 - **Two carriers.** Some slots put a second carrier on the dial at about 1250 (the Other

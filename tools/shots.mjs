@@ -93,6 +93,8 @@ const SHOTS = [
   { name: '04-booth-live', query: '?mute&scene=booth&auto&fast', phase: 'live', settle: 2500 },
   { name: '04a-booth-needle', query: '?mute&scene=booth&auto&fast', phase: 'needle', settle: 450, timeout: 90000 },
   { name: '04b-booth-record', query: '?mute&scene=booth&auto&fast', phase: 'record', settle: 1500, timeout: 90000 },
+  // The beat before a tube goes: its socket sputters.
+  { name: '04b2-booth-tube-warn', query: '?mute&scene=booth&auto&fast', phase: 'tube-warn', settle: 250, timeout: 90000 },
   { name: '04c-booth-tube', query: '?mute&scene=booth&auto&fast', phase: 'tube', settle: 300, timeout: 90000 },
   // ESC mid-show: the overlay, with the volume sliders, and the show frozen under it.
   { name: '04e-booth-paused', query: '?mute&scene=booth&auto&fast', phase: 'live', settle: 1500, steps: pauseSteps, after: pauseAfter, timeout: 90000 },

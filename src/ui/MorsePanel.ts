@@ -47,7 +47,7 @@ export class MorsePanel {
   private flashUntil = 0;
   private dead = false;
 
-  constructor(private scene: Phaser.Scene, private wordLength: number, chart: string[], ui: <T extends Phaser.GameObjects.GameObject>(o: T) => T) {
+  constructor(private scene: Phaser.Scene, private wordLength: number, chart: string[], ui: <T extends Phaser.GameObjects.GameObject>(o: T) => T, delayMs = 0) {
     const { x, y, w, h } = BOX;
     const parts: Phaser.GameObjects.GameObject[] = [panel(scene, x, y, w, h, { edge: 0x8ab4ff, alpha: 0.92 })];
     parts.push(label(scene, x + 8, y + 2, 'UNDER THE STATIC', { size: 15, color: CW }));
@@ -70,7 +70,7 @@ export class MorsePanel {
     this.status = label(scene, x + w - 8, y + 72, 'type the letters', { size: 13, color: UI.dim }).setOrigin(1, 0);
     parts.push(this.copy, this.status);
     this.root = ui(scene.add.container(0, 0, parts).setDepth(110).setAlpha(0));
-    scene.tweens.add({ targets: this.root, alpha: 1, duration: 1200 });
+    scene.tweens.add({ targets: this.root, alpha: 1, delay: delayMs, duration: 1200 });
   }
 
   update(on: boolean, tape: string, typed: string, secondsLeft: number): void {

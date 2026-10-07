@@ -51,18 +51,20 @@ export class TubePanel {
     g.strokeRect(sx + 0.5, BOX.y + 18.5, 35, 28);
 
     const missing = `NO ${f.need} IN THE DRAWER`;
+    const queued = f.queued !== null ? f.spares[f.queued] : null;
     const text = {
       blown: f.inStock ? 'match the dead tube' : missing,
-      fumble: f.spares.length ? 'DUD - that tube is dead' : missing,
+      fumble: !f.spares.length ? missing : queued ? `DUD - the ${queued} goes in next` : 'DUD - that tube is dead',
       warming: 'warming up...',
       fixed: 'back on the air',
       bodged: 'bodged - running weak',
     }[f.state];
     if (text !== this.shown) {
       this.shown = text;
-      const color = { blown: f.inStock ? UI.hot : UI.bad, fumble: UI.bad, warming: UI.amber, fixed: UI.good, bodged: UI.bad }[f.state];
+      const color = { blown: f.inStock ? UI.hot : UI.bad, fumble: queued ? UI.amber : UI.bad, warming: UI.amber, fixed: UI.good, bodged: UI.bad }[f.state];
       this.status.setText(text).setColor(color);
-      this.buttons.forEach((b) => b.setEnabled(f.state === 'blown'));
+      // A pick lands while blown, and queues through a fumble.
+      this.buttons.forEach((b) => b.setEnabled(f.state === 'blown' || f.state === 'fumble'));
     }
   }
 

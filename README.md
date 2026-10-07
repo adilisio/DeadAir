@@ -49,8 +49,10 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
      place of what was there. TAB or ESC closes it.
    - Records start themselves: the tonearm swings in, and **SPACE** drops the needle.
      Land it on the green lead-in groove. Early scratches on air; late loses the intro.
-   - If a tube blows, the music dies: **Q / W / E** seats the spare that matches the dead
-     socket. A wrong one is a dud and costs a second. The drawer only holds what you have:
+   - A tube sputters for a beat, then blows, and the music dies: **Q / W / E** seats the
+     spare that matches the dead socket. A wrong one is a dud and costs a second; a key
+     pressed during that second goes in as soon as your hands are free. The drawer only
+     holds what you have:
      with no spare of the right type, any tube is a bodge, and the Lamp runs weak for the
      rest of the night.
    - When the switchboard lights up: **1 / 2 / 3** listens in on a line off air; **SPACE**

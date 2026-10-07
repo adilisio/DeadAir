@@ -3,6 +3,7 @@ import { TUBE, TUBE_TYPES, TubeFault, fullDrawer, type TubeType } from '../src/s
 import { RULES, STARTING_STATE, resolveNight } from '../src/sim/resolver';
 import { NIGHT_1, NIGHT_1_AUTO_RUNDOWN } from '../src/data/night1';
 import { rng } from '../src/audio/pressings';
+import { MORSE_TIMING } from '../src/sim/morse';
 import type { NightDef, ShowPerformance } from '../src/sim/types';
 
 const run = (tubeSeconds?: number, night: NightDef = NIGHT_1, extra: NonNullable<ShowPerformance['tubes']> = []) => {
@@ -10,6 +11,9 @@ const run = (tubeSeconds?: number, night: NightDef = NIGHT_1, extra: NonNullable
   const p: ShowPerformance = { rundown: NIGHT_1_AUTO_RUNDOWN, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [], tubes };
   return resolveNight(night, STARTING_STATE, p);
 };
+
+const drawer = (counts: Partial<Record<TubeType, number>>): Record<TubeType, number> =>
+  Object.fromEntries(TUBE_TYPES.map((t) => [t, counts[t] ?? 0])) as Record<TubeType, number>;
 
 function stepFor(f: TubeFault, seconds: number) {
   for (let t = 0; t < seconds; t += 0.05) f.step(0.05);
@@ -45,15 +49,66 @@ describe('tube swap', () => {
     expect(f.strength).toBe(1);
   });
 
-  it('a dud costs a fumble, during which picks are ignored', () => {
+  it('a dud costs a fumble, after which the socket takes a pick again', () => {
     const f = new TubeFault(1, fullDrawer(), rng(5));
     const wrong = f.spares.findIndex((s) => s !== f.need);
     expect(f.pick(wrong)).toBe('wrong');
-    expect(f.pick(f.spares.indexOf(f.need))).toBe('ignored');
+    expect(f.state).toBe('fumble');
     stepFor(f, TUBE.fumbleSeconds + 0.1);
     expect(f.state).toBe('blown');
     expect(f.pick(f.spares.indexOf(f.need))).toBe('right');
     expect(f.wrongPicks).toBe(1);
+  });
+
+  it('a pick during the fumble is queued and goes in when the hands are free', () => {
+    const f = new TubeFault(1, fullDrawer(), rng(5));
+    const wrong = f.spares.findIndex((s) => s !== f.need);
+    const right = f.spares.indexOf(f.need);
+    f.pick(wrong);
+    expect(f.pick(right)).toBe('queued');
+    expect(f.queued).toBe(right);
+    expect(f.state).toBe('fumble');
+    // Not yet: the fumble runs its course.
+    let applied: ReturnType<TubeFault['step']> = null;
+    for (let t = 0; t < TUBE.fumbleSeconds - 0.1; t += 0.05) applied = f.step(0.05) ?? applied;
+    expect(applied).toBeNull();
+    expect(f.state).toBe('fumble');
+    for (let t = 0; t < 0.3; t += 0.05) applied = f.step(0.05) ?? applied;
+    expect(applied).toBe('right');
+    expect(f.state).toBe('warming');
+    expect(f.queued).toBeNull();
+    expect(f.used).toBe(f.need);
+  });
+
+  it('the last pick during a fumble wins, and a queued dud costs a second fumble', () => {
+    const f = new TubeFault(1, fullDrawer(), rng(5));
+    const wrongs = f.spares.map((s, i) => (s === f.need ? -1 : i)).filter((i) => i >= 0);
+    f.pick(wrongs[0]);
+    f.pick(f.spares.indexOf(f.need));
+    expect(f.pick(wrongs[1])).toBe('queued');
+    let applied: ReturnType<TubeFault['step']> = null;
+    for (let t = 0; t < TUBE.fumbleSeconds + 0.1; t += 0.05) applied = f.step(0.05) ?? applied;
+    expect(applied).toBe('wrong');
+    expect(f.state).toBe('fumble');
+    expect(f.wrongPicks).toBe(2);
+    stepFor(f, TUBE.fumbleSeconds + 0.1);
+    expect(f.state).toBe('blown');
+  });
+
+  it('nothing queues on an empty drawer, and nothing once the tube is seated', () => {
+    const empty = new TubeFault(4, drawer({}), rng(3));
+    expect(empty.pick(0)).toBe('ignored');
+    expect(empty.queued).toBeNull();
+    const f = new TubeFault(1, fullDrawer(), rng(5));
+    f.pick(f.spares.indexOf(f.need));
+    expect(f.pick(0)).toBe('ignored');
+  });
+
+  it('gives a beat of warning before it goes, and a lead before the tape', () => {
+    expect(TUBE.warnSeconds).toBeGreaterThan(1);
+    expect(TUBE.warnSeconds).toBeLessThan(TUBE.quickSeconds);
+    expect(MORSE_TIMING.leadSeconds).toBeGreaterThan(1);
+    expect(MORSE_TIMING.leadSeconds).toBeLessThan(5);
   });
 
   it('counts the seconds the program was down, and stops when fixed', () => {
@@ -84,9 +139,6 @@ describe('tube swap', () => {
     expect(run(2, night).lines.filter((l) => l.rule === 'tube')).toHaveLength(1);
   });
 });
-
-const drawer = (counts: Partial<Record<TubeType, number>>): Record<TubeType, number> =>
-  Object.fromEntries(TUBE_TYPES.map((t) => [t, counts[t] ?? 0])) as Record<TubeType, number>;
 
 describe('the spares drawer', () => {
   it('only offers types in the drawer, the right one included when there is one', () => {

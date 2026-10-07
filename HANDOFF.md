@@ -257,8 +257,7 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
    1.6 with two tubes blowing and an empty drawer too much); whether the headline you got
    matches the night you had. `npm run probe -- 6` and `?night=6&counter` help, but
    `?night=N` towns are rosier than a real run (every earlier night went perfectly).
-4. **Then** the Later list in `TODO.md`: rosier towns, tube picks during the fumble, the
-   record glint. No new mechanics until the gates say the existing ones hold up.
+4. **Then** the Later list in `TODO.md`: rosier towns, the record glint. No new mechanics until the gates say the existing ones hold up.
 
 ## Known uncertainties
 

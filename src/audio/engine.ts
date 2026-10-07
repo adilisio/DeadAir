@@ -556,7 +556,7 @@ class AudioEngine {
   }
 
   /** Short room sounds. */
-  sfx(name: 'click' | 'thunk' | 'needle' | 'tune' | 'pickup' | 'hangup' | 'thunder' | 'scratch' | 'pop' | 'dump'): void {
+  sfx(name: 'click' | 'thunk' | 'needle' | 'tune' | 'pickup' | 'hangup' | 'thunder' | 'scratch' | 'pop' | 'dump' | 'sputter'): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const t = ctx.currentTime;
@@ -600,6 +600,38 @@ class AudioEngine {
         o.connect(og).connect(this.master);
         o.start(t);
         o.stop(t + 0.5);
+        break;
+      }
+      case 'sputter': {
+        // A tube about to go: a stuttering fizz in the socket and a thin whine climbing.
+        const s = ctx.createBufferSource();
+        s.buffer = this.noise;
+        const f = ctx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.Q.value = 2;
+        f.frequency.value = 3400;
+        s.connect(f).connect(g);
+        g.gain.setValueAtTime(0.001, t);
+        let at = t;
+        while (at < t + 1.7) {
+          const on = 0.04 + Math.random() * 0.06;
+          g.gain.setValueAtTime(0.12 + Math.random() * 0.1, at);
+          g.gain.setValueAtTime(0.004, at + on);
+          at += on + 0.03 + Math.random() * 0.12;
+        }
+        g.gain.setValueAtTime(0.001, t + 1.8);
+        s.start(t, Math.random() * 2, 1.9);
+        const o = ctx.createOscillator();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(2600, t);
+        o.frequency.exponentialRampToValueAtTime(5200, t + 1.7);
+        const og = ctx.createGain();
+        og.gain.setValueAtTime(0.001, t);
+        og.gain.exponentialRampToValueAtTime(0.025, t + 0.6);
+        og.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+        o.connect(og).connect(this.master);
+        o.start(t);
+        o.stop(t + 1.85);
         break;
       }
       case 'pop': {

@@ -1,7 +1,9 @@
 // Tube swap. A transmitter tube blows mid-item and the program all but dies.
 // The player reads which socket went dark, finds a matching spare in the drawer,
 // and seats it; it warms up and the Lamp comes back. Wrong tubes are duds and
-// cost a moment of fumbling.
+// cost a moment of fumbling; a spare picked during the fumble goes in as soon as
+// the hands are free. The tube gives a beat of warning before it goes (the scene
+// shows it: a sputter in the socket), so the pop isn't out of nowhere.
 //
 // The drawer is the town's: spares carry from night to night and only come back
 // through the classifieds. With no matching spare, the player seats the wrong type
@@ -14,6 +16,8 @@ export type TubeType = (typeof TUBE_TYPES)[number];
 export const TUBE = {
   /** At most this many spares are offered from the drawer. */
   spares: 3,
+  /** The socket sputters this long before the tube goes. */
+  warnSeconds: 1.8,
   fumbleSeconds: 1.0,
   warmSeconds: 1.4,
   /** Program strength while the tube is out (multiplies signal). */
@@ -47,6 +51,8 @@ export class TubeFault {
   readonly drawer: Record<TubeType, number>;
   /** The spare that ended up in the socket, if any: the right one, or the wrong one in a bodge. */
   used: TubeType | null = null;
+  /** A spare picked mid-fumble; it goes in when the fumble ends (the last pick wins). */
+  queued: number | null = null;
   private timer = 0;
 
   constructor(readonly socket: number, drawer: Record<TubeType, number>, rand: () => number) {
@@ -102,12 +108,18 @@ export class TubeFault {
   }
 
   /**
-   * Seat spare `i` from the drawer. Ignored while fumbling, warming, fixed or bodged.
-   * The right type warms up. A wrong type is a dud while the right one is in the drawer,
-   * and a bodge when it isn't.
+   * Seat spare `i` from the drawer. The right type warms up. A wrong type is a dud while
+   * the right one is in the drawer, and a bodge when it isn't. A pick during a dud's
+   * fumble is queued and goes in when the fumble ends. Ignored while warming, fixed or
+   * bodged, and while rummaging an empty drawer.
    */
-  pick(i: number): 'right' | 'wrong' | 'bodged' | 'ignored' {
-    if (this.state !== 'blown' || i < 0 || i >= this.spares.length) return 'ignored';
+  pick(i: number): 'right' | 'wrong' | 'bodged' | 'queued' | 'ignored' {
+    if (i < 0 || i >= this.spares.length) return 'ignored';
+    if (this.state === 'fumble') {
+      this.queued = i;
+      return 'queued';
+    }
+    if (this.state !== 'blown') return 'ignored';
     const t = this.spares[i];
     if (t === this.need) {
       this.state = 'warming';
@@ -126,15 +138,23 @@ export class TubeFault {
     return 'wrong';
   }
 
-  step(dt: number): void {
-    if (this.settled) return;
+  /** Advance the fault. Returns what a queued pick did, when the fumble ends on one. */
+  step(dt: number): 'right' | 'wrong' | 'bodged' | null {
+    if (this.settled) return null;
     this.down += dt;
     if (this.state === 'fumble' || this.state === 'warming') {
       this.timer -= dt;
       if (this.timer <= 0) {
         if (this.state === 'warming') this.state = 'fixed';
         else this.state = this.spares.length ? 'blown' : 'bodged';
+        if (this.state === 'blown' && this.queued !== null) {
+          const q = this.queued;
+          this.queued = null;
+          const r = this.pick(q);
+          return r === 'queued' || r === 'ignored' ? null : r;
+        }
       }
     }
+    return null;
   }
 }
