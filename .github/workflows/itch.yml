@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ITCH_TARGET: adilisio/dead-air:html
+      HAS_KEY: ${{ secrets.BUTLER_CREDENTIALS != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +39,7 @@ jobs:
           ./butler/butler -V
 
       - name: Push build to itch.io
-        if: ${{ secrets.BUTLER_CREDENTIALS != '' }}
+        if: env.HAS_KEY == 'true'
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_CREDENTIALS }}
         run: ./butler/butler push dist "$ITCH_TARGET" --userversion "${GITHUB_SHA::7}"
