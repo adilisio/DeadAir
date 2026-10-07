@@ -6,7 +6,17 @@ frequency.*
 
 A small browser game built with Phaser 4 + TypeScript. See `DESIGN.md`.
 
-## Play
+**[▶ Play in your browser](https://adilisio.github.io/DeadAir/)**: Chrome or Edge on a desktop, with headphones.
+
+| | |
+| --- | --- |
+| **Genre** | Narrative radio-booth sim |
+| **Status** | Playable: six nights, 385 voiced lines, an ending headline per run |
+| **Engine** | Phaser 4, TypeScript, Vite, Web Audio |
+| **Built with** | Claude Code (see `CLAUDE.md`), Kokoro-82M for offline voice rendering |
+| **Music** | Public-domain 78 rpm records with full provenance (`public/records/CREDITS.md`) |
+
+## Play locally
 
 Requires [Node.js](https://nodejs.org) 20+.
 
