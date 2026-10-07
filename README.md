@@ -43,13 +43,13 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
      socket. A wrong one is a dud and costs a second. The drawer only holds what you have:
      with no spare of the right type, any tube is a bodge, and the Lamp runs weak for the
      rest of the night.
-   - When the switchboard lights up: **1 / 2 / 3** listens in on a line off air; press it
-     again (or **ENTER**) to put them on. Each line waits only so long (its seconds are on
+   - When the switchboard lights up: **1 / 2 / 3** listens in on a line off air; **SPACE**
+     (or the line's key again, or **ENTER**) puts them on. Each line waits only so long (its seconds are on
      its row); a fast red lamp is urgent. Keep listening and a caller may tell you something
-     they won't say on the air. On air you hear them first, and the town hears them three
-     seconds later (the delay): **X** dumps a caller who says something that mustn't go
-     out, and a quick dump keeps it off the air. What you dump may come back.
-     **SPACE** goes back to the show.
+     they won't say on the air. On air you hear them on the handset, and the town hears
+     them three seconds later (the delay; the booth does not monitor the air): **X** dumps
+     a caller who says something that mustn't go out, and a quick dump keeps it off the
+     air. What you dump may come back. **ESC** hangs up on anyone still ringing.
    - On the last night, at the worst of the storm, the other one takes the frequency and
      you choose: **hold A / D** against it the whole time to jam it, let it through, or
      press **SPACE** (or COUNTER) to talk over it.
@@ -66,16 +66,16 @@ radio. A line with no file yet (say, a script you just edited) falls back to the
 
 | Key | What it does |
 | --- | --- |
-| **SPACE** | Cue the next talk item; drop the needle on a record; leave the switchboard |
+| **SPACE** | Cue the next talk item; drop the needle on a record; put the line you are listening to on air |
 | **H** | Cue the next story hedged (when it has a hedged read) |
 | **TAB** | Open or close the desk (or click THE DESK in the cue box) |
 | **1-9** | On the desk: put that card on next. On the switchboard: 1 / 2 / 3 listen in on a line |
-| **ENTER** | Put the line you are listening to on air |
+| **ENTER** | Also puts the line you are listening to on air |
 | **X** | Dump the caller on air |
 | **A / D** or **left / right** | Hold the dial on 1260 in a storm, or against the Other Station (the TRANSMITTER gauge takes clicks too) |
 | **Q / W / E** | Seat a spare tube |
 | **letters** | Copy the Morse signal from the chart |
-| **ESC** | Close the desk if it is open; otherwise pause the show (and go on again). The small PAUSE label, top right, does the same |
+| **ESC** | Hang up the switchboard (nobody on air); close the desk if it is open; otherwise pause the show (and go on again). The small PAUSE label, top right, does the same |
 
 Pausing freezes the show: voices, music, timers and dead air all stop. The pause screen has
 three volume sliders (music, voice, static), also in the corner of the title screen. Prep and
@@ -90,6 +90,7 @@ shows for six seconds by the cue box. A continued run does not repeat them.
 | Add to the URL | Effect |
 | --- | --- |
 | `?nofx` | No bloom, CRT curve or vignette (slow PCs) |
+| `?res=N` | Render scale 1-3 (picked from the screen by default; 1 on a slow PC) |
 | `?mute` | Silent |
 | `?fast` | Short records and talk: a whole night in about a minute |
 | `?auto` | The game plays itself (for testing) |

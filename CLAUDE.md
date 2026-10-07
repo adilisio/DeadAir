@@ -22,7 +22,8 @@ URL switches (see `src/config.ts`): `?fast` short records/talk, `?auto` plays it
 `?mute` silent, `?nofx` no post effects, `?scene=booth|dawn` jump in (booth continues a
 saved run), `?night=N` start at night N, 1-6 (earlier nights resolved as their `?auto` shows;
 wins over a save), `?reset` forget the saved run, `?drift` (with `?auto`) lean toward 1250 in storms, `?counter`
-(with `?auto`) talk over the last night's climax instead of holding the dial. ESC pauses.
+(with `?auto`) talk over the last night's climax instead of holding the dial, `?res=N` force the
+render scale (1-3; see `RES` in config). ESC pauses.
 `window.__deadair` exposes the current phase and the game object for debugging.
 
 Rendering notes: the room is lit with Phaser 4 lights (`setLighting`) and post effects in

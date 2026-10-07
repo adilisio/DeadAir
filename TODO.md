@@ -3,23 +3,32 @@
 Light process: one list. Move items to Done with the commit that did them.
 The direction is `PLAN.md` (2026-10-06): six nights in the booth, no daytime modes.
 
-## Now — owner playtest, Gate 1 (Nights 1 and 2 on the new systems)
-Play Night 1 then Night 2, no switches, headphones. Then answer these; nothing else.
-- [ ] Did a caller's voice sound like a person? Could you tell Grace from Lottie with your
-      eyes closed?
-- [ ] Did you listen in off air before putting someone on? Did it help, or lie to you?
-      (Grace tells you something off air on Night 1 that she won't say on the air.)
-- [ ] Did you swap anything live (TAB, the desk)? Why?
-- [ ] Was there a moment you wanted to air two things and couldn't?
-- [ ] Did the dump (X) feel like a decision or a reflex? Could you hear the three-second
-      delay between the handset and the air?
-- [ ] On Night 2, in the squall: did you notice the second carrier? What did you think it was?
-- [ ] At dawn: did you buy anything from the classifieds? Did you understand why you might?
-- [ ] Anything annoying rather than tense? Which task, and when.
+## Gate 1 — Anthony's first pass at Night 1 (2026-10-07, Desktop/Feedback)
+What he found, and what it became:
+- Text hard to read on a large screen → the canvas now renders at the screen's own scale
+  (`RES` in `src/config.ts`, 1-3; `?res=N`), cameras zoom to match, text rasterizes at it.
+- The caller "played twice, on top of each other" → that was the handset copy plus the air
+  copy three seconds behind. The booth no longer monitors the air: one voice, the delay is
+  a clock. The dump still cuts both.
+- "I hang up on people before I can take their call" → SPACE used to leave the board. Now
+  SPACE puts the line you are listening to on the air (ENTER too); ESC hangs up. Labels,
+  the first-time hint and the README say so.
+- Text clipping outside boxes on long scripts; the Morse tape running off its box → the
+  teleprompter scrolls a window of lines once a script is longer than the box at 12px; the
+  switchboard panel is taller and shrinks a long confide; the tape shows its tail.
+- "How long are the songs played?" → the record's time left sits in the teleprompter header.
+- The DJ's voice: "a big improvement, still a little robotic, not casual like a radio DJ" →
+  `npm run voices -- --audition` renders the sign-on in a dozen unused voices with a page to
+  play them (see `public/voice/README.md`). **Owner picks.** The DJ's scripts are also written
+  formal; a casual rewrite pass (contractions, asides, the kettle) is a content job for after
+  the voice is picked, since every DJ line re-renders.
+- "The unknown station sounds exactly like the main narrator, just deeper" → by design (it is
+  the DJ's own files, slowed and doubled). **Owner question:** keep it as "your own voice,
+  wrong", push the processing further (slower, more echo, a second voice under it), or give
+  it a different person. Don't explain it in content either way.
 
-Owner's earlier notes still open: tasks are hard the first time (a one-line "how to" the
-first time each task appears is in the polish packet); Morse was tricky on `?fast`
-(retry at normal speed).
+Still to answer from the Gate 1 list (Night 2 not yet played): the off-air confide, the desk,
+the second carrier in the squall, the classifieds, "annoying rather than tense".
 
 ## Next — in PLAN.md order
 - [ ] Tune by ear after Gate 1: voice levels per channel (`playVoice` gains), the Other
