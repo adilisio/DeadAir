@@ -58,10 +58,30 @@ const climaxEnds = (result) => async (page) => {
   if (got !== result) throw new Error(`the climax ended ${got}, not ${result}`);
   console.log(`     climax: ${got}`);
 };
+/** ESC pauses the show; nothing may happen for a few seconds; the shot is of the overlay. */
+async function pauseSteps(page) {
+  await page.keyboard.press('Escape');
+  await seen(page, 'paused', 5000);
+  await page.waitForTimeout(400);
+  const count = () => page.evaluate(() => window.__deadair.phasesSeen.length);
+  const before = await count();
+  await page.waitForTimeout(3000);
+  if ((await count()) !== before) throw new Error('the show moved on while paused');
+  if (!(await page.evaluate(() => window.__deadair.data.paused))) throw new Error('not paused');
+}
+
+/** ESC again: the show goes on and still reaches dawn. */
+async function pauseAfter(page) {
+  await page.keyboard.press('Escape');
+  await seen(page, 'resumed', 5000);
+  await seen(page, 'dawn', 240000);
+  console.log('     resumed, and reached dawn');
+}
 
 /**
  * Each shot: open url (after putting `storage` in localStorage), run `drive` if any, wait until
- * the game reports `phase`, then capture (and run `after`, which may take more shots).
+ * the game reports `phase`, settle, run `steps` if any (it may press keys; the shot is taken
+ * after it), then capture (and run `after`, which may take more shots).
  */
 const SHOTS = [
   { name: '00-boot', query: '?mute', phase: 'boot', settle: 800 },
@@ -72,6 +92,10 @@ const SHOTS = [
   { name: '04a-booth-needle', query: '?mute&scene=booth&auto&fast', phase: 'needle', settle: 450, timeout: 90000 },
   { name: '04b-booth-record', query: '?mute&scene=booth&auto&fast', phase: 'record', settle: 1500, timeout: 90000 },
   { name: '04c-booth-tube', query: '?mute&scene=booth&auto&fast', phase: 'tube', settle: 300, timeout: 90000 },
+  // ESC mid-show: the overlay, with the volume sliders, and the show frozen under it.
+  { name: '04e-booth-paused', query: '?mute&scene=booth&auto&fast', phase: 'live', settle: 1500, steps: pauseSteps, after: pauseAfter, timeout: 90000 },
+  // The first needle of a run is hinted.
+  { name: '04f-booth-hint', query: '?mute&scene=booth&auto&fast', phase: 'hint:needle', settle: 300, timeout: 90000 },
   // ?auto opens the desk once during the first record, and closes it 1.5 s later.
   { name: '04d-booth-desk', query: '?mute&scene=booth&auto&fast', phase: 'desk', settle: 600, timeout: 90000 },
   { name: '05-booth-switchboard', query: '?mute&scene=booth&auto&fast', phase: 'switchboard', settle: 700, timeout: 90000 },
@@ -144,6 +168,7 @@ for (const shot of SHOTS.filter((s) => new RegExp(filter).test(s.name))) {
     if (shot.drive) await shot.drive(page);
     await seen(page, shot.phase, shot.timeout ?? 60000);
     await page.waitForTimeout(shot.settle ?? 500);
+    if (shot.steps) await shot.steps(page);
     await page.screenshot({ path: `shots/${shot.name}.png` });
     if (shot.after) await shot.after(page);
     const secs = ((Date.now() - started) / 1000).toFixed(1);

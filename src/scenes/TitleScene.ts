@@ -6,6 +6,8 @@ import { EXTERIOR } from '../art/exterior';
 import { hex, P, UI } from '../art/palette';
 import { applyScreenLook, glow } from './fx';
 import { audio } from '../audio/engine';
+import { VOLUME_KINDS } from '../sim/settings';
+import { label, slider } from '../ui/widgets';
 
 export class TitleScene extends Phaser.Scene {
   private beam!: Phaser.GameObjects.Graphics;
@@ -35,6 +37,9 @@ export class TitleScene extends Phaser.Scene {
     this.add
       .text(W * 0.27, H * 0.17 + 46, 'WLMP 1260 AM  ·  PORT VESPER', { fontFamily: 'VT323', fontSize: '20px', color: UI.dim })
       .setOrigin(0.5);
+    this.add
+      .text(W * 0.27, H * 0.17 + 68, `six nights  ·  v${__APP_VERSION__}`, { fontFamily: 'VT323', fontSize: '18px', color: UI.dim })
+      .setOrigin(0.5);
     const prompt = this.add
       .text(W * 0.27, H * 0.43, 'click to sign on', { fontFamily: 'VT323', fontSize: '24px', color: UI.text })
       .setOrigin(0.5);
@@ -52,6 +57,13 @@ export class TitleScene extends Phaser.Scene {
       .text(W - 8, H - 6, 'headphones recommended', { fontFamily: 'VT323', fontSize: '16px', color: UI.dim })
       .setOrigin(1, 1);
 
+    // Volume, in the bottom-left corner. Clicks on a slider must not sign the game on.
+    label(this, 10, H - 82, 'VOLUME', { size: 14, color: UI.dim }).setStroke('#07070c', 3);
+    VOLUME_KINDS.forEach((k, i) => {
+      const s = slider(this, 10, H - 66 + i * 20, 170, k, audio.volumes[k], (v) => audio.setVolume(k, v));
+      s.container.each((o: Phaser.GameObjects.GameObject) => o instanceof Phaser.GameObjects.Text && o.setStroke('#07070c', 3));
+    });
+
     applyScreenLook(this, { bloom: 0.9 });
 
     let started = false;
@@ -65,8 +77,11 @@ export class TitleScene extends Phaser.Scene {
       this.cameras.main.fadeOut(600, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Booth'));
     };
-    this.input.once('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => go(!!cont && over.includes(cont)));
-    this.input.keyboard?.once('keydown', (e: KeyboardEvent) => go(!!cont && e.key === 'Enter'));
+    this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+      if (over.some((o) => o.getData('ui'))) return;
+      go(!!cont && over.includes(cont));
+    });
+    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => go(!!cont && e.key === 'Enter'));
     exposeDebug('continue', saved ? saved.index + 1 : null);
     markPhase('title');
   }

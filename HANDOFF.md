@@ -114,8 +114,18 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
   `ShowPerformance.endedEarly`, the rundown is the prefix that aired; boards due later never
   rang; storms count aired slots only). `otherStation.fillsSilence` / `readsAll`
   (`otherStationReads` in the resolver; with nothing to read the script is intro + stamp and
-  `<nightId>_other_silent` is set). `climax.card` is optional. Tone `rumor` (rendered like
-  neutral for now). People `ewa`, `marta`, `harbor`.
+  `<nightId>_other_silent` is set). `climax.card` is optional. Tone `rumor` (dim ink and a
+  `~` bullet in the Ledger since Packet M). People `ewa`, `marta`, `harbor`.
+- Polish (Packet M, 2026-10-06): pause (ESC or the PAUSE label; `BoothScene.setPaused`
+  suspends the AudioContext, pauses speechSynthesis, `time.paused`, tweens and `update`;
+  bare timers go through `pauseClock` in `src/sim/pausable.ts`, so any new `setTimeout` in
+  show code must too, and a new stored `this.time.now` timestamp must be shifted in
+  `setPaused`). Volume sliders music / voice / static (`src/sim/settings.ts`, three gain
+  nodes in `engine.ts`, `localStorage['deadair.volume']`, on the pause overlay and the title).
+  First-time hints (`src/ui/hints.ts`; `run.hints` saved in `SavedRun.hints`, tolerated when
+  missing). Title shows the version (Vite `define` `__APP_VERSION__`) and `six nights`; the
+  canvas takes focus on click. `tools/shots.mjs` shots take an optional `steps` function
+  (`04e-booth-paused` freezes the show with ESC and checks nothing moves).
 
 ### How it fits together
 
@@ -236,7 +246,7 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
    squall in the small hours on top of the squall warning. Night 1's flags gate Night 2
    cards and callers (Morse copied → the Wozniak tip, boat lost → memorial, slander aired
    → Sister Agnes replies, Teddy found or not → which Grace calls).
-   Also pending: one-line first-time hints if needed, volume sliders and a pause.
+   (First-time hints, volume sliders and a pause landed in Packet M.)
 2. **Voices: listen.** Every line is pre-rendered with Kokoro and plays through the radio
    chain (2026-10-06). Nobody in-session could hear them: the owner should judge the voice
    picks in `src/data/people.ts`, the phone and Other Station sound, and levels against

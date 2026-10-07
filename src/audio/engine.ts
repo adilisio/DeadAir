@@ -1,17 +1,22 @@
 // The live sound of the station: one Web Audio graph.
 //
-//   program sources ─▶ program ─▶ duck ─┐
-//   voices (air / phone) ─▶ voice bus ──┴▶ override ─┐
+//   records, crackle ─▶ music vol ─▶ program ─▶ duck ─┐
+//   voices (air / phone) ─▶ voice bus (voice vol) ─────┴▶ override ─┐
 //   the Other Station's voice ─▶ other ──────────────┴▶ signal (tuning, tube fault) ─▶ radio chain
 //                                       (band-limit, tube drive, comp) ─▶ master
-//   static noise + heterodyne whistle + mains hum (driven by tuning error) ──────────▶ master
+//   static noise + heterodyne whistle (driven by tuning error), rain ─▶ static vol ─▶ master
+//   mains hum ───────────────────────────────────────────────────────────────────────▶ master
 //   the Other Station's drone and its carrier's whistle ──────────────────────────────▶ master
-//   room sfx (switches, phone, needle drop) and the handset voice: dry ────────────────▶ master
+//   room sfx (switches, phone, needle drop) and the handset voice (voice vol): dry ────▶ master
+//
+// The music, voice and static volume sliders (sim/settings.ts) drive the three "vol" gains.
+// `suspend` / `resume` freeze and release the whole graph, for pause.
 //
 // Voices are pre-rendered files (voice.ts). Browser TTS, the fallback, can't be routed here.
 
 import { DEBUG } from '../config';
 import { resolveRecord, standInFor } from '../data/records';
+import { DEFAULT_VOLUME, VOLUME_KEY, clampVolume, parseVolume, serializeVolume, volumeGain, type Volume, type VolumeKind } from '../sim/settings';
 import { generateScore, rng } from './pressings';
 import { renderScore } from './render';
 
@@ -64,6 +69,45 @@ class AudioEngine {
   private whistle2Gain!: GainNode;
   private analyser!: AnalyserNode;
   private levelBuf = new Float32Array(new ArrayBuffer(1024 * 4));
+  /** The three volume sliders' gains: records and their crackle, every voice, and the static bed (with whistles and rain). */
+  private musicVol!: GainNode;
+  private staticVol!: GainNode;
+  /** One per route a voice can take (the radio chain, the handset, the Other Station's channel); all follow the voice slider. */
+  private voiceVols: GainNode[] = [];
+  private handsetBus!: GainNode;
+  private otherBus!: GainNode;
+  private volume: Volume = loadVolume();
+
+  /** The sliders as saved (0-100 each). */
+  get volumes(): Readonly<Volume> {
+    return this.volume;
+  }
+
+  /** Move one slider: saved at once, and applied to the live graph (or to it when it is built). */
+  setVolume(kind: VolumeKind, value: number): void {
+    this.volume = { ...this.volume, [kind]: clampVolume(value, this.volume[kind]) };
+    saveVolume(this.volume);
+    this.applyVolume();
+  }
+
+  /** `now`: set the gains outright (when the graph is built); otherwise glide, so a drag does not click. */
+  private applyVolume(now = false): void {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const set = (g: GainNode, v: number) => (now ? (g.gain.value = v) : g.gain.setTargetAtTime(v, t, 0.02));
+    set(this.musicVol, volumeGain('music', this.volume.music));
+    set(this.staticVol, volumeGain('static', this.volume.static));
+    for (const g of this.voiceVols) set(g, volumeGain('voice', this.volume.voice));
+  }
+
+  /** Freeze every sound (pause). Safe before the context exists. */
+  suspend(): void {
+    if (this.ctx && this.ctx.state === 'running') void this.ctx.suspend();
+  }
+
+  resume(): void {
+    if (this.ctx && this.ctx.state !== 'running') void this.ctx.resume();
+  }
 
   /** Must be called from a user gesture (click / key) the first time. */
   unlock(): void {
@@ -80,6 +124,10 @@ class AudioEngine {
 
     // Radio chain.
     this.program = ctx.createGain();
+    this.musicVol = ctx.createGain();
+    this.musicVol.connect(this.program);
+    this.staticVol = ctx.createGain();
+    this.staticVol.connect(this.master);
     this.duckGain = ctx.createGain();
     const hp = ctx.createBiquadFilter();
     hp.type = 'highpass';
@@ -99,6 +147,11 @@ class AudioEngine {
     this.voiceBus.connect(this.overrideGain);
     this.otherGain = ctx.createGain();
     this.otherGain.connect(this.signal);
+    this.handsetBus = ctx.createGain();
+    this.handsetBus.connect(this.master);
+    this.otherBus = ctx.createGain();
+    this.otherBus.connect(this.otherGain);
+    this.voiceVols = [this.voiceBus, this.handsetBus, this.otherBus];
     this.program.connect(this.duckGain).connect(this.overrideGain).connect(this.signal);
     this.signal.connect(hp).connect(this.programTone).connect(drive).connect(comp).connect(this.master);
     this.analyser = ctx.createAnalyser();
@@ -116,7 +169,7 @@ class AudioEngine {
     staticBand.Q.value = 0.4;
     this.staticGain = ctx.createGain();
     this.staticGain.gain.value = 0.025;
-    staticSrc.connect(staticBand).connect(this.staticGain).connect(this.master);
+    staticSrc.connect(staticBand).connect(this.staticGain).connect(this.staticVol);
     staticSrc.start();
 
     // Heterodyne whistle when off frequency.
@@ -124,7 +177,7 @@ class AudioEngine {
     this.whistle.type = 'sine';
     this.whistleGain = ctx.createGain();
     this.whistleGain.gain.value = 0;
-    this.whistle.connect(this.whistleGain).connect(this.master);
+    this.whistle.connect(this.whistleGain).connect(this.staticVol);
     this.whistle.start();
 
     // The Other Station's room-side sound: its drones, and a second whistle when its carrier is on the dial.
@@ -134,7 +187,7 @@ class AudioEngine {
     this.whistle2.type = 'sine';
     this.whistle2Gain = ctx.createGain();
     this.whistle2Gain.gain.value = 0;
-    this.whistle2.connect(this.whistle2Gain).connect(this.master);
+    this.whistle2.connect(this.whistle2Gain).connect(this.staticVol);
     this.whistle2.start();
 
     // Mains hum, very quiet, always there.
@@ -151,7 +204,7 @@ class AudioEngine {
     crackle.loop = true;
     this.crackleGain = ctx.createGain();
     this.crackleGain.gain.value = 0;
-    crackle.connect(this.crackleGain).connect(this.program);
+    crackle.connect(this.crackleGain).connect(this.musicVol);
     crackle.start();
 
     // Rain on the booth window, for storms. Room sound, so it skips the radio chain.
@@ -164,7 +217,7 @@ class AudioEngine {
     rainTone.frequency.value = 1600;
     this.rainGain = ctx.createGain();
     this.rainGain.gain.value = 0;
-    rain.connect(rainTone).connect(this.rainGain).connect(this.master);
+    rain.connect(rainTone).connect(this.rainGain).connect(this.staticVol);
     rain.start();
 
     // A faint CW tone for Morse under the static.
@@ -174,6 +227,8 @@ class AudioEngine {
     this.morseGain.gain.value = 0;
     cw.connect(this.morseGain).connect(this.master);
     cw.start();
+
+    this.applyVolume(true);
   }
 
   /** Key the Morse tone up or down. */
@@ -312,7 +367,7 @@ class AudioEngine {
     wowDepth.gain.value = real ? 0 : 0.004;
     wow.connect(wowDepth).connect(src.playbackRate);
     const gain = ctx.createGain();
-    src.connect(gain).connect(this.program);
+    src.connect(gain).connect(this.musicVol);
     const start = ctx.currentTime + 0.05;
     const skip = Math.max(0, Math.min(offset, Math.min(buffer.duration, maxSeconds) - 2));
     const duration = Math.min(buffer.duration, maxSeconds) - skip;
@@ -398,7 +453,7 @@ class AudioEngine {
       case 'handset':
         // Off air, on the handset: no radio chain, no static.
         out.gain.value = 0.6;
-        phone().connect(out).connect(this.master);
+        phone().connect(out).connect(this.handsetBus);
         break;
       case 'other': {
         src.playbackRate.value = 0.92;
@@ -414,7 +469,7 @@ class AudioEngine {
         lp.connect(echo).connect(echoGain).connect(out);
         out.gain.value = 0.95;
         // Its own level stage (setOtherGain), and past the override duck.
-        out.connect(this.otherGain);
+        out.connect(this.otherBus);
         break;
       }
     }
@@ -514,7 +569,7 @@ class AudioEngine {
         f.frequency.exponentialRampToValueAtTime(500, t + 0.45);
         s.connect(f).connect(g);
         g.disconnect();
-        g.connect(this.program);
+        g.connect(this.musicVol);
         g.gain.setValueAtTime(1.6, t);
         g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
         s.start(t, Math.random() * 2, 0.55);
@@ -593,6 +648,22 @@ class AudioEngine {
       g.gain.setTargetAtTime(0, ctx.currentTime, 0.5);
       for (const o of oscs) o.stop(ctx.currentTime + 3);
     };
+  }
+}
+
+function loadVolume(): Volume {
+  try {
+    return parseVolume(typeof localStorage !== 'undefined' ? localStorage.getItem(VOLUME_KEY) : null);
+  } catch {
+    return { ...DEFAULT_VOLUME }; // blocked storage throws on access
+  }
+}
+
+function saveVolume(v: Volume): void {
+  try {
+    localStorage.setItem(VOLUME_KEY, serializeVolume(v));
+  } catch {
+    // Full or blocked storage: the sliders still work for this visit.
   }
 }
 
