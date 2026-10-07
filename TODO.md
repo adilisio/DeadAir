@@ -28,6 +28,10 @@ first time each task appears is in the polish packet); Morse was tricky on `?fas
 - [ ] Gate 2 playtest (Nights 1–4), then Gate 3 (the full run); questions in PLAN.md §14
 - [ ] Tune by ear after Gate 1: voice levels per channel (`playVoice` gains), the Other
       Station's processing, phone band, static under voices
+- [ ] `?night=N` towns are too rosy (every auto night goes perfectly: trust 100 by Night 3).
+      Make `townBefore` play earlier nights at signal 0.85 with one caller ignored, so a
+      late-night jump-in feels like a real run.
+- [ ] Tube picks during the fumble are ignored; queue the pick or shorten the fumble
 - [ ] Known rough edges: the record glint stands in for a spinning label; `?fast` overrides
       run at a third of their length on screen
 
