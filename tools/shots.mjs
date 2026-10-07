@@ -88,6 +88,8 @@ const SHOTS = [
   { name: '01-title', query: '?mute', phase: 'title', settle: 1500 },
   { name: '02-booth-prep', query: '?mute&scene=booth', phase: 'prep', settle: 1500 },
   { name: '03-booth-prep-filled', query: '?mute&scene=booth&auto', phase: 'prep-filled', settle: 800 },
+  // The render scale: the suite runs at 1 (headless software rendering crawls at 2); this one shot is the sharp look.
+  { name: '03a-booth-prep-hd', query: '?mute&scene=booth&auto&res=2', phase: 'prep-filled', settle: 800 },
   { name: '04-booth-live', query: '?mute&scene=booth&auto&fast', phase: 'live', settle: 2500 },
   { name: '04a-booth-needle', query: '?mute&scene=booth&auto&fast', phase: 'needle', settle: 450, timeout: 90000 },
   { name: '04b-booth-record', query: '?mute&scene=booth&auto&fast', phase: 'record', settle: 1500, timeout: 90000 },
@@ -164,7 +166,7 @@ for (const shot of SHOTS.filter((s) => new RegExp(filter).test(s.name))) {
   }
   const started = Date.now();
   try {
-    await page.goto(base + shot.query);
+    await page.goto(base + shot.query + (shot.query.includes('res=') ? '' : '&res=1'));
     if (shot.drive) await shot.drive(page);
     await seen(page, shot.phase, shot.timeout ?? 60000);
     await page.waitForTimeout(shot.settle ?? 500);

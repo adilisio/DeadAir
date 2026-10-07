@@ -5,6 +5,15 @@ export const ART_SCALE = 2;
 
 /** URL switches used by the screenshot tool and for quick testing. */
 const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+
+/**
+ * Render scale. The canvas is W x H times this and every camera zooms to match, so the
+ * layout stays in logical pixels while text and lines draw at the screen's own resolution
+ * (at 1x, a 640-wide canvas stretched over a big monitor is blocks). Picked from the
+ * window's width in device pixels, 1 to 3; `?res=N` forces it.
+ */
+const screenPx = typeof window !== 'undefined' ? window.innerWidth * (window.devicePixelRatio || 1) : W;
+export const RES = Math.max(1, Math.min(3, Number(params.get('res')) || Math.round(screenPx / W)));
 export const DEBUG = {
   /** Shortens records and talk so a full night runs in about a minute. */
   fast: params.has('fast'),

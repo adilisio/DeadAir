@@ -1,5 +1,6 @@
 // Small UI kit: panels, text, buttons. Dark glass with amber edges, VT323 everywhere.
 import Phaser from 'phaser';
+import { RES } from '../config';
 import { UI } from '../art/palette';
 
 export const FONT = 'VT323';
@@ -19,7 +20,8 @@ export function label(
     wordWrap: opts.wrap ? { width: opts.wrap } : undefined,
     lineSpacing: -2,
   });
-  t.setResolution(2);
+  // Text rasterizes at the render scale, so it is as sharp as the screen (never under 2).
+  t.setResolution(Math.max(2, RES));
   return t;
 }
 
@@ -144,7 +146,7 @@ export function slider(scene: Phaser.Scene, x: number, y: number, w: number, nam
     draw();
     if (notify) onChange(v);
   };
-  const fromPointer = (p: Phaser.Input.Pointer) => set(((p.x - x - barX) / barW) * 100, true);
+  const fromPointer = (p: Phaser.Input.Pointer) => set(((p.worldX - x - barX) / barW) * 100, true);
   let dragging = false;
   zone.on('pointerover', () => ((hover = true), draw()));
   zone.on('pointerout', () => ((hover = false), draw()));

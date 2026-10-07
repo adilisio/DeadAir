@@ -1,9 +1,16 @@
 // Shared look: bloom on bright things, a slight CRT curve, vignette, scanlines.
 import Phaser from 'phaser';
-import { W, H, DEBUG } from '../config';
+import { W, H, DEBUG, RES } from '../config';
+
+/** Zoom a camera so the logical W x H fills the RES-times-larger canvas. */
+export function fitCamera(cam: Phaser.Cameras.Scene2D.Camera): Phaser.Cameras.Scene2D.Camera {
+  cam.setZoom(RES);
+  cam.centerOn(W / 2, H / 2);
+  return cam;
+}
 
 export function applyScreenLook(scene: Phaser.Scene, opts: { bloom?: number } = {}): void {
-  const cam = scene.cameras.main;
+  const cam = fitCamera(scene.cameras.main);
   if (DEBUG.nofx) return;
   Phaser.Actions.AddEffectBloom(cam, {
     threshold: 0.62,
@@ -35,7 +42,7 @@ export function glow(scene: Phaser.Scene, x: number, y: number, size: number, co
  * pass later UI objects to `ui()` so the world camera skips them.
  */
 export function splitCameras(scene: Phaser.Scene): { uiCam: Phaser.Cameras.Scene2D.Camera; ui: <T extends Phaser.GameObjects.GameObject>(o: T) => T; fade: (out: boolean, ms: number, done?: () => void) => void } {
-  const uiCam = scene.cameras.add(0, 0, W, H);
+  const uiCam = fitCamera(scene.cameras.add(0, 0, W * RES, H * RES));
   uiCam.ignore(scene.children.list.slice());
   const ui = <T extends Phaser.GameObjects.GameObject>(o: T): T => {
     scene.cameras.main.ignore(o);

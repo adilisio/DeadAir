@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import '@fontsource/vt323';
-import { W, H } from './config';
+import { W, H, RES } from './config';
 import { exposeDebug } from './debugHook';
 import { BootScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
@@ -10,8 +10,8 @@ import { DawnScene } from './scenes/DawnScene';
 const game = new Phaser.Game({
   type: Phaser.WEBGL,
   parent: 'game',
-  width: W,
-  height: H,
+  width: W * RES,
+  height: H * RES,
   backgroundColor: '#07070c',
   pixelArt: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
