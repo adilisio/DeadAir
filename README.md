@@ -6,7 +6,7 @@ frequency.*
 
 A small browser game built with Phaser 4 + TypeScript. See `DESIGN.md`.
 
-**[▶ Play in your browser](https://adilisio.github.io/DeadAir/)**: Chrome or Edge on a desktop, with headphones.
+**[▶ Play in your browser](https://adilisio.itch.io/dead-air)**: Chrome or Edge on a desktop, with headphones.
 
 | | |
 | --- | --- |
