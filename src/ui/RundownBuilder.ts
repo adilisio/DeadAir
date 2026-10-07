@@ -19,6 +19,12 @@ export const SEGMENT_LABEL = { dusk: 'DUSK   8 PM', late: 'LATE  11 PM', small: 
 
 
 export function describeCard(card: Card, town?: TownState): string {
+  // A card that ends the show says so first thing.
+  const base = describeKind(card, town);
+  return card.kind !== 'record' && card.endsShow ? `${base} · ENDS THE SHOW` : base;
+}
+
+function describeKind(card: Card, town?: TownState): string {
   switch (card.kind) {
     case 'record': {
       const loves = card.loves.map((f) => FACTION_NAMES[f]).join(' & ');
@@ -76,7 +82,7 @@ export class RundownBuilder {
     const add = <T extends Phaser.GameObjects.GameObject>(o: T): T => (parts.push(o), o);
 
     // Header.
-    add(label(scene, 12, 6, `NIGHT ${['ZERO', 'ONE', 'TWO', 'THREE'][night.number] ?? night.number}  ·  PREP`, { size: 26, color: UI.amber }));
+    add(label(scene, 12, 6, `NIGHT ${['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN'][night.number] ?? night.number}  ·  PREP`, { size: 26, color: UI.amber }));
     add(label(scene, 14, 26, 'Pick six. When it airs matters.', { size: 14, color: UI.dim }));
     const t = town.trust;
     add(label(scene, 628, 8, `MORALE ${town.morale}   SAFETY ${town.safety}   CREDIBILITY ${town.credibility}`, { size: 14, color: UI.dim }).setOrigin(1, 0));
@@ -152,11 +158,26 @@ export class RundownBuilder {
     this.refresh();
   }
 
+  /** The group a card belongs to (only talk cards have one). */
+  private groupOf(id: string): string | undefined {
+    const c = this.cardById(id);
+    return c.kind !== 'record' ? c.group : undefined;
+  }
+
+  /** Another card of this card's group is already in the show. */
+  private siblingPlaced(id: string): boolean {
+    const g = this.groupOf(id);
+    return !!g && this.slots.some((s) => !!s && s !== id && this.groupOf(s) === g);
+  }
+
   private toggleCard(id: string): void {
     const at = this.slots.indexOf(id);
     if (at >= 0) {
       this.slots[at] = null;
       audio.sfx('click');
+    } else if (this.siblingPlaced(id)) {
+      this.status.setText('Only one of those can air.');
+      return;
     } else {
       const target = this.selectedSlot !== null && this.slots[this.selectedSlot] === null ? this.selectedSlot : this.slots.indexOf(null);
       if (target < 0) {
@@ -241,13 +262,15 @@ export class RundownBuilder {
     this.crateRows.forEach((row, i) => {
       const y = c.y + 24 + i * this.rowH;
       const placed = used.has(row.card.id);
+      // A sibling of a placed group card can't go in: greyed out further.
+      const blocked = !placed && this.siblingPlaced(row.card.id);
       row.bg.clear();
       if (placed) {
         row.bg.fillStyle(0xffb347, 0.1);
         row.bg.fillRect(c.x + 4, y, c.w - 8, this.rowH - 1);
       }
-      row.text.setColor(placed ? UI.dim : UI.text);
-      row.tag.setAlpha(placed ? 0.4 : 1);
+      row.text.setColor(placed || blocked ? UI.dim : UI.text).setAlpha(blocked ? 0.45 : 1);
+      row.tag.setAlpha(placed ? 0.4 : blocked ? 0.25 : 1);
     });
     this.slotRows.forEach((row, i) => {
       const id = this.slots[i];

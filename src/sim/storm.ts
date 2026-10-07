@@ -13,9 +13,10 @@ export const STORM_HELD = 0.85;
 /** Below this the storm took the station off the air. */
 export const STORM_LOST = 0.6;
 
-/** The wind in a slot: any of the night's storms blowing makes it stormy. */
+/** The wind in a slot: STORM_WIND times the hardest storm blowing then (its `wind`, 1 by default). */
 export function windForSlot(night: NightDef, slot: number): number {
-  return eventsOf(night, 'storm').some((s) => s.slots.includes(slot)) ? STORM_WIND : CALM_WIND;
+  const blowing = eventsOf(night, 'storm').filter((s) => s.slots.includes(slot));
+  return blowing.length ? STORM_WIND * Math.max(...blowing.map((s) => s.wind ?? 1)) : CALM_WIND;
 }
 
 /** Mean signal over one storm's slots. */

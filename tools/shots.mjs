@@ -15,7 +15,46 @@ import { mkdirSync } from 'node:fs';
 
 const filter = process.argv[2] ?? '';
 
-/** Each shot: open url (after putting `storage` in localStorage), wait until the game reports `phase`, then capture. */
+/** Wait until the game has reported `phase` at least once. */
+const seen = (page, phase, timeout) =>
+  page.waitForFunction((p) => window.__deadair && window.__deadair.phasesSeen.includes(p), phase, { timeout, polling: 100 });
+
+/** Click the dawn ledger's last-page button (SIGN ON: NIGHT N / START OVER), in game coordinates 432,326. */
+async function clickAgain(page) {
+  const box = await page.locator('canvas').boundingBox();
+  await page.mouse.click(box.x + (432 / 640) * box.width, box.y + (326 / 360) * box.height);
+}
+
+/** The whole campaign on ?auto: Night 1 through Night 6, pressing on at each dawn. */
+async function campaign(page) {
+  for (let n = 1; n <= 5; n++) {
+    await seen(page, `dawn-letter-night-${n}`, 900000);
+    await page.waitForTimeout(1200);
+    await clickAgain(page);
+    await page.waitForFunction((k) => window.__deadair?.data.nightOnAir === k, n + 1, { timeout: 30000, polling: 100 });
+    console.log(`     night ${n} done`);
+  }
+}
+
+/** After the last dawn's numbers page: the headline it printed, then the letter and START OVER. */
+async function campaignEnd(page) {
+  const head = await page.evaluate(() => window.__deadair?.data.result?.headline);
+  if (!head?.text) throw new Error('no headline on the Night 6 dawn');
+  console.log(`     headline: ${head.text} / ${head.sub}`);
+  await seen(page, 'dawn-letter-night-6', 60000);
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: 'shots/16a-campaign-letter.png' });
+  await clickAgain(page);
+  await page.waitForFunction(() => window.__deadair?.data.nightOnAir === 1, null, { timeout: 30000, polling: 100 });
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: 'shots/16b-campaign-start-over.png' });
+  console.log('     START OVER: back to Night 1');
+}
+
+/**
+ * Each shot: open url (after putting `storage` in localStorage), run `drive` if any, wait until
+ * the game reports `phase`, then capture (and run `after`, which may take more shots).
+ */
 const SHOTS = [
   { name: '00-boot', query: '?mute', phase: 'boot', settle: 800 },
   { name: '01-title', query: '?mute', phase: 'title', settle: 1500 },
@@ -50,6 +89,17 @@ const SHOTS = [
   { name: '14-night2-letter', query: '?mute&scene=dawn&night=2&auto', phase: 'dawn-letter', settle: 1200, timeout: 90000 },
   // A run saved after Night 1: the title offers to continue it.
   { name: '15-continue', query: '?mute', phase: 'title', settle: 1500, storage: { 'deadair.save': JSON.stringify({ version: 1, index: 1, town: { flags: ['n1_teddy_found'] } }) } },
+  // The whole campaign, Night 1 to the last dawn (its headline), then START OVER.
+  { name: '16-campaign', query: '?mute&scene=booth&auto&fast', phase: 'dawn-headline', settle: 2500, timeout: 600000, drive: campaign, after: campaignEnd },
+  // Nights 3-6, each from ?night=N (earlier nights as their ?auto shows).
+  ...[3, 4, 5, 6].flatMap((n) => [
+    { name: `${n}0-night${n}-prep`, query: `?mute&scene=booth&night=${n}&auto&fast`, phase: 'prep-filled', settle: 800 },
+    { name: `${n}1-night${n}-switchboard`, query: `?mute&scene=booth&night=${n}&auto&fast`, phase: 'switchboard', settle: 700, timeout: 90000 },
+    ...(n === 4 ? [{ name: '41a-night4-override', query: '?mute&scene=booth&night=4&auto&fast', phase: 'override', settle: 1500, timeout: 120000 }] : []),
+    ...(n === 6 ? [{ name: '61a-night6-climax', query: '?mute&scene=booth&night=6&auto&fast', phase: 'climax', settle: 1500, timeout: 240000 }] : []),
+    { name: `${n}2-night${n}-dawn`, query: `?mute&scene=booth&night=${n}&auto&fast`, phase: 'dawn-page-1', settle: 3600, timeout: 300000 },
+    { name: `${n}3-night${n}-letter`, query: `?mute&scene=booth&night=${n}&auto&fast`, phase: 'dawn-letter', settle: 1200, timeout: 360000 },
+  ]),
 ];
 
 const server = await createServer({ server: { port: 5199, strictPort: false }, logLevel: 'error' });
@@ -78,13 +128,11 @@ for (const shot of SHOTS.filter((s) => new RegExp(filter).test(s.name))) {
   const started = Date.now();
   try {
     await page.goto(base + shot.query);
-    await page.waitForFunction(
-      (phase) => window.__deadair && window.__deadair.phasesSeen.includes(phase),
-      shot.phase,
-      { timeout: shot.timeout ?? 60000, polling: 100 },
-    );
+    if (shot.drive) await shot.drive(page);
+    await seen(page, shot.phase, shot.timeout ?? 60000);
     await page.waitForTimeout(shot.settle ?? 500);
     await page.screenshot({ path: `shots/${shot.name}.png` });
+    if (shot.after) await shot.after(page);
     const secs = ((Date.now() - started) / 1000).toFixed(1);
     if (errors.length) {
       failures++;

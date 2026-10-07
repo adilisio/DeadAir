@@ -4,7 +4,7 @@
 // lines can also gate on what has aired so far tonight and on what callers confided
 // off air tonight; the board re-checks them when it rings (`linesOpenNow`).
 
-import type { CallLine, Gate, NightDef, StatName, SwitchboardEvent, TownState } from './types';
+import type { CallLine, Gate, Letter, NightDef, StatName, SwitchboardEvent, TownState } from './types';
 
 /** What a gate can be checked against beyond flags. A clause whose context is missing is left open. */
 export interface GateContext {
@@ -54,24 +54,32 @@ export function linesOpenNow(board: SwitchboardEvent, town: TownState, airedToni
 }
 
 /**
- * The night as it plays for this town: cards and callers whose flags or stats don't
- * allow them removed. Tonight-gates are left for the board to check when it rings.
+ * The night as it plays for this town: cards, callers, events and the Other Station's
+ * intrusions whose flags or stats don't allow them removed. Tonight-gates are left for
+ * the board (and the desk) to check live.
  */
 export function openNight(night: NightDef, town: TownState): NightDef {
   const ctx = { town };
-  const cards = night.cards.filter((c) => gateOpen(c.gate, town.flags, ctx));
+  const open = (g: Gate | undefined) => gateOpen(g, town.flags, ctx);
+  const cards = night.cards.filter((c) => open(c.gate));
   const ids = new Set(cards.map((c) => c.id));
+  const intrusions = night.otherStation.intrusions;
   return {
     ...night,
     cards,
-    events: night.events.map((e) =>
-      e.kind === 'switchboard' ? { ...e, lines: e.lines.filter((l) => gateOpen(l.gate, town.flags, ctx)) } : e,
-    ),
-    otherStation: { ...night.otherStation, prefer: night.otherStation.prefer.filter((id) => ids.has(id)) },
+    events: night.events
+      .filter((e) => open(e.gate))
+      .map((e) => (e.kind === 'switchboard' ? { ...e, lines: e.lines.filter((l) => open(l.gate)) } : e)),
+    otherStation: {
+      ...night.otherStation,
+      prefer: night.otherStation.prefer.filter((id) => ids.has(id)),
+      ...(intrusions ? { intrusions: intrusions.filter((i) => open(i.gate)) } : {}),
+    },
   };
 }
 
-/** The listener's letter, with the Other Station's words in it. */
-export function letterText(night: NightDef, quote: string): string {
-  return night.letter.body.replace('{quote}', quote);
+/** The listener's letter (a night's, or the one the night's result chose), with the Other Station's words in it. */
+export function letterText(from: NightDef | Letter, quote: string): string {
+  const letter = 'letter' in from ? from.letter : from;
+  return letter.body.replace('{quote}', quote);
 }

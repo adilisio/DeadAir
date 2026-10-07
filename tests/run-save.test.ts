@@ -57,8 +57,12 @@ describe('saving the run', () => {
     vi.stubGlobal('localStorage', store);
     resetRun();
     finishNight(playAuto());
-    nextNight();
+    while (run.index < NIGHTS.length - 1) {
+      nextNight();
+      if (run.index < NIGHTS.length - 1) finishNight(resolveNight(run.night, run.town, { rundown: run.night.rundowns.auto, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [] }));
+    }
     expect(run.index).toBe(NIGHTS.length - 1);
+    expect(store.map.has(SAVE_KEY)).toBe(true);
     finishNight(resolveNight(run.night, run.town, { rundown: run.night.rundowns.auto, signal: [1, 1, 1, 1, 1, 1], deadAirSeconds: 0, calls: [] }));
     expect(store.map.has(SAVE_KEY)).toBe(false);
     expect(loadRun()).toBe(false);

@@ -1,7 +1,7 @@
 # Handoff — Dead Air
 
 For the next agent picking this up. Read this, then `CLAUDE.md` (commands, layout, rules),
-`DESIGN.md` (the game), and `TODO.md` (the live task list). Last updated 2026-10-02.
+`DESIGN.md` (the game), and `TODO.md` (the live task list). Last updated 2026-10-06.
 
 ## What this is
 
@@ -14,6 +14,11 @@ reads back what you chose *not* to air. Phaser 4 + TypeScript + Vite, Vitest for
 owner. Night 1 plays real public-domain 78s. The booth mini-games (the main playtest
 complaint) are built but **not yet playtested by the owner**. Next work is the owner's
 call; see "What to do next".
+
+**Content status:** the campaign is six nights (`src/data/night1.ts` to `night6.ts`,
+listed in order in `src/data/nights.ts`), all voiced. Nights 3-6 were written by the
+director (2026-10-06) and wired in Packet G; nobody has played them by hand yet, only
+`?auto` (the `16-campaign` shot plays Night 1 to the last dawn and START OVER).
 
 ## The owner
 
@@ -63,6 +68,9 @@ call; see "What to do next".
   `05e-booth-carrier` and `13a-night2-dawn-drift`, both `?drift`).
   Packet C (switchboard v2): 177 tests, 25 shots (adds `05-booth-switchboard-confide`,
   `11a-night2-board-late`).
+  Packet G (campaign wiring): 317 tests, 48 shots (adds `16-campaign`, which plays Night 1
+  to the last dawn and START OVER and also saves `16a`/`16b`, and prep / switchboard /
+  dawn / letter for Nights 3-6, `41a-night4-override`, `61a-night6-climax`).
 - Runs: `src/run.ts` holds the run (night index, town, result); `startNight`, `finishNight`
   (keeps the result and saves), `nextNight` (saves), `resetRun`, `townBefore(n)` for
   `?night=N`, and the save: `saveRun` / `loadRun` / `savedRun` / `clearSave` on
@@ -90,6 +98,22 @@ call; see "What to do next".
   The resolver takes `tubes[].used` out of the drawer. `NightDef.classifieds` sell spares
   and records at dawn (`src/sim/classifieds.ts`: `buy`; `run.ts`: `buyClassified` re-saves);
   the Dawn scene's NOTICES page shows them.
+- Packet G (campaign wiring, Nights 3-6; 2026-10-06): the rules the four nights rely on.
+  The resolver sets `aired_<card>` for every card that aired (`hedged_<card>` for hedged
+  reads) before the night's dawn lines run; an outcome with `line: ''` adds no dawn line
+  (flag and effects still land). `gate` on every event kind and intrusion (`openNight`
+  drops closed ones; Night 4 and 6 each have two mutually exclusive Morse events).
+  `StormEvent.wind` multiplies `STORM_WIND`. `NightDef.dawnLines` (evaluated last, in
+  order, against the town after the night, each adding its flag for the next), `letters`
+  (first open one replaces `letter`; `NightResult.letter`), `headlines` (first open one;
+  `NightResult.headline`, drawn on the dawn's numbers page). Card `group`s (only one airs;
+  prep greys siblings; the desk won't offer one), `otherStation.readsGroup` (reads the
+  unpicked ones). `endsShow` cards: the show ends when one finishes (no sign-off read,
+  `ShowPerformance.endedEarly`, the rundown is the prefix that aired; boards due later never
+  rang; storms count aired slots only). `otherStation.fillsSilence` / `readsAll`
+  (`otherStationReads` in the resolver; with nothing to read the script is intro + stamp and
+  `<nightId>_other_silent` is set). `climax.card` is optional. Tone `rumor` (rendered like
+  neutral for now). People `ewa`, `marta`, `harbor`.
 
 ### How it fits together
 
@@ -114,8 +138,14 @@ call; see "What to do next".
   - `desk.ts` (desk cards, live swaps) and `classifieds.ts` (what chits buy at dawn).
 - `src/data/night1.ts` — Night 1's 13 cards, its events (`n1_board` with three lines,
   `n1_tube`, `n1_morse`, `n1_storm`), the Other Station config, and the `?auto` / `?scene=dawn`
-  rundowns (tested for validity). `records.json` + `records.ts` — the record catalog: 11
-  real 78s and 5 synthesized stand-ins.
+  rundowns (tested for validity). `night2.ts` to `night6.ts` the same, plus (3-6) gated
+  events, `dawnLines`, `letters`, `headlines` (Night 6's are the ending), groups (Night 5's
+  answers) and an `endsShow` card (Night 5's "go dark"). `records.json` + `records.ts` — the
+  record catalog: real 78s and synthesized stand-ins. A record airs at most once a night and
+  never two nights running (data test).
+- The data test's every-opening check opens each night for every combination of the flags
+  its gates mention (minus combinations listed as impossible in `EXCLUSIVE`) and checks the
+  crate (7-15 cards), the boards (2-3 lines), and that no two Morse signals key at once.
 - `src/audio/` — `engine.ts` (one Web Audio graph: radio chain, static/whistle/hum by tuning
   error, record playback with stand-in fallback, phone ring, Other Station drone, level meter;
   `setOtherGain` for the `other` channel and drones, `setCarrier` for the second whistle,
@@ -205,10 +235,11 @@ call; see "What to do next".
    the records. The owner's own recordings drop into `public/voice/` (see its README).
 3. **M2: One Day** — town walk, map with a travel event, one ruin run; outputs are cards
    and records for the night. See `DESIGN.md`.
-4. **Night 3+** needs new records: all eleven real 78s are now used (a test keeps each
-   record to one night). Fetch more with `npm run records` after adding catalog entries.
-   A Bessie Smith original pressing would be a good Linemen record (the one found was a
-   modern Wolf reissue, so it was skipped).
+4. **Play Nights 3-6 by hand.** They have only run on `?auto`. Things to judge: Night 5's
+   "go dark" card and what fills the silence, Night 6's climax (it still behaves like an
+   override; Night 6's dawn lines for `n6_jammed` / `n6_countered` / `n6_carried` wait on
+   the HOLD / CARRY / COUNTER mechanic, which isn't built), and whether the crates (up to
+   15 cards) read well.
 
 ## Known uncertainties
 

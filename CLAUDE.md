@@ -17,7 +17,7 @@ Phaser 4 + TypeScript + Vite. Read `HANDOFF.md` first if you're new to the proje
 
 URL switches (see `src/config.ts`): `?fast` short records/talk, `?auto` plays itself,
 `?mute` silent, `?nofx` no post effects, `?scene=booth|dawn` jump in (booth continues a
-saved run), `?night=N` start at night N (earlier nights resolved as their `?auto` shows;
+saved run), `?night=N` start at night N, 1-6 (earlier nights resolved as their `?auto` shows;
 wins over a save), `?reset` forget the saved run.
 `window.__deadair` exposes the current phase and the game object for debugging.
 
@@ -32,10 +32,12 @@ center outward, so keep its strength low.
   `events.ts` schedules a night's events (`eventsDue`); `nights.ts` has gates
   (flags, stats, tonight); the resolver sets person flags (`grace_cut`, `grace_cut_2`);
   `save.ts` is the versioned save shape (`run.ts` reads and writes `localStorage`).
-- `src/data/` — content: nights (`nights.ts` lists them in order), cards, a night's
-  `events` (switchboards, tubes, Morse, storms; any number of each), records (with
-  provenance), people (`people.ts`: every caller is one). Typed TS objects. Cards and
-  callers can be gated on earlier nights' flags, town stats, and (callers) what aired tonight.
+- `src/data/` — content: six nights (`night1.ts` to `night6.ts`; `nights.ts` lists them in
+  order), cards, a night's `events` (switchboards, tubes, Morse, storms; any number of
+  each), its `dawnLines`, `letters` and `headlines`, records (with provenance), people
+  (`people.ts`: every caller is one). Typed TS objects. Cards, callers, events and
+  intrusions can be gated on earlier nights' flags (`aired_<card>` for every card that
+  aired), town stats, and (callers, desk cards) what aired or was confided tonight.
 - `src/audio/` — Web Audio: radio chain, static, stand-in pressings, voice (pre-rendered files
   played on air / phone / handset / Other Station channels; `lines.ts` lists every spoken line).
 - `src/art/` — pixel art painted in code at boot (palette + painter + scenes).
