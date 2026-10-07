@@ -121,7 +121,7 @@ if (audition) {
 <p>Each take is Night 1's sign-on and the top of a story, dry (no radio chain). Pick one, put its name in
 <code>src/data/people.ts</code> (the <code>dj</code> line, <code>kokoro</code> and <code>rate</code>), then run <code>npm run voices -- --only dj --force</code>.</p>
 <ul>${rows}</ul>\n`);
-  console.log(`Audition: ${takes.length} takes in ${dir}. Open http://localhost:5173/voice/audition/ with the dev server running.`);
+  console.log(`Audition: ${takes.length} takes in ${dir}. Open http://localhost:5173/voice/audition/index.html with the dev server running.`);
   process.exit(0);
 }
 

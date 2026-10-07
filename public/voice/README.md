@@ -41,5 +41,5 @@ leaves existing files alone unless you pass `--force`.
 
 `npm run voices -- --audition` renders Night 1's sign-on in a dozen voices into `audition/`
 (voices no caller uses), with an `index.html` to play them: with the dev server running, open
-http://localhost:5173/voice/audition/. Put the winner's name in `src/data/people.ts` (the `dj`
+http://localhost:5173/voice/audition/index.html. Put the winner's name in `src/data/people.ts` (the `dj`
 line) and run `npm run voices -- --only dj --force`.
