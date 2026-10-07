@@ -3,26 +3,21 @@
 Light process: one list. Move items to Done with the commit that did them.
 The direction is `PLAN.md` (2026-10-06): six nights in the booth, no daytime modes.
 
-## Questions for Anthony (2026-10-07) — answer any, in any order
-While playing Nights 1 and 2:
-1. A caller on air plays once now, on the handset. Does the three-second delay still read as
-   a thing (the DELAY 3s label, the dump), or has it vanished?
-2. Does the Other Station sound like you gone wrong, and can you still make out the words?
-   If not: too muddy, or still too much like you?
-3. On the big monitor: readable now? Anything still clipping outside its box, and which panel?
-4. Did you listen in off air before putting someone on? (Grace says something on Night 1 she
-   won't say on the air.) Did it change what you did?
-5. Did you swap anything live with the desk (TAB)? Why, or why not?
-6. Night 2's squall: did you notice the second carrier on the dial? What did you take it for?
-7. At dawn: did you buy anything from the notices? Was it clear why you might?
-8. Anything annoying rather than tense: which task, and when.
-Decisions, with the default if you say nothing:
-9. Night 6's setting: the grid switch-on, the storm evacuation, or both colliding (built: both).
-10. "Chits" for the money (default: keep).
-11. The ledger says "you". Keep, or a real paper writing about "the Lamp" in third person?
-    (default: "you" for the lines, third person for notices and the headline).
-12. A casual rewrite of the DJ's scripts (contractions, asides, the kettle): before Gate 2, or
-    after you've heard more?
+## Gate 1, second pass — Anthony's answers (2026-10-07) and what they became
+1. "I don't hear the delay anymore" → the teleprompter shows it: a caller's words turn
+   from blue to cream as they reach the town (forty characters behind the handset, the
+   rule's delay), and a dump shows what the town heard and "the rest never went out".
+2. The Other Station "sounds good now". 3. Text "looks great now".
+4. "Who is Grace? I didn't catch that one" → he never found listening in. After a preview
+   the board now says "... still on the line. Keep listening, or put them on."
+5. The desk: "how do I do that? not obvious" → while the desk has cards and hasn't been
+   opened tonight, the cue box's waiting line reads "TAB - the desk: swap what's next".
+6. Noticed the second carrier: "surprising". 7. Bought from the notices; the why was clear.
+8. "The timing of the games can be a little surprising and the songs can feel a little long"
+   → records play 60 s (was 75). The tasks' arrivals: a Gate 2 question (a beat of warning
+   before a tube blows or the tape starts, or leave the surprise).
+9. Night 6: both colliding, "cool and stressful". 10. Chits stays. 11. "You" stays.
+12. The DJ's scripts "are good for now".
 
 ## Gate 1 — Anthony's first pass at Night 1 (2026-10-07, Desktop/Feedback)
 What he found, and what it became:

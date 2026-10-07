@@ -35,6 +35,8 @@ export class LiveHud {
   private tpHeader: Phaser.GameObjects.Text;
   private tpDim: Phaser.GameObjects.Text;
   private tpLit: Phaser.GameObjects.Text;
+  /** A caller on air: the words the town has heard so far (the lit words past it are still in the delay). */
+  private tpAired: Phaser.GameObjects.Text;
   private tpFull = '';
   /** The header without its tail (the record clock), to put the tail on. */
   private tpHeaderBase = '';
@@ -93,6 +95,7 @@ export class LiveHud {
     this.tpHeader = add(label(scene, TP.x + 8, TP.y + 2, '', { size: 14, color: UI.amber }));
     this.tpDim = add(label(scene, TP.x + 8, TP.y + 17, '', { size: 14, color: '#8a7e6a', wrap: TP.w - 16 }));
     this.tpLit = add(label(scene, TP.x + 8, TP.y + 17, '', { size: 14, color: UI.text, wrap: TP.w - 16 }));
+    this.tpAired = add(label(scene, TP.x + 8, TP.y + 17, '', { size: 14, color: UI.text, wrap: TP.w - 16 }));
 
     // Cue box.
     add(panel(scene, CUE.x, CUE.y, CUE.w, CUE.h));
@@ -228,9 +231,11 @@ export class LiveHud {
     this.tpReveal = reveal;
     const room = TP.h - 19;
     let fits = false;
+    this.tpAired.setText('');
     for (const size of [14, 13, 12]) {
       this.tpDim.setFontSize(size).setText(text);
       this.tpLit.setFontSize(size);
+      this.tpAired.setFontSize(size);
       if (this.tpDim.height <= room) {
         fits = true;
         break;
@@ -267,6 +272,15 @@ export class LiveHud {
       this.tpWinOffset = this.tpStarts[start];
     }
     this.tpDim.setText(this.tpReveal ? '' : this.tpWinText);
+    this.tpAired.setText('');
+  }
+
+  /** A caller on air: the town has heard the first `chars` (drawn in the station's ink over the caller's). */
+  setAired(chars: number): void {
+    if (this.behind || !this.tpFull) return;
+    let end = Math.min(this.tpFull.length, Math.max(0, Math.round(chars)));
+    while (end < this.tpFull.length && /\S/.test(this.tpFull[end])) end++;
+    this.tpAired.setText(this.tpWinText.slice(0, Math.max(0, end - this.tpWinOffset)));
   }
 
   /** Put `tail` after the header, if the header is still `base` (the record clock). */
@@ -403,8 +417,11 @@ export class LiveHud {
     bar(g, x0, TUNE.y + 44, w, 3, quality, qColor);
   }
 
-  /** `hedge`: the next item can be read hedged, so the hint offers H as well as SPACE. */
-  setCue(state: CueState, nextTitle: string, deadSeconds = 0, hedge = false): void {
+  /**
+   * `hedge`: the next item can be read hedged, so the hint offers H as well as SPACE.
+   * `desk`: the desk has cards and hasn't been opened tonight, so the waiting hint points at it.
+   */
+  setCue(state: CueState, nextTitle: string, deadSeconds = 0, hedge = false, desk = false): void {
     const g = this.cueGfx;
     g.clear();
     if (state === 'hidden') {
@@ -413,7 +430,7 @@ export class LiveHud {
       return;
     }
     const hint = {
-      waiting: 'cue opens near the end',
+      waiting: desk ? 'TAB - the desk: swap what\'s next' : 'cue opens near the end',
       open: hedge ? 'SPACE run it · H hedge it' : 'SPACE to cue it',
       cued: hedge ? 'cued - H to hedge it' : 'cued - rolls next',
       cuedHedged: 'cued hedged - rolls next',

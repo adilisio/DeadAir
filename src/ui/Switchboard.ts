@@ -19,6 +19,8 @@ export interface BoardView {
   confided: boolean;
   /** The DJ is on the air after a call. */
   after: boolean;
+  /** The selected line's preview has been heard (they are still on the line). */
+  listenOver: boolean;
 }
 
 const BOX = { x: 12, y: 80, w: 214, h: 206 };
@@ -118,12 +120,12 @@ export class SwitchboardPanel {
     // Nothing marks a dump in flight: the delay is just there, and you have to know it.
     this.timer.setText(onAir ? `DELAY ${DUMP_DELAY_SECONDS}s` : '');
 
-    if (onAir) this.preview.setText('On air. They reach the town a few seconds after you hear them. X dumps the call.').setColor(UI.dim);
+    if (onAir) this.preview.setText('On air. On the prompter, the cream words have reached the town; the blue ones are still in the delay. X dumps what hasn\'t gone out.').setColor(UI.dim);
     else if (v.selected !== null) {
       // After the preview, a caller who confides says the rest off the air.
       const line = this.lines[v.selected];
       if (v.confided && line.confide) this.fit(`(off the air) "${line.confide.text}"`).setColor(UI.hot);
-      else this.fit(`"${line.preview}"`).setColor(CALLER);
+      else this.fit(`"${line.preview}"${v.listenOver ? '\n... still on the line. Keep listening, or put them on.' : ''}`).setColor(CALLER);
     } else if (v.after) this.preview.setText("You're back on the air. The lines are holding.").setColor(UI.dim);
     else this.preview.setText('1-3 listens in off air. SPACE or ENTER puts them on. ESC hangs up on everyone.').setColor(UI.dim);
 

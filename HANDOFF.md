@@ -266,5 +266,5 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
   right; the real 78s are verified only to decode with even loudness. "Swanee Butterfly"
   may be instrumental; the Ballard and Nair record's style is unconfirmed.
 - Marion Harris's label: archive.org says "Simolian", catalog 2610 (left as listed).
-- `public/records/` adds about 23 MB to the repo. Trimming files to the ~75 s the game
+- `public/records/` adds about 23 MB to the repo. Trimming files to the ~60 s the game
   plays would halve it, if that ever matters.

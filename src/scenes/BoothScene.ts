@@ -22,7 +22,7 @@ import { NEEDLE, armPosition, lateSkip, needleResult, sweepFor } from '../sim/ne
 import { NeedlePanel } from '../ui/NeedlePanel';
 import { TUBE, TubeFault, type TubeType } from '../sim/tube';
 import { TubePanel } from '../ui/TubePanel';
-import { DUMP_DELAY_SECONDS, RING_SECONDS, patienceOf, turnIndex } from '../sim/calls';
+import { DUMP_DELAY_SECONDS, RING_SECONDS, patienceOf, turnIndex, DUMP_DELAY_CHARS } from '../sim/calls';
 import { MORSE_TIMING, MorseCopy, chartFor, keyState } from '../sim/morse';
 import { MorsePanel } from '../ui/MorsePanel';
 import { SwitchboardPanel, type LineState } from '../ui/Switchboard';
@@ -55,7 +55,7 @@ function formatLeft(seconds: number): string {
 }
 
 /** Records play up to this long, then fade (a 78 side runs about three minutes). */
-const RECORD_SECONDS = DEBUG.fast ? 5 : 75;
+const RECORD_SECONDS = DEBUG.fast ? 5 : 60;
 /** How long a line rings when it has no patience of its own. */
 const RING_DEFAULT = DEBUG.fast ? 2.5 : RING_SECONDS;
 /** Seconds of handset quiet between a caller's preview and what they confide. */
@@ -812,6 +812,9 @@ export class BoothScene extends Phaser.Scene {
    * The desk opens while there's a next item to replace and the moment allows: a talk
    * item's cue window, any time during a record, or dead air. Not over a call or the needle.
    */
+  /** The desk has been opened tonight (until then the cue box nudges toward it). */
+  private deskUsed = false;
+
   private deskAvailable(): boolean {
     if (this.phase !== 'live' || this.board || this.needle) return false;
     const next = this.idx + 1;
@@ -829,6 +832,7 @@ export class BoothScene extends Phaser.Scene {
 
   private openDesk(): void {
     if (this.deskPanel || !this.deskAvailable()) return;
+    this.deskUsed = true;
     const slot = this.idx + 1;
     // Re-checked every time: a card can be waiting on something that's aired since.
     const cards = deskCards(run.night, this.cards.map((c) => c.id), run.town, this.airedTonight, { confidedTonight: this.confidedTonight, slot });
@@ -1066,7 +1070,11 @@ export class BoothScene extends Phaser.Scene {
     b.selected = null;
     this.speaking = false;
     if (b.dumpedAt === undefined) audio.sfx('hangup');
-    if (b.dumpedAt !== undefined) this.hud?.setTeleprompter('DUMPED', `${line.script.slice(0, Math.round(b.dumpedAt))} --`, UI.dim);
+    if (b.dumpedAt !== undefined) {
+      // The town heard up to the delay; the rest never went out.
+      const heard = line.script.slice(0, Math.max(0, Math.round(b.dumpedAt - DUMP_DELAY_CHARS))).trimEnd();
+      this.hud?.setTeleprompter('DUMPED', `${heard}${heard ? ' ' : ''}-- the rest never went out.`, UI.dim);
+    }
     if (b.dumpedAt === undefined && line.after) {
       // The DJ picks the mic back up; the record stays ducked under them (talk un-ducks after).
       b.after = true;
@@ -1098,7 +1106,7 @@ export class BoothScene extends Phaser.Scene {
     this.stopRing?.();
     this.stopRing = null;
     b.states = b.states.map((s) => (s === 'ringing' || s === 'listening' ? 'gone' : s));
-    this.boardPanel?.update({ states: b.states, selected: null, onAir: null, left: b.left, confided: false, after: false });
+    this.boardPanel?.update({ states: b.states, selected: null, onAir: null, left: b.left, confided: false, after: false, listenOver: false });
     const panel = this.boardPanel;
     this.tweens.add({ targets: panel?.root, alpha: 0, delay: 300, duration: 300, onComplete: () => panel?.destroy() });
     this.boardPanel = null;
@@ -1140,9 +1148,11 @@ export class BoothScene extends Phaser.Scene {
       this.stopRing = null;
     }
     const confided = b.selected !== null && b.confided[b.selected];
-    this.boardPanel?.update({ states: b.states, selected: b.selected, onAir: b.onAir, left: b.left, confided, after: b.after });
+    this.boardPanel?.update({ states: b.states, selected: b.selected, onAir: b.onAir, left: b.left, confided, after: b.after, listenOver: b.listenOver });
     if (b.onAir !== null) {
       const line = b.lines[b.onAir];
+      // What the town has heard so far: the delay behind the handset, in the rule's characters.
+      if (b.dumpedAt === undefined) this.hud?.setAired(Math.max(0, this.spokenNow() - DUMP_DELAY_CHARS));
       const turn = turnIndex(line);
       if (turn >= 0 && this.spokenNow() >= turn) markPhase('call-turn');
       if (DEBUG.auto && turn >= 0 && this.spokenNow() >= turn + 4) this.dumpCall();
@@ -1740,7 +1750,7 @@ export class BoothScene extends Phaser.Scene {
         const rem = this.remaining();
         if (this.record && this.recordPrompt && !this.board) this.hud?.setHeaderTail(this.recordPrompt.header, `${formatLeft(rem)} left`);
         if (this.recordNext()) this.hud?.setCue('needleNext', this.nextTitle());
-        else this.hud?.setCue(this.cued ? (this.hedgeNext ? 'cuedHedged' : 'cued') : rem <= CUE_WINDOW ? 'open' : 'waiting', this.nextTitle(), 0, hedge);
+        else this.hud?.setCue(this.cued ? (this.hedgeNext ? 'cuedHedged' : 'cued') : rem <= CUE_WINDOW ? 'open' : 'waiting', this.nextTitle(), 0, hedge, !this.deskUsed && this.deskAvailable());
         if (DEBUG.auto && rem <= CUE_WINDOW) this.cued = true;
       } else this.hud?.setCue('hidden', '');
 
