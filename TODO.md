@@ -51,12 +51,14 @@ Still to answer from the Gate 1 list (Night 2 not yet played): the off-air confi
 the second carrier in the squall, the classifieds, "annoying rather than tense".
 
 ## Next — in PLAN.md order
-- [ ] Gate 3 playtest (the full run to the last dawn, then START OVER); questions in PLAN.md
-      §14 and HANDOFF.md "What to do next". Gate 2 (Nights 1–4) passed 2026-10-07 with
-      nothing to fix; the voice levels and the Other Station sounded right by ear.
-- [ ] Night 6 difficulty, after Gate 3: on `?auto` the storm (wind 1.6) plus two tubes
-      blowing into an empty drawer leaves slots 4–6 at 0.4 / 0.3 / 0.0 signal, so the finale's
-      warnings mostly miss. Headless frame rates make this worse; judge it by hand first.
+All three playtest gates passed on 2026-10-07 with nothing to fix after Gate 1 (Gate 2:
+Nights 1–4; Gate 3: the full run to the last dawn and START OVER). Night 6's storm was
+judged by hand and holds; the `?auto` numbers below are a headless artefact, not a tuning
+problem. What is left is polish, none of it blocking.
+
+- [ ] Night 6 on `?auto` only: the storm (wind 1.6) plus two tubes blowing into an empty
+      drawer leaves slots 4–6 at 0.4 / 0.3 / 0.0 signal. By hand it plays fine (Gate 3); only
+      worth touching if a headless check needs the finale's warnings to land.
 - [ ] `?night=N` towns are too rosy and too poor (every auto night goes perfectly: trust 100
       by Night 3; nobody buys classifieds, so the drawer is empty by Night 5). Make `townBefore`
       play earlier nights at signal 0.85 with one caller ignored and buy a spare a night.
@@ -102,3 +104,4 @@ the second carrier in the squall, the classifieds, "annoying rather than tense".
 - 2026-10-07, before Gate 2: a beat of warning before a tube blows (the sputter) and before
   the Morse tape (the lead); a tube pick during the fumble is queued, not lost
 - 2026-10-07, Gate 2: Anthony played Nights 1–4. Nothing to fix; the warning beat stays
+- 2026-10-07, Gate 3: Anthony played the full run to the last dawn. Nothing to fix

@@ -15,8 +15,9 @@ A-G, K and M are on `main`. Six nights play start to finish, save and continue, 
 line voiced. M0 and M1 were playtested by the owner; everything since (booth tasks, the
 switchboard, the desk, the Other Station live, Nights 3-6, the climax, pause and volume)
 has only been played by the `?auto` player and one scripted real-pace run of Night 1.
-Gates 1 and 2 passed on 2026-10-07 (what Gate 1 turned up and what it became is the top of
-`TODO.md`; Gate 2 found nothing to fix). Next is Gate 3, the full run; see "What to do next".
+All three playtest gates passed on 2026-10-07 (what Gate 1 turned up and what it became is
+the top of `TODO.md`; Gates 2 and 3 found nothing to fix). The game is done as planned; what
+is left is the polish list in `TODO.md` and whatever the owner decides next.
 
 **Content status:** the campaign is six nights (`src/data/night1.ts` to `night6.ts`,
 listed in order in `src/data/nights.ts`), all voiced. Nights 3-6 were written by the
@@ -252,13 +253,14 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
 2. **Gate 2 (done 2026-10-07, nothing to fix): Nights 1-4.** Night 3 (Two Lamps: the first override, the town asking about
    two a.m.), Night 4 (The Freeze: the relay hut fire, Teddy, the first long override). Judge
    whether the Other Station reading what you cut feels like a consequence or a trick.
-3. **Gate 3: the full run** to the last dawn, then START OVER. Night 5's "go dark" card and
+3. **Gate 3 (done 2026-10-07, nothing to fix): the full run** to the last dawn, then START OVER. Night 5's "go dark" card and
    what fills the silence; Night 6's climax (HOLD / LET IT THROUGH / COUNTER at 1:04 AM:
    does 45 seconds feel right, is holding three quarters of it fair, is the storm's wind
    1.6 with two tubes blowing and an empty drawer too much); whether the headline you got
    matches the night you had. `npm run probe -- 6` and `?night=6&counter` help, but
    `?night=N` towns are rosier than a real run (every earlier night went perfectly).
-4. **Then** the Later list in `TODO.md`: rosier towns, the record glint. No new mechanics until the gates say the existing ones hold up.
+4. **Then** the Next list in `TODO.md`: rosier `?night=N` towns, the record glint. The gates
+   say the existing mechanics hold up; new ones are the owner's call.
 
 ## Known uncertainties
 
