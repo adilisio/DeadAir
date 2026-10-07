@@ -12,13 +12,17 @@ Phaser 4 + TypeScript + Vite. Read `HANDOFF.md` first if you're new to the proje
 - `npm run build` — typecheck + production build to `dist/`
 - `npm run shots` — headless play-through: screenshots to `shots/`, fails on any console error.
   Pass a filter: `npm run shots -- dawn`. Set `CHROMIUM_PATH` if Playwright's browser isn't installed.
+- `npm run probe -- N` — play night N headless on `?auto` and print what the resolver made
+  of it: signal per slot, flags, every dawn line, the headline. For checking content.
+- `npm run play` — Night 1 at real pace with a scripted player (tasks, calls, a dump).
 - `npm run voices` — render spoken lines with no voice file yet (Kokoro, offline, CPU) into
   `public/voice/`. Run it after editing any spoken text; `-- --list` shows what's missing.
 
 URL switches (see `src/config.ts`): `?fast` short records/talk, `?auto` plays itself,
 `?mute` silent, `?nofx` no post effects, `?scene=booth|dawn` jump in (booth continues a
 saved run), `?night=N` start at night N, 1-6 (earlier nights resolved as their `?auto` shows;
-wins over a save), `?reset` forget the saved run.
+wins over a save), `?reset` forget the saved run, `?drift` (with `?auto`) lean toward 1250 in storms, `?counter`
+(with `?auto`) talk over the last night's climax instead of holding the dial. ESC pauses.
 `window.__deadair` exposes the current phase and the game object for debugging.
 
 Rendering notes: the room is lit with Phaser 4 lights (`setLighting`) and post effects in

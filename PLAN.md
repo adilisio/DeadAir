@@ -323,7 +323,10 @@ Done (2026-10-06):
 - [x] **G** Campaign wiring: Nights 3-6 (the content of H-K) in, with the rules they need (gated
   events, dawn lines, letters, headlines, groups, ends-the-show, Other Station variants) and
   their voices. The records fetch planned for G landed earlier (`79ba260`). Still open from
-  H-L: the climax's HOLD / CARRY / COUNTER, several letters a night.
+  H-L: the climax's HOLD / CARRY / COUNTER, rumor ink at dawn, several letters a night.
+- [x] **K** Night 6's climax is a choice: hold the dial to jam it (dead air, half signal for the
+  slot), let it carry, or SPACE to talk over it with the counter card at half reach. Its
+  lines lead the ledger; `?counter` for the auto show (`f1f4f9d`).
 - [x] **M** Polish: pause (ESC / PAUSE), music / voice / static volume sliders (saved), first-time
   hints (saved with the run), rumor ink at dawn, version and `six nights` on the title, canvas
   focus, README controls table.

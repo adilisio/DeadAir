@@ -10,10 +10,12 @@ Vesper, a post-collapse town on Lake Erie. You build a night's show from cards, 
 live, and what you air changes the town. After sign-off, another station on your frequency
 reads back what you chose *not* to air. Phaser 4 + TypeScript + Vite, Vitest for rules.
 
-**Milestone status:** M0 (scaffold) and M1 (One Night) are done and playtested by the
-owner. Night 1 plays real public-domain 78s. The booth mini-games (the main playtest
-complaint) are built but **not yet playtested by the owner**. Next work is the owner's
-call; see "What to do next".
+**Milestone status:** the campaign milestone (`PLAN.md`, 2026-10-06) is built: packets
+A-G, K and M are on `main`. Six nights play start to finish, save and continue, with every
+line voiced. M0 and M1 were playtested by the owner; everything since (booth tasks, the
+switchboard, the desk, the Other Station live, Nights 3-6, the climax, pause and volume)
+has only been played by the `?auto` player and one scripted real-pace run of Night 1.
+Next is the owner's Gate 1 playtest; see "What to do next".
 
 **Content status:** the campaign is six nights (`src/data/night1.ts` to `night6.ts`,
 listed in order in `src/data/nights.ts`), all voiced. Nights 3-6 were written by the
@@ -42,7 +44,7 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
 | Factions | **Netters** (fishing families), **the Chapel** (church: infirmary and school; kind, powerful, certain), **the Linemen** (engineers restringing the dead lines to bring the power back). The owner asked that not every faction be blue-collar. |
 | Music | Real public-domain 78s (US recordings published before 1926; songs before 1931). |
 | Voices | Kokoro TTS rendered offline to files, one voice per person (`src/data/people.ts`), played through the radio chain; browser TTS only as a fallback. Owner may record lines (they drop into `public/voice/`). |
-| Daytime (M2) | All three modes, each small, on one top-down engine: town walk, map + travel event, short ruin run. |
+| Daytime | **Cut** (PLAN.md, 2026-10-06). The station is the game; dawn carries the between-nights. |
 | Still open | The DJ's name. What the Other Station is (owner decides; don't explain it in content). |
 
 ## Owner's playtest of M1 (their words, condensed)
@@ -73,6 +75,11 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
   dawn / letter for Nights 3-6, `41a-night4-override`, `61a-night6-climax`).
   Packet K (the climax): adds `61b-night6-counter` and `62-night6-dawn-counter`
   (`?counter`); `61a` / `61b` also check the climax ended `jammed` / `countered`.
+  Packet M (polish): adds `04e-booth-paused` and `04f-booth-hint`.
+  At the end of the milestone (2026-10-06): 349 tests, 53 shots, typecheck and build clean.
+  `npm run probe -- N` prints a night's resolved result (signal, flags, ledger, headline)
+  from the `?auto` run, the quickest way to check content; `npm run play` drives Night 1
+  at real pace with a scripted player.
 - Runs: `src/run.ts` holds the run (night index, town, result); `startNight`, `finishNight`
   (keeps the result and saves), `nextNight` (saves), `resetRun`, `townBefore(n)` for
   `?night=N`, and the save: `saveRun` / `loadRun` / `savedRun` / `clearSave` on
@@ -146,7 +153,8 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
     `eventsDue`), `overrideSeconds` (holding the dial shortens it), `overrideCard`, and the
     show clock (`clockText`). The climax: `climaxResult(held, countered)` (SPACE wins;
     `CLIMAX_HOLD` 0.75 held jams it; `CLIMAX_TRIED` 0.1 or more and less than that fails;
-    else carried), `JAM_SIGNAL`; the scene logs `perf.climax`. The resolver's
+    else carried), `JAM_SIGNAL`; the scene logs `perf.climax` and `perf.tuned` (signal per
+    slot before the jam: storms are judged on that, so a jam is not "the wind took you off"). The resolver's
     `otherStationLive` turns `perf.bleed`, `perf.overrides` and `perf.climax` (unless
     jammed; countered at half signal) into cards the town heard on 1260
     (`NightResult.otherAired`, flags `other_heard` and `other_aired_<card>`, lines that
@@ -233,30 +241,24 @@ director (2026-10-06) and wired in Packet G; nobody has played them by hand yet,
   Node's `fetch` doesn't get through the proxy; the fetch tool falls back to `curl`.
 - Screenshots: `CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome npm run shots`.
 
-## What to do next (ask the owner which; recommendation first)
+## What to do next (the playtest gates, PLAN.md section 14)
 
-1. **Playtest Nights 1 and 2 back to back with the owner** (recommended), then tune or
-   cut. The owner's first booth-task pass is in `TODO.md` (tasks hard the first time;
-   Morse hard on `?fast`). Night 1's shape: needle and tube at dusk; switchboard (Mrs.
-   Okafor, a nameless slanderer to dump, Lottie) and a storm late; Morse ("HELP") in the
-   small hours. Night 2 (`src/data/night2.ts`): switchboard at dusk (Grace Okafor, Sparky
-   inviting the town up a live pylon, Old Bill's knee), tube and Morse ("SPOOL", from Teddy) late,
-   a second board over the late record (Lottie's birthday request for Walt; Pruitt, bitten or
-   grateful; Walt if Lottie aired on Night 1), the
-   squall in the small hours on top of the squall warning. Night 1's flags gate Night 2
-   cards and callers (Morse copied → the Wozniak tip, boat lost → memorial, slander aired
-   → Sister Agnes replies, Teddy found or not → which Grace calls).
-   (First-time hints, volume sliders and a pause landed in Packet M.)
-2. **Voices: listen.** Every line is pre-rendered with Kokoro and plays through the radio
-   chain (2026-10-06). Nobody in-session could hear them: the owner should judge the voice
-   picks in `src/data/people.ts`, the phone and Other Station sound, and levels against
-   the records. The owner's own recordings drop into `public/voice/` (see its README).
-3. **M2: One Day** — town walk, map with a travel event, one ruin run; outputs are cards
-   and records for the night. See `DESIGN.md`.
-4. **Play Nights 3-6 by hand.** They have only run on `?auto`. Things to judge: Night 5's
-   "go dark" card and what fills the silence, Night 6's climax (HOLD / CARRY / COUNTER:
-   does 45 seconds feel right, is holding three quarters of it fair), and whether the
-   crates (up to 15 cards) read well.
+1. **Gate 1: the owner plays Nights 1 and 2** with headphones, no switches. The questions
+   to answer are the top of `TODO.md`. Nobody has heard the voices, the phone band, the
+   Other Station's processing or the three-second dump delay; the owner's ear decides the
+   levels (`playVoice` gains in `src/audio/engine.ts`, the sliders are only a scale on top).
+   Tune what Gate 1 turns up before going on.
+2. **Gate 2: Nights 1-4.** Night 3 (Two Lamps: the first override, the town asking about
+   two a.m.), Night 4 (The Freeze: the relay hut fire, Teddy, the first long override). Judge
+   whether the Other Station reading what you cut feels like a consequence or a trick.
+3. **Gate 3: the full run** to the last dawn, then START OVER. Night 5's "go dark" card and
+   what fills the silence; Night 6's climax (HOLD / LET IT THROUGH / COUNTER at 1:04 AM:
+   does 45 seconds feel right, is holding three quarters of it fair, is the storm's wind
+   1.6 with two tubes blowing and an empty drawer too much); whether the headline you got
+   matches the night you had. `npm run probe -- 6` and `?night=6&counter` help, but
+   `?night=N` towns are rosier than a real run (every earlier night went perfectly).
+4. **Then** the Later list in `TODO.md`: rosier towns, tube picks during the fumble, the
+   record glint. No new mechanics until the gates say the existing ones hold up.
 
 ## Known uncertainties
 

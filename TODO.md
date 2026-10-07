@@ -22,18 +22,20 @@ first time each task appears is in the polish packet); Morse was tricky on `?fas
 (retry at normal speed).
 
 ## Next — in PLAN.md order
-- [ ] Packet G (in progress): Nights 3–6 wired, voices for every line, `?night=3..6`
-- [ ] Packet M (polish): pause, volume sliders (music / voice / static), first-time hints,
-      rumor-tone ink on the Ledger, docs pass
-- [ ] Gate 2 playtest (Nights 1–4), then Gate 3 (the full run); questions in PLAN.md §14
 - [ ] Tune by ear after Gate 1: voice levels per channel (`playVoice` gains), the Other
       Station's processing, phone band, static under voices
-- [ ] `?night=N` towns are too rosy (every auto night goes perfectly: trust 100 by Night 3).
-      Make `townBefore` play earlier nights at signal 0.85 with one caller ignored, so a
-      late-night jump-in feels like a real run.
+- [ ] Gate 2 playtest (Nights 1–4), then Gate 3 (the full run); questions in PLAN.md §14 and
+      HANDOFF.md "What to do next"
+- [ ] Night 6 difficulty, after Gate 3: on `?auto` the storm (wind 1.6) plus two tubes
+      blowing into an empty drawer leaves slots 4–6 at 0.4 / 0.3 / 0.0 signal, so the finale's
+      warnings mostly miss. Headless frame rates make this worse; judge it by hand first.
+- [ ] `?night=N` towns are too rosy and too poor (every auto night goes perfectly: trust 100
+      by Night 3; nobody buys classifieds, so the drawer is empty by Night 5). Make `townBefore`
+      play earlier nights at signal 0.85 with one caller ignored and buy a spare a night.
 - [ ] Tube picks during the fumble are ignored; queue the pick or shorten the fumble
 - [ ] Known rough edges: the record glint stands in for a spinning label; `?fast` overrides
-      run at a third of their length on screen
+      run at a third of their length on screen; no dawn line uses tone `rumor` yet (the ink
+      is ready)
 
 ## Owner
 - Final name for the DJ
@@ -64,3 +66,9 @@ first time each task appears is in the polish packet); Morse was tricky on `?fas
   - D: the desk (live swaps), hedged reads, sources instead of truth, the spares drawer,
     classifieds (`1da99af`)
   - E: the Other Station live: two carriers in the storm, overrides (`c7be35f`)
+  - G: Nights 3–6 wired with the rules they need, every line voiced, `?night=3..6`,
+    the whole-campaign shot (`fe2edc3`); content fixes after the shot pass (`7fcf41b`)
+  - K: Night 6's climax is a choice: HOLD (jam it), LET IT THROUGH, COUNTER (`f1f4f9d`)
+  - M: pause, volume sliders, first-time hints, rumor ink, title version (`4c77090`)
+  - Night 6's Ridge Road line resolves once; the storm is judged on the dial, not the jam;
+    `npm run probe`
