@@ -9,6 +9,20 @@ import { label, panel } from './widgets';
 const BOX = { x: 232, y: 140, w: 220, h: 94 };
 const CW = '#c9e7ff';
 
+/** How wide a run of marks draws. */
+function marksWidth(marks: string, u: number): number {
+  let w = 0;
+  for (const m of marks) w += m === ' ' ? u * 2 : (m === '-' ? u * 3 : u) + u;
+  return w;
+}
+
+/** The tail of a run of marks that fits in `width`. */
+function marksThatFit(marks: string, u: number, width: number): string {
+  let from = 0;
+  while (from < marks.length && marksWidth(marks.slice(from), u) > width) from++;
+  return marks.slice(from);
+}
+
 /** Draw a run of marks ('.', '-', ' ') left to right; returns the end x. */
 function drawMarks(g: Phaser.GameObjects.Graphics, x: number, y: number, marks: string, u: number, color: number): number {
   g.fillStyle(color, 1);
@@ -65,7 +79,8 @@ export class MorsePanel {
     // Keying lamp, then the tape.
     g.fillStyle(on ? 0xc9e7ff : 0x23303f, 1);
     g.fillRect(BOX.x + 9, BOX.y + 22, 8, 8);
-    drawMarks(g, BOX.x + 24, BOX.y + 24, tape, 4, 0xffe08a);
+    // A long pass runs off the box: show its tail, which is what was just keyed.
+    drawMarks(g, BOX.x + 24, BOX.y + 24, marksThatFit(tape, 4, BOX.w - 32), 4, 0xffe08a);
     this.copy.setText(Array.from({ length: this.wordLength }, (_, i) => typed[i] ?? '_').join(' '));
     this.timer.setText(`fading in ${Math.ceil(Math.max(0, secondsLeft))}s`);
     if (this.scene.time.now > this.flashUntil) this.status.setText('type the letters').setColor(UI.dim);

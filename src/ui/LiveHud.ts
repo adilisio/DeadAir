@@ -36,6 +36,16 @@ export class LiveHud {
   private tpDim: Phaser.GameObjects.Text;
   private tpLit: Phaser.GameObjects.Text;
   private tpFull = '';
+  /** The header without its tail (the record clock), to put the tail on. */
+  private tpHeaderBase = '';
+  /** A script too long for the box, wrapped: the box shows a window of these lines around the one being read. */
+  private tpLines: string[] = [];
+  private tpStarts: number[] = [];
+  private tpVisible = 1;
+  private tpWindow = -1;
+  private tpWinText = '';
+  private tpWinOffset = 0;
+  private tpReveal = false;
   /** While the Other Station has the teleprompter: what the station's own item would show. */
   private behind: { header: string; text: string; color: string; reveal: boolean; spoken: number } | null = null;
   private tuneGfx: Phaser.GameObjects.Graphics;
@@ -115,7 +125,7 @@ export class LiveHud {
       tune.push(label(scene, TUNE.x + 12 + k * (TUNE.w - 24), TUNE.y + 31, f, { size: 12, color: UI.dim }).setOrigin(0.5, 0));
     }
     const zone = scene.add.zone(TUNE.x + TUNE.w / 2, TUNE.y + TUNE.h / 2, TUNE.w, TUNE.h).setInteractive({ useHandCursor: true });
-    zone.on('pointerdown', (p: Phaser.Input.Pointer) => (this.pointerTune = p.x < TUNE.x + TUNE.w / 2 ? -1 : 1));
+    zone.on('pointerdown', (p: Phaser.Input.Pointer) => (this.pointerTune = p.worldX < TUNE.x + TUNE.w / 2 ? -1 : 1));
     zone.on('pointerup', () => (this.pointerTune = 0));
     zone.on('pointerout', () => (this.pointerTune = 0));
     tune.push(zone);
@@ -212,15 +222,57 @@ export class LiveHud {
   }
 
   private showPrompt(header: string, text: string, color: string, reveal: boolean): void {
+    this.tpHeaderBase = header;
     this.tpHeader.setText(header);
     this.tpFull = text;
-    for (const size of [14, 13, 12, 11]) {
+    this.tpReveal = reveal;
+    const room = TP.h - 19;
+    let fits = false;
+    for (const size of [14, 13, 12]) {
       this.tpDim.setFontSize(size).setText(text);
       this.tpLit.setFontSize(size);
-      if (this.tpDim.height <= TP.h - 19) break;
+      if (this.tpDim.height <= room) {
+        fits = true;
+        break;
+      }
     }
-    if (reveal) this.tpDim.setText('');
+    // Longer than the box at 12px: show a window of lines that follows the reading.
+    this.tpLines = fits ? [] : this.tpDim.getWrappedText(text);
+    this.tpStarts = [];
+    let at = 0;
+    for (const line of this.tpLines) {
+      const k = text.indexOf(line, at);
+      this.tpStarts.push(k < 0 ? at : k);
+      at = (k < 0 ? at : k) + line.length;
+    }
+    if (!fits) {
+      const one = this.tpDim.setText('X').height;
+      this.tpVisible = Math.max(1, Math.floor((room + 2) / Math.max(1, one - 2)));
+    }
+    this.tpWindow = -1;
+    this.window(0);
     this.tpLit.setText('').setColor(color);
+  }
+
+  /** Show wrapped lines from `start` (a whole script when it fits). */
+  private window(start: number): void {
+    if (!this.tpLines.length) {
+      this.tpWinText = this.tpFull;
+      this.tpWinOffset = 0;
+    } else {
+      start = Math.max(0, Math.min(start, this.tpLines.length - this.tpVisible));
+      if (start === this.tpWindow) return;
+      this.tpWindow = start;
+      this.tpWinText = this.tpLines.slice(start, start + this.tpVisible).join('\n');
+      this.tpWinOffset = this.tpStarts[start];
+    }
+    this.tpDim.setText(this.tpReveal ? '' : this.tpWinText);
+  }
+
+  /** Put `tail` after the header, if the header is still `base` (the record clock). */
+  setHeaderTail(base: string, tail: string): void {
+    if (this.behind || this.tpHeaderBase !== base) return;
+    this.tpHeader.setText(tail ? `${base}  ·  ${tail}` : base);
   }
 
   setSpoken(chars: number): void {
@@ -312,7 +364,13 @@ export class LiveHud {
     if (!this.tpFull) return;
     let end = Math.min(this.tpFull.length, Math.max(0, Math.round(chars)));
     while (end < this.tpFull.length && /\S/.test(this.tpFull[end])) end++;
-    this.tpLit.setText(this.tpFull.slice(0, end));
+    if (this.tpLines.length) {
+      // Keep the line being read second from the top.
+      let k = 0;
+      while (k + 1 < this.tpStarts.length && this.tpStarts[k + 1] <= end) k++;
+      this.window(k - 1);
+    }
+    this.tpLit.setText(this.tpWinText.slice(0, Math.max(0, end - this.tpWinOffset)));
   }
 
   /**

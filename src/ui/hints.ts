@@ -9,7 +9,7 @@ export const HINT_SECONDS = 6;
 export const HINTS = {
   needle: 'First time: SPACE drops the needle on the green band',
   tube: 'First time: Q / W / E seats the spare that matches the dead socket',
-  switchboard: 'First time: 1 / 2 / 3 listens in, again puts them on, X dumps, SPACE leaves',
+  switchboard: 'First time: 1 / 2 / 3 listens in, SPACE puts them on, X dumps, ESC hangs up',
   morse: 'First time: type the letters on the chart as the tape spells them',
   storm: 'First time: hold A / D to keep the dial on 1260',
   override: 'First time: it has the dial; hold A or D against it',

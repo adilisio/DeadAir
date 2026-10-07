@@ -21,7 +21,7 @@ export interface BoardView {
   after: boolean;
 }
 
-const BOX = { x: 12, y: 104, w: 214, h: 182 };
+const BOX = { x: 12, y: 80, w: 214, h: 206 };
 const ROW_Y = BOX.y + 20;
 const ROW_H = 21;
 const STATE_TEXT: Record<LineState, string> = { ringing: 'ringing', listening: 'listening', onair: 'ON AIR', done: 'done', gone: 'hung up' };
@@ -72,9 +72,9 @@ export class SwitchboardPanel {
     parts.push(this.preview);
 
     const by = y + h - 22;
-    this.onAirBtn = button(scene, x + 6, by, 100, 17, 'ON AIR  ENTER', () => on.onAir(), { size: 14, color: 0x9be37a });
+    this.onAirBtn = button(scene, x + 6, by, 100, 17, 'ON AIR  SPACE', () => on.onAir(), { size: 14, color: 0x9be37a });
     this.dumpBtn = button(scene, x + 6, by, 100, 17, 'DUMP  X', () => on.dump(), { size: 14, color: 0xff7a6b });
-    this.backBtn = button(scene, x + w - 106, by, 100, 17, 'BACK  SPACE', () => on.back(), { size: 14 });
+    this.backBtn = button(scene, x + w - 106, by, 100, 17, 'HANG UP  ESC', () => on.back(), { size: 14 });
     parts.push(this.onAirBtn.container, this.dumpBtn.container, this.backBtn.container);
 
     this.root = ui(scene.add.container(0, 0, parts).setDepth(120));
@@ -122,15 +122,25 @@ export class SwitchboardPanel {
     else if (v.selected !== null) {
       // After the preview, a caller who confides says the rest off the air.
       const line = this.lines[v.selected];
-      if (v.confided && line.confide) this.preview.setText(`(off the air) "${line.confide.text}"`).setColor(UI.hot);
-      else this.preview.setText(`"${line.preview}"`).setColor(CALLER);
+      if (v.confided && line.confide) this.fit(`(off the air) "${line.confide.text}"`).setColor(UI.hot);
+      else this.fit(`"${line.preview}"`).setColor(CALLER);
     } else if (v.after) this.preview.setText("You're back on the air. The lines are holding.").setColor(UI.dim);
-    else this.preview.setText('1-3 listens in off air. Press it again, or ENTER, to put them on.').setColor(UI.dim);
+    else this.preview.setText('1-3 listens in off air. SPACE or ENTER puts them on. ESC hangs up on everyone.').setColor(UI.dim);
 
     this.onAirBtn.container.setVisible(!onAir);
     this.onAirBtn.setEnabled(v.selected !== null && !v.after);
     this.dumpBtn.container.setVisible(onAir);
     this.backBtn.setEnabled(!onAir && !v.after);
+  }
+
+  /** The preview at 13px, or smaller when a long confide would run into the buttons. */
+  private fit(text: string): Phaser.GameObjects.Text {
+    const room = BOX.y + BOX.h - 26 - this.preview.y;
+    for (const size of [13, 12, 11]) {
+      this.preview.setFontSize(size).setText(text);
+      if (this.preview.height <= room) break;
+    }
+    return this.preview;
   }
 
   destroy(): void {

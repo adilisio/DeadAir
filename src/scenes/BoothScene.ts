@@ -48,6 +48,12 @@ import { HINTS, HINT_ORDER, HINT_SECONDS, type HintId } from '../ui/hints';
 import { PauseOverlay } from '../ui/PauseOverlay';
 
 const S = ART_SCALE;
+/** m:ss for the teleprompter's record clock. */
+function formatLeft(seconds: number): string {
+  const t = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+}
+
 /** Records play up to this long, then fade (a 78 side runs about three minutes). */
 const RECORD_SECONDS = DEBUG.fast ? 5 : 75;
 /** How long a line rings when it has no patience of its own. */
@@ -366,9 +372,11 @@ export class BoothScene extends Phaser.Scene {
     kb.on('keydown', (e: KeyboardEvent) => !this.paused && this.typeMorse(e.key));
     // The desk: TAB opens and closes it (captured, so the browser keeps focus), 1-9 pick.
     kb.addKey(K.TAB).on('down', unpaused(() => this.toggleDesk()));
-    // ESC puts the desk away if it is open; otherwise it pauses the show (and ends the pause).
+    // ESC hangs up a switchboard nobody is on, puts the desk away if it is open, and
+    // otherwise pauses the show (and ends the pause).
     kb.addKey(K.ESC).on('down', () => {
-      if (this.deskPanel && !this.paused) this.closeDesk();
+      if (this.board && this.board.onAir === null && !this.board.after && !this.paused) this.closeBoard();
+      else if (this.deskPanel && !this.paused) this.closeDesk();
       else this.setPaused(!this.paused);
     });
     [K.ONE, K.TWO, K.THREE, K.FOUR, K.FIVE, K.SIX, K.SEVEN, K.EIGHT, K.NINE].forEach((code, i) => kb.addKey(code).on('down', unpaused(() => this.pickDesk(i))));
@@ -750,8 +758,9 @@ export class BoothScene extends Phaser.Scene {
       return;
     }
     if (this.board) {
-      // SPACE leaves the switchboard, but not in the first second (no accidental hang-ups).
-      if (this.time.now - this.board.opened > 1000) this.closeBoard();
+      // On the switchboard SPACE puts the line you are listening to on the air (ESC hangs
+      // up): a player reaching for the one key they know should not hang up on everyone.
+      this.putOnAir();
       return;
     }
     if (this.needle) {
@@ -982,27 +991,25 @@ export class BoothScene extends Phaser.Scene {
   }
 
   /**
-   * The town's copy of a call: the same words through the radio chain, DUMP_DELAY_SECONDS
-   * behind the handset. The voice index gives both copies the same buffer. The browser
-   * voice can't say two things at once, so when the handset copy is speechSynthesis there
-   * is no second copy: the one voice stands for both (and the delay is only in the rules).
+   * The town's copy of a call runs DUMP_DELAY_SECONDS behind the handset. The booth does not
+   * monitor the air: you hear a caller once, on the handset, and the town hears them after
+   * you (two copies of the same voice a few seconds apart read as a bug, not a delay). So
+   * this is only the delay's clock: the call is over when the town has heard the end of it.
    */
-  private delayedCopy(line: CallLine, handset: Speech): Playback {
+  private delayedCopy(handset: Speech): Playback {
     let cancelled = false;
-    let copy: Speech | null = null;
+    let timer: PauseTimer | undefined;
     let resolve!: () => void;
     const done = new Promise<void>((r) => (resolve = r));
-    const timer = pauseClock.timeout(() => {
-      if (cancelled || handset.browserVoice) return resolve();
-      copy = speak(line.script, { person: line.person, channel: 'phone' });
-      void copy.done.then(resolve);
-    }, DUMP_DELAY_SECONDS * 1000);
+    void handset.done.then(() => {
+      if (cancelled) return;
+      timer = pauseClock.timeout(resolve, DUMP_DELAY_SECONDS * 1000);
+    });
     return {
       done,
       cancel: () => {
         cancelled = true;
-        timer.clear();
-        copy?.cancel();
+        timer?.clear();
         resolve();
       },
     };
@@ -1029,10 +1036,10 @@ export class BoothScene extends Phaser.Scene {
     if (!b.during) this.signalSlot = b.signal;
     markPhase('call');
     const header = `LINE ${['ONE', 'TWO', 'THREE'][i]} · ${line.name.toUpperCase()}`;
-    // You hear them now, on the handset; the teleprompter and the dump follow this copy.
+    // You hear them on the handset; the teleprompter and the dump follow this copy.
     const call = this.talk(b.slot - 1, header, line.script, { person: line.person, channel: 'handset', color: '#c9e7ff', reveal: true, hold: true });
     // The town hears them a few seconds later. The call is over when the town has heard it.
-    const air = this.delayedCopy(line, this.speech!);
+    const air = this.delayedCopy(this.speech!);
     this.onAirCopy = air;
     void call.done.then(() => air.done).then(() => this.callEnded(i));
   }
@@ -1731,6 +1738,7 @@ export class BoothScene extends Phaser.Scene {
         this.hud?.setCue('last', this.nextTitle());
       } else if (this.playing) {
         const rem = this.remaining();
+        if (this.record && this.recordPrompt && !this.board) this.hud?.setHeaderTail(this.recordPrompt.header, `${formatLeft(rem)} left`);
         if (this.recordNext()) this.hud?.setCue('needleNext', this.nextTitle());
         else this.hud?.setCue(this.cued ? (this.hedgeNext ? 'cuedHedged' : 'cued') : rem <= CUE_WINDOW ? 'open' : 'waiting', this.nextTitle(), 0, hedge);
         if (DEBUG.auto && rem <= CUE_WINDOW) this.cued = true;
