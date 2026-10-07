@@ -361,6 +361,8 @@ export type ClimaxResult = 'jammed' | 'carried' | 'countered' | 'failed';
 export interface ShowPerformance {
   rundown: string[];
   signal: number[];
+  /** Signal per slot before the climax jam (what the dial and the tubes did). Storms read this. */
+  tuned?: number[];
   deadAirSeconds: number;
   /** Calls put on air, in order. Lines not listed were never taken. */
   calls: CallRecord[];

@@ -137,6 +137,8 @@ export class BoothScene extends Phaser.Scene {
   private deadAir = 0;
   private sigSum: number[] = [];
   private sigTime: number[] = [];
+  /** Per slot: signal before the climax jam, for the storm's verdict. */
+  private tuneSum: number[] = [];
   private signalSlot: number | null = null;
   /** Night events already started (each fires once), and boards waiting their turn. */
   private fired = new Set<string>();
@@ -273,6 +275,7 @@ export class BoothScene extends Phaser.Scene {
     this.deadAir = 0;
     this.sigSum = Array(SHOW_SLOTS).fill(0);
     this.sigTime = Array(SHOW_SLOTS).fill(0);
+    this.tuneSum = Array(SHOW_SLOTS).fill(0);
     this.signalSlot = null;
     this.board = null;
     this.fired = new Set();
@@ -1523,6 +1526,7 @@ export class BoothScene extends Phaser.Scene {
     this.tweens.add({ targets: this.lampLight, intensity: 1.2, duration: 1500 });
 
     const signal = this.sigSum.map((s, i) => (this.sigTime[i] > 0 ? s / this.sigTime[i] : 1));
+    const tuned = this.tuneSum.map((s, i) => (this.sigTime[i] > 0 ? s / this.sigTime[i] : 1));
     // The running order as it aired, swaps and all (up to the card that ended it, if one did).
     const aired = this.endedEarly ? this.cards.slice(0, this.idx + 1) : this.cards;
     const result = resolveNight(run.night, run.town, {
@@ -1541,7 +1545,7 @@ export class BoothScene extends Phaser.Scene {
       morse: this.morseResults,
       bleed: this.bleedSum.map((s, i) => (this.bleedTime[i] > 0 ? s / this.bleedTime[i] : 0)),
       overrides: this.overrideLog,
-      ...(this.climaxLog ? { climax: this.climaxLog } : {}),
+      ...(this.climaxLog ? { climax: this.climaxLog, tuned } : {}),
       confided: this.confidedTonight,
       hedged: [...this.hedgedSlots].filter((i) => i < aired.length).map((i) => this.cards[i].id),
       swaps: this.swaps,
@@ -1689,16 +1693,18 @@ export class BoothScene extends Phaser.Scene {
       const strength = this.tubeTick(dt);
       audio.setFault(1 - strength);
       // While it has the frequency the dial won't turn; pushing on it is holding against it.
-      this.quality = this.tuning.step(dt, this.override ? 0 : input, wind) * strength;
+      const tuned = this.tuning.step(dt, this.override ? 0 : input, wind) * strength;
+      this.quality = tuned;
       this.otherTick(dt, input, strength);
       // Held against the climax: neither station gets through, and the slot's signal pays for it.
-      if (this.jamming()) this.quality *= JAM_SIGNAL;
+      if (this.jamming()) this.quality = tuned * JAM_SIGNAL;
       this.hud?.setTransmitter(this.storm || !!this.dialIntrusion() || Math.abs(this.tuning.error) > TUNING.deadZone * 1.5, this.storm, this.dialIntrusion());
       // Jamming it, the static comes up as if the dial were far off.
       audio.setTuning(this.jamming() ? Math.max(Math.abs(this.tuning.error), 0.85) : this.tuning.error);
       this.recentQ += (this.quality - this.recentQ) * Math.min(1, dt * 0.8);
       if (this.signalSlot !== null && this.signalSlot < SHOW_SLOTS) {
         this.sigSum[this.signalSlot] += this.quality * dt;
+        this.tuneSum[this.signalSlot] += tuned * dt;
         this.sigTime[this.signalSlot] += dt;
       }
 

@@ -149,16 +149,16 @@ export const NIGHT_6: NightDef = {
         faction: 'linemen',
         threshold: 0.4,
         success: {
-          flag: 'n6_line_cut', tone: 'good',
+          flag: 'n6_cut_heard', tone: 'good',
           effects: { safety: 8, trust: { linemen: 3, chapel: 4 } },
           line: 'At ten to one the Linemen pulled the switch on their own line and Dock Street went dark again. The water came into the street at ten past, and nothing in it was live.',
         },
         fail: {
-          flag: 'n6_line_live', tone: 'bad',
+          flag: 'n6_cut_static', tone: 'bad',
           effects: { safety: -8 },
-          line: "You asked the Linemen to pull the switch and the static ate it. The line was live when the water came into Dock Street.",
+          line: 'You asked the Linemen to pull the switch and the static ate it.',
         },
-        unaired: { flag: 'n6_line_live', tone: 'neutral', effects: {}, line: '' },
+        unaired: { flag: 'n6_cut_unaired', tone: 'neutral', effects: {}, line: '' },
       },
     },
 
@@ -386,14 +386,14 @@ export const NIGHT_6: NightDef = {
             faction: 'linemen',
             threshold: 0.3,
             success: {
-              flag: 'n6_line_cut', tone: 'good',
+              flag: 'n6_pruitt_answered', tone: 'good',
               effects: { safety: 8, trust: { linemen: 4, chapel: 4 } },
               line: "Tom Pruitt asked the town, through you, whether to pull the switch. The town said pull it. At ten to one Dock Street went dark on purpose, and the water that came in at ten past wasn't live.",
             },
             fail: {
-              flag: 'n6_line_live', tone: 'bad',
+              flag: 'n6_pruitt_static', tone: 'bad',
               effects: { safety: -8 },
-              line: 'Tom Pruitt asked whether to pull the switch and the static took the answer. He kept his hand on it and waited, and the water came into Dock Street live.',
+              line: 'Tom Pruitt asked whether to pull the switch and the static took the answer. He kept his hand on it and waited.',
             },
           },
           cut: {
@@ -421,14 +421,14 @@ export const NIGHT_6: NightDef = {
             faction: 'linemen',
             threshold: 0.3,
             success: {
-              flag: 'n6_line_cut', tone: 'good',
+              flag: 'n6_pruitt_answered', tone: 'good',
               effects: { safety: 8, trust: { linemen: 3, chapel: 4 } },
               line: 'Pruitt asked, through you, whether to pull the switch, and the town said pull it. At ten to one Dock Street went dark on purpose. The water that came in at ten past wasn\'t live.',
             },
             fail: {
-              flag: 'n6_line_live', tone: 'bad',
+              flag: 'n6_pruitt_static', tone: 'bad',
               effects: { safety: -8 },
-              line: 'Pruitt asked whether to pull the switch and the static took the answer. He waited. The water came into Dock Street live.',
+              line: 'Pruitt asked whether to pull the switch and the static took the answer. He waited.',
             },
           },
           cut: {
@@ -481,7 +481,7 @@ export const NIGHT_6: NightDef = {
         effects: { credibility: 6, listeners: 8 },
       },
       lost: {
-        line: 'The wind took the Lamp off twelve-sixty in the worst hour and the thing underneath came up through it, clear as a bell, in your voice. Dock Street did what it said.',
+        line: 'The wind took the Lamp off twelve-sixty in the worst hour and the thing underneath came up through it, clear as a bell, in your voice.',
         effects: { listeners: -10, credibility: -6 },
       },
     },
@@ -527,6 +527,11 @@ export const NIGHT_6: NightDef = {
   classifieds: [],
 
   dawnLines: [
+    // The Ridge Road line was live unless the warning was heard or Pruitt got his answer.
+    {
+      gate: { unless: ['n6_cut_heard', 'n6_pruitt_answered'] }, flag: 'n6_line_live', tone: 'bad',
+      line: 'The Ridge Road line was live when the water came into Dock Street.',
+    },
     {
       gate: { requires: ['n6_went_up'], unless: ['n6_went_down'] },
       tone: 'good', flag: 'n6_dock_saved',
@@ -549,32 +554,17 @@ export const NIGHT_6: NightDef = {
       gate: { requires: ['n6_line_live', 'n6_went_down'] },
       tone: 'bad', flag: 'n6_line_deaths',
       effects: { morale: -10, safety: -10, trust: { linemen: -12 } },
-      line: 'The Ridge Road line was live when the water came into Dock Street. Nobody is saying the number yet. The Linemen pulled the switch at twenty past one and have not closed it since.',
+      line: 'Nobody is saying the number yet. The Linemen pulled the switch at twenty past one and have not closed it since.',
     },
     {
-      gate: { requires: ['n6_line_cut'], unless: ['n6_went_down'] },
+      gate: { unless: ['n6_line_live', 'n6_went_down'] },
       tone: 'good',
       line: 'The lights were on for two hours and fifty minutes, and then the Linemen put them out on purpose to save the street. Nobody on Dock Street has stopped talking about either half of that.',
-    },
-    {
-      gate: { requires: ['n6_jammed'] },
-      tone: 'eerie',
-      line: 'For forty seconds in the worst of it, twelve-sixty was dead air. Not you, not the other one. Just the carrier, held, with both hands. Then you came back.',
-    },
-    {
-      gate: { requires: ['n6_countered'] },
-      tone: 'eerie',
-      line: 'For forty seconds there were two Lamps on twelve-sixty saying opposite things in the same voice. Dock Street had to choose which one it believed. It mostly chose the one with the kettle.',
-    },
-    {
-      gate: { requires: ['n6_carried'] },
-      tone: 'eerie',
-      line: 'At the worst moment the other one took the frequency and you let it. It said what you hadn\'t. Dock Street did what it said.',
     },
   ],
 
   headlines: [
-    { gate: { requires: ['n6_dock_saved', 'n6_line_cut'] }, text: 'DOCK STREET WENT UP THE HILL', sub: 'The lights came on, and then the Linemen put them out to save the street. Everyone woke up at the Chapel.' },
+    { gate: { requires: ['n6_dock_saved'], unless: ['n6_line_live'] }, text: 'DOCK STREET WENT UP THE HILL', sub: 'The lights came on, and then the Linemen put them out to save the street. Everyone woke up at the Chapel.' },
     { gate: { requires: ['n6_dock_saved'] }, text: 'DOCK STREET WENT UP THE HILL', sub: 'Everyone off the street before the ice. The line stayed live and the water found it, and the houses were empty.' },
     { gate: { requires: ['n6_line_deaths'] }, text: 'THE STREET WAS A WIRE', sub: 'They went to the wall to hold the boats, and the Ridge Road line was live when the water came.' },
     { gate: { requires: ['n6_dock_split'] }, text: 'TWO LAMPS, TWO ROADS', sub: 'Half of Dock Street went up Church Road. Half went to the breakwater. Both were told to by the same voice.' },

@@ -573,7 +573,8 @@ export function resolveNight(night: NightDef, start: TownState, perf: ShowPerfor
     .map((s) => (endedEarly ? { ...s, slots: s.slots.filter((slot) => slot < show.length) } : s))
     .filter((s) => s.slots.length);
   for (const storm of storms) {
-    const held = stormSignal(storm, show.map((_c, i) => signalAt(i)));
+    // The wind is judged on the dial, not on a jam the player chose (the slot's signal paid for that).
+    const held = stormSignal(storm, show.map((_c, i) => perf.tuned?.[i] ?? signalAt(i)));
     const report = held >= STORM_HELD ? storm.held : held < STORM_LOST ? storm.lost : null;
     if (report) {
       applyEffects(state, report.effects);

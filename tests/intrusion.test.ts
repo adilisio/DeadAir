@@ -279,7 +279,8 @@ describe('resolver: the climax', () => {
     expect(r.after.flags).not.toContain('aired_warn_evac_chapel');
     expect(r.lines[0]).toEqual({ text: 'At 1:04 AM the Lamp gave Dock Street an order. You let it.', tone: 'eerie' });
     expect(texts(r).some((t) => /the Lamp read/.test(t))).toBe(false);
-    expect(texts(r)).toContain("At the worst moment the other one took the frequency and you let it. It said what you hadn't. Dock Street did what it said.");
+    // The ledger line above is the climax's only account: Night 6 adds no second one.
+    expect(texts(r).filter((t) => /the other one took the frequency|you let it/i.test(t))).toHaveLength(1);
   });
 
   it('failed: the same, but the ledger knows you tried', () => {
@@ -299,7 +300,7 @@ describe('resolver: the climax', () => {
     expect(r.after.flags).not.toContain('other_aired_warn_evac_breakwater');
     expect(r.after.flags).toEqual(expect.arrayContaining(['n6_evac_unaired', 'n6_breakwater_unaired']));
     expect(r.lines[0]).toEqual({ text: 'For 36 seconds you held the carrier with both hands and twelve-sixty was dead air. Then you came back.', tone: 'eerie' });
-    expect(texts(r).some((t) => t.startsWith('For forty seconds in the worst of it'))).toBe(true);
+    expect(texts(r).filter((t) => /held the carrier|dead air/.test(t))).toHaveLength(1);
     expect(otherStationLive(NIGHT_6, perf(show, { climax: climax('jammed', 0.8) }))).toEqual([]);
   });
 
@@ -312,7 +313,7 @@ describe('resolver: the climax', () => {
     expect(r.after.flags).not.toContain('n6_evac_unaired');
     expect(r.after.flags).not.toContain('other_aired_warn_evac_chapel');
     expect(r.lines[0]).toEqual({ text: 'For 45 seconds there were two of you on twelve-sixty, saying opposite things. Dock Street had to pick.', tone: 'eerie' });
-    expect(texts(r).some((t) => t.startsWith('For forty seconds there were two Lamps'))).toBe(true);
+    expect(texts(r).filter((t) => /two of you|two Lamps/.test(t))).toHaveLength(1);
     const live = otherStationLive(NIGHT_6, perf(show, { climax: climax('countered') }));
     expect(live.map((l) => [l.card, l.signal])).toEqual([['warn_evac_breakwater', 0.5]]);
   });
@@ -358,5 +359,48 @@ describe('resolver: the climax', () => {
 
   it('the after-sign-off read is unchanged', () => {
     expect(cx('countered').otherStation.cards).toEqual(resolveNight(NIGHT_6, STARTING_STATE, perf(show)).otherStation.cards);
+  });
+});
+
+describe('Night 6: the storm reads the dial, not the jam', () => {
+  const show = ['news_tonight', 'rec_harris2', 'warn_cut_line', 'rec_sweetheart2', 'news_last', 'rec_cradle2'];
+  const climax = { id: 'n6_climax', result: 'jammed' as const, held: 0.9, card: 'warn_evac_breakwater' };
+  const storm = NIGHT_6.events.find((e): e is Extract<typeof e, { kind: 'storm' }> => e.kind === 'storm')!;
+
+  it('jammed through the storm: the slot paid, but the wind did not take you off', () => {
+    const r = resolveNight(NIGHT_6, STARTING_STATE, perf(show, { climax, signal: [1, 1, 1, 1, 0.2, 1], tuned: [1, 1, 1, 1, 1, 1] }));
+    expect(r.lines.some((l) => l.text === storm.held.line)).toBe(true);
+    expect(r.lines.some((l) => l.text === storm.lost.line)).toBe(false);
+  });
+
+  it("without the dial's own record, the slot signal is all there is", () => {
+    const r = resolveNight(NIGHT_6, STARTING_STATE, perf(show, { climax, signal: [1, 1, 1, 1, 0.2, 1] }));
+    expect(r.lines.some((l) => l.text === storm.held.line)).toBe(false);
+  });
+});
+
+describe('Night 6: the Ridge Road line is live unless somebody got the switch pulled', () => {
+  const withCut = ['news_tonight', 'rec_harris2', 'warn_cut_line', 'rec_sweetheart2', 'news_last', 'rec_cradle2'];
+  const noCut = ['news_tonight', 'rec_harris2', 'ad_oil', 'rec_sweetheart2', 'news_last', 'rec_cradle2'];
+  const flags = (r: ReturnType<typeof resolveNight>) => r.after.flags;
+  const texts = (r: ReturnType<typeof resolveNight>) => r.lines.map((l) => l.text);
+
+  it('the warning heard, then Pruitt lost to static at the board: cut, not live', () => {
+    const r = resolveNight(NIGHT_6, STARTING_STATE, perf(withCut, { signal: [1, 1, 1, 1, 0.2, 1], calls: [{ line: 'call_pruitt_line' }] }));
+    expect(flags(r)).not.toContain('n6_line_live');
+    expect(flags(r)).toContain('n6_pruitt_static');
+    expect(texts(r).some((t) => /line was live|Dock Street live/.test(t))).toBe(false);
+  });
+
+  it('nobody said it: live', () => {
+    const r = resolveNight(NIGHT_6, STARTING_STATE, perf(noCut));
+    expect(flags(r)).toContain('n6_line_live');
+    expect(flags(r)).not.toContain('n6_line_cut');
+    expect(texts(r)).toContain('The Ridge Road line was live when the water came into Dock Street.');
+  });
+
+  it('Pruitt answered on a clear night, the card never aired: cut', () => {
+    const r = resolveNight(NIGHT_6, STARTING_STATE, perf(noCut, { calls: [{ line: 'call_pruitt_line' }] }));
+    expect(flags(r)).not.toContain('n6_line_live');
   });
 });
