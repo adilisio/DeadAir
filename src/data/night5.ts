@@ -114,12 +114,6 @@ export const NIGHT_5: NightDef = {
       script:
         "Some of you want me to say something about the voice on this frequency after I sign off, so here it is. It isn't me. I don't know what it is. I've sat up with the set on and heard it myself, and it is my voice, and it is not me. That's all I know. I'm not going to pretend to know more.",
       effects: { credibility: 4, morale: -2, trust: { chapel: 3 } },
-      reach: {
-        faction: 'chapel', threshold: 0,
-        success: { flag: 'n5_answer_deny', tone: 'neutral', effects: {}, line: 'You said it on the air: the voice at two isn\'t you, and you don\'t know what it is. Some people found that honest. Some found it worse.' },
-        fail: { flag: 'n5_answer_deny', tone: 'neutral', effects: {}, line: '' },
-        unaired: { flag: 'n5_not_denied', tone: 'neutral', effects: {}, line: '' },
-      },
     },
     {
       id: 'ans_claim', kind: 'news', truth: 'false', title: 'Say it\'s a recording', group: 'answer',
@@ -132,12 +126,6 @@ export const NIGHT_5: NightDef = {
         credibility: -10,
         line: 'You said the two a.m. voice was a tape. It read something tonight that you never recorded, and three people on Dock Street know it.',
       },
-      reach: {
-        faction: 'chapel', threshold: 0,
-        success: { flag: 'n5_answer_claim', tone: 'neutral', effects: {}, line: 'You told the town the voice at two is a tape you leave running. The town slept better. For a night.' },
-        fail: { flag: 'n5_answer_claim', tone: 'neutral', effects: {}, line: '' },
-        unaired: { flag: 'n5_not_claimed', tone: 'neutral', effects: {}, line: '' },
-      },
     },
     {
       id: 'ans_silent', kind: 'news', truth: 'true', title: 'Say nothing about it', group: 'answer',
@@ -146,12 +134,6 @@ export const NIGHT_5: NightDef = {
       script:
         "I've been asked to say something tonight about what people hear on this frequency after I sign off. I'm not going to. Not because I'm hiding anything. Because I don't know anything, and this station doesn't say things it doesn't know. Here's a record.",
       effects: { credibility: 1, morale: -3, trust: { chapel: -3 } },
-      reach: {
-        faction: 'chapel', threshold: 0,
-        success: { flag: 'n5_answer_silent', tone: 'neutral', effects: {}, line: 'You declined, on the air, to talk about the voice at two. The Chapel took it as an answer.' },
-        fail: { flag: 'n5_answer_silent', tone: 'neutral', effects: {}, line: '' },
-        unaired: { flag: 'n5_not_silent', tone: 'neutral', effects: {}, line: '' },
-      },
     },
 
     // ── Warnings ─────────────────────────────────────────────
@@ -163,12 +145,6 @@ export const NIGHT_5: NightDef = {
         "Port Vesper, the Linemen need the lighthouse circuit for two hours tonight to test the switch-on, and this transmitter is on that circuit. So the Lamp goes dark early. I'm not happy about it and I'm doing it anyway, because tomorrow night there are lights. Bank your stoves. This is the Lamp, off early, signing off.",
       effects: { trust: { linemen: 9, chapel: -3 }, listeners: -18, morale: -2 },
       helps: 'linemen',
-      reach: {
-        faction: 'linemen', threshold: 0,
-        success: { flag: 'n5_dark', tone: 'neutral', effects: {}, line: 'You gave the Linemen the circuit and went dark. The test ran clean. Twelve-sixty was not quiet while you were gone.' },
-        fail: { flag: 'n5_dark', tone: 'neutral', effects: {}, line: '' },
-        unaired: { flag: 'n5_stayed_on', tone: 'neutral', effects: { trust: { linemen: -5 } }, line: 'You stayed on the air through the Linemen\'s test window. They ran it off a hand generator and it browned out twice. They noticed who didn\'t help.' },
-      },
     },
     {
       id: 'warn_squall5', kind: 'warning', title: 'Squall at three, says the glass',
@@ -420,17 +396,38 @@ export const NIGHT_5: NightDef = {
 
   dawnLines: [
     {
+      gate: { requires: ['aired_ans_deny'] }, tone: 'neutral', flag: 'n5_answer_deny',
+      line: "You said it on the air: the voice at two isn't you, and you don't know what it is. Some people found that honest. Some found it worse.",
+    },
+    {
+      gate: { requires: ['aired_ans_claim'] }, tone: 'neutral', flag: 'n5_answer_claim',
+      line: 'You told the town the voice at two is a tape you leave running. The town slept better. For a night.',
+    },
+    {
+      gate: { requires: ['aired_ans_silent'] }, tone: 'neutral', flag: 'n5_answer_silent',
+      line: 'You declined, on the air, to talk about the voice at two. The Chapel took it as an answer.',
+    },
+    {
+      gate: { requires: ['aired_warn_dark'] }, tone: 'neutral', flag: 'n5_dark',
+      line: 'You gave the Linemen the circuit and went dark. The test ran clean. Twelve-sixty was not quiet while you were gone.',
+    },
+    {
+      gate: { unless: ['aired_warn_dark'] }, tone: 'neutral', flag: 'n5_stayed_on',
+      effects: { trust: { linemen: -5 } },
+      line: "You stayed on the air through the Linemen's test window. They ran it off a hand generator and it browned out twice. They noticed who didn't help.",
+    },
+    {
       gate: { requires: ['n5_bill_calm'] },
       tone: 'neutral',
       line: "Bill's knee said calm. The squall came at three. Bill has not left the house, and the knee has not been mentioned.",
     },
     {
-      gate: { requires: ['n5_agnes_aired'], unless: ['n5_answer_deny', 'n5_answer_claim', 'n5_answer_silent'] },
+      gate: { requires: ['n5_agnes_aired'], unless: ['aired_ans_deny', 'aired_ans_claim', 'aired_ans_silent'] },
       tone: 'bad', effects: { trust: { chapel: -5 }, credibility: -3 },
       line: 'Sister Agnes asked you a question in front of the whole town and the night ended without an answer. The hill took that as one.',
     },
     {
-      gate: { requires: ['n5_dark'] },
+      gate: { requires: ['aired_warn_dark'] },
       tone: 'eerie',
       line: "While the Lamp was dark, twelve-sixty wasn't. People who left the set on heard a whole show. Yours. With a kettle in it.",
     },

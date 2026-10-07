@@ -422,20 +422,20 @@ export const NIGHT_4: NightDef = {
               line: 'Two Linemen at the yard heard Grace on the air and ran the mile to the point. They pulled Teddy out of the relay hut with his coat smoking. He kept asking about the relay.',
             },
             fail: {
-              flag: 'n4_teddy_hurt', tone: 'bad',
-              effects: { morale: -6, trust: { linemen: -3, chapel: -3 } },
-              line: 'Grace screamed for the point on your air and the static swallowed it. Teddy got himself out of the hut. His hands are wrapped to the elbow. The relay is gone.',
+              flag: 'n4_grace_fire_static', tone: 'bad',
+              effects: { morale: -3, trust: { chapel: -2 } },
+              line: 'Grace screamed for the point on your air and the static swallowed it.',
             },
           },
           notTaken: {
-            flag: 'n4_teddy_hurt', tone: 'bad',
-            effects: { morale: -7, credibility: -4, trust: { chapel: -5 } },
-            line: "Grace Okafor rang the Lamp while the relay hut burned, and nobody picked up. Teddy got himself out. His hands are wrapped to the elbow. Grace isn't calling again.",
+            flag: 'n4_grace_fire_missed', tone: 'bad',
+            effects: { morale: -3, credibility: -4, trust: { chapel: -5 } },
+            line: "Grace Okafor rang the Lamp while the relay hut burned, and nobody picked up. Grace isn't calling again.",
           },
           cut: {
-            flag: 'n4_teddy_hurt', tone: 'bad',
-            effects: { morale: -7, credibility: -6, trust: { chapel: -6 } },
-            line: 'You dumped Grace Okafor while the relay hut was on fire with her son inside. Teddy got himself out. There is no version of this the town forgives.',
+            flag: 'n4_grace_fire_cut', tone: 'bad',
+            effects: { morale: -3, credibility: -6, trust: { chapel: -6 } },
+            line: 'You dumped Grace Okafor while the relay hut was on fire with her son inside. There is no version of this the town forgives.',
           },
         },
       ],
@@ -510,6 +510,17 @@ export const NIGHT_4: NightDef = {
   ],
 
   dawnLines: [
+    {
+      gate: { unless: ['n3_hut_moved', 'n4_teddy_saved'] },
+      tone: 'bad', flag: 'n4_teddy_hurt',
+      effects: { morale: -6, safety: -2, trust: { linemen: -3 } },
+      line: 'Teddy Okafor got himself out of the burning relay hut. His hands are wrapped to the elbow. The relay is gone.',
+    },
+    {
+      gate: { requires: ['n4_teddy_saved', 'n4_grace_fire_missed'] },
+      tone: 'neutral',
+      line: 'Grace found Teddy by the road from the point, wrapped in a Lineman\'s coat, before anyone told her he was out.',
+    },
     {
       gate: { requires: ['n4_search', 'n4_position'] },
       tone: 'good', flag: 'n4_boat_home',

@@ -64,7 +64,7 @@ export const NIGHT_6: NightDef = {
       id: 'news_brownout', kind: 'news', truth: 'true', title: 'The test that didn\'t run',
       source: 'Pruitt, by note, terse',
       blurb: "The Linemen never got their test window. Pruitt's note says the switch-on goes ahead anyway tonight, untested, and that the Lamp should expect to flicker.",
-      gate: { requires: ['n5_stayed_on'] },
+      gate: { unless: ['aired_warn_dark'] },
       script:
         "A note from the Ridge Road crew. The switch-on goes ahead at ten tonight without the test they wanted. The note says, and I'm reading it as written, 'Expect the Lamp to flicker. Expect worse. You had your chance.' I did. Here we are.",
       effects: { morale: -3, safety: -3, trust: { linemen: -2 } },
@@ -496,7 +496,7 @@ export const NIGHT_6: NightDef = {
     readsAll: true,
     intrusions: [
       { kind: 'carrier', id: 'n6_carrier', slots: [3, 4, 5] },
-      { kind: 'override', id: 'n6_override', at: { slot: 1, frac: 0.5 }, seconds: 20 },
+      { kind: 'override', id: 'n6_override', at: { slot: 1, frac: 0.5 }, seconds: 20, card: 'news_last' },
       { kind: 'climax', id: 'n6_climax', at: { slot: 4, frac: 0.35 }, seconds: 45, card: 'warn_evac_breakwater', counter: 'warn_evac_chapel' },
     ],
   },

@@ -100,21 +100,6 @@ export const NIGHT_3: NightDef = {
       script:
         "Some of you have told me you heard this station after I signed off. My voice, saying things. I have no explanation. I'm not going to invent one. What I'll say is this: if it isn't me, then listen for the kettle. I always mention the kettle. If there's no kettle, it isn't me.",
       effects: { credibility: 4, morale: 2, listeners: 10 },
-      reach: {
-        faction: 'chapel',
-        threshold: 0,
-        success: {
-          flag: 'n3_acknowledged', tone: 'neutral',
-          effects: {},
-          line: 'You said it out loud: there is something on twelve-sixty after sign-off. Dock Street argued about the kettle till breakfast.',
-        },
-        fail: { flag: 'n3_acknowledged', tone: 'neutral', effects: {}, line: '' },
-        unaired: {
-          flag: 'n3_said_nothing', tone: 'neutral',
-          effects: { credibility: -2 },
-          line: "You never mentioned the two a.m. broadcasts. People noticed that you didn't.",
-        },
-      },
     },
     {
       id: 'news_jan', kind: 'news', truth: 'true', title: 'Jan Ostrowski takes the boat out',
@@ -405,6 +390,18 @@ export const NIGHT_3: NightDef = {
       "you were playing, like nothing. I am writing this down so I know I didn't make it up.",
     from: 'Pruitt, by hand, left on the step',
   },
+
+  dawnLines: [
+    {
+      gate: { requires: ['aired_news_two'] }, tone: 'neutral', flag: 'n3_acknowledged',
+      line: 'You said it out loud: there is something on twelve-sixty after sign-off. Dock Street argued about the kettle till breakfast.',
+    },
+    {
+      gate: { unless: ['aired_news_two'] }, tone: 'neutral', flag: 'n3_said_nothing',
+      effects: { credibility: -2 },
+      line: "You never mentioned the two a.m. broadcasts. People noticed that you didn't.",
+    },
+  ],
 
   classifieds: [
     {
